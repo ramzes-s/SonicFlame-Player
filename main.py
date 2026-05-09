@@ -1,0 +1,237 @@
+"""
+Music Player - Main Entry Point
+
+Modern Python Audio Player built with PySide6.
+Features:
+- Album art with ambient blur backdrop
+- Playlist with smart auto-scroll
+- Caching metadata for fast loading
+- Full playback controls with SVG icons
+"""
+
+import sys
+import os
+import time
+import json
+import ctypes
+from pathlib import Path
+
+# Ensure mutagen is bundled (PyInstaller sometimes misses it)
+import mutagen
+
+# === SPLASH — BEFORE any heavy imports ===
+from PySide6.QtWidgets import QApplication, QSplashScreen
+from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, QByteArray
+from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QPainterPath
+from PySide6.QtSvg import QSvgRenderer
+
+
+class AnimatedSplash(QSplashScreen):
+    """Splash screen with fade-in/fade-out animation."""
+
+    def __init__(self, pixmap):
+        super().__init__(pixmap, Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+        self.setWindowOpacity(0)
+
+        self._fade_in = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_in.setDuration(50)
+        self._fade_in.setStartValue(0)
+        self._fade_in.setEndValue(1)
+        self._fade_in.setEasingCurve(QEasingCurve.OutQuad)
+
+        self._fade_out = QPropertyAnimation(self, b"windowOpacity")
+        self._fade_out.setDuration(50)
+        self._fade_out.setStartValue(1)
+        self._fade_out.setEndValue(0)
+        self._fade_out.setEasingCurve(QEasingCurve.InQuad)
+        self._fade_out.finished.connect(self.close)
+
+    def show_animated(self):
+        self.show()
+        self._fade_in.start()
+
+    def finish_animated(self, widget):
+        widget.show()
+        self._fade_out.start()
+
+
+def main():
+    """Application entry point."""
+    # Suppress mpg123 logs (may or may not work depending on Qt backend setup)
+    os.environ['MPG123_QUIET'] = '1'
+
+    # Check for --library flag to launch in library mode
+    is_library_mode = "--library" in sys.argv
+
+    # Windows: set application icon for taskbar
+    appid_base = "MusicPlayer.SonicFlame.1.0"
+    myappid = f"{appid_base}.Library" if is_library_mode else appid_base
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+
+    # Enable high DPI scaling
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
+    app = QApplication(sys.argv)
+    
+    if is_library_mode:
+        # === LIBRARY MODE ===
+        _run_library_mode(app)
+        return
+
+    # === PLAYER MODE (normal) ===
+    _run_player_mode(app)
+
+def _run_library_mode(app: QApplication):
+    """Run the application in library subprocess mode."""
+    from musicplayer.ui.library_dialog import LibraryDialog
+    from musicplayer.ui.tag_editor import TagEditorDialog
+    from musicplayer.core.db import extract_metadata, upsert_track, delete_track
+    from musicplayer.core.ipc import IPCClient, SERVER_NAME
+    import musicplayer.config
+
+    if getattr(sys, 'frozen', False):
+        PROJECT_DIR = Path(sys.executable).parent
+    else:
+        PROJECT_DIR = Path(__file__).parent
+    
+    CACHE_DIR = PROJECT_DIR / ".cache"
+    SETTINGS_FILE = CACHE_DIR / "settings.json"
+    
+    def _get_accent_color() -> str:
+        if SETTINGS_FILE.exists():
+            try:
+                data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+                color = data.get("accent_color")
+                if color: return color
+            except (json.JSONDecodeError, IOError): pass
+        return "#ed6a02"
+
+    app.setApplicationName("SonicFlame Library")
+    app.setStyle("Fusion")
+    app.setFont(QFont("Segoe UI", 10))
+    musicplayer.config.ACCENT_COLOR = _get_accent_color()
+
+    icon_path = PROJECT_DIR / "Sonic-Flame.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    dialog = LibraryDialog(None)
+    if icon_path.exists():
+        dialog.setWindowIcon(QIcon(str(icon_path)))
+
+    # --- New IPC Client Setup ---
+    ipc_client = IPCClient(SERVER_NAME, parent=app)
+
+    def _open_tag_editor(filepath: str):
+        editor = TagEditorDialog(filepath, None, update_player=False)
+        if editor.exec() == 1:
+            new_filepath = editor.file_path
+            if os.path.exists(new_filepath):
+                if os.path.normpath(new_filepath) != os.path.normpath(filepath):
+                    delete_track(filepath)
+                updated_track = extract_metadata(new_filepath)
+                if updated_track:
+                    upsert_track(updated_track, os.path.getmtime(new_filepath))
+                    ipc_client.send_refresh()
+
+    # Connect signals from dialog to IPC client
+    dialog.track_selected.connect(ipc_client.send_play_track)
+    dialog.edit_tags_requested.connect(_open_tag_editor)
+    dialog.artist_play_requested.connect(ipc_client.send_play_artist)
+    dialog.closed.connect(ipc_client.send_library_closed)
+
+    ipc_client.refresh_requested.connect(dialog.refresh_data)
+    ipc_client.show_requested.connect(dialog.show)
+    ipc_client.close_requested.connect(app.quit)
+    ipc_client.accent_color_changed.connect(dialog.on_accent_color_changed)
+
+    ipc_client.start()
+
+    dialog.show()
+    sys.exit(app.exec())
+
+def _run_player_mode(app: QApplication):
+    """Run the application in main player mode."""
+
+    def get_icon_path():
+        """Get path to icon file (works for both dev and PyInstaller onefile)."""
+        if getattr(sys, 'frozen', False):
+            return Path(sys.executable).parent / "Sonic-Flame.ico"
+        return Path(__file__).parent / "Sonic-Flame.ico"
+
+    icon_path = get_icon_path()
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    W, H = 1100, 600
+    RADIUS = 12
+    pixmap = QPixmap(W, H)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.Antialiasing)
+    path = QPainterPath()
+    path.addRoundedRect(0, 0, W, H, RADIUS, RADIUS)
+    painter.fillPath(path, Qt.black)
+
+    logo_x = (W - 440) // 2
+    logo_y = 20
+    logo_size = 440
+
+    if icon_path.exists():
+        logo = QPixmap(str(icon_path))
+        if not logo.isNull():
+            logo_size = 440
+            scaled_logo = logo.scaled(logo_size, logo_size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            logo_x = (W - scaled_logo.width()) // 2
+            painter.drawPixmap(logo_x, logo_y, scaled_logo)
+
+    painter.setPen(Qt.white)
+    painter.setFont(QFont("Segoe UI", 28, QFont.Bold))
+    painter.drawText(0, logo_y + logo_size + 10, W, 50, Qt.AlignCenter, "SonicFlame Player")
+    painter.end()
+
+    splash = AnimatedSplash(pixmap)
+    screen = app.primaryScreen().availableGeometry()
+    splash.move((screen.width() - W) // 2, (screen.height() - H) // 2)
+    splash.setWindowOpacity(1)
+    splash.show()
+    for _ in range(5):
+        app.processEvents()
+    time.sleep(0.15)
+
+    from musicplayer.ui.main_window import MainWindow
+
+    app.setApplicationName("SonicFlame Player")
+    app.setOrganizationName("ramzes")
+
+    font = QFont("Segoe UI", 10)
+    app.setFont(font)
+    app.setStyle("Fusion")
+
+    window = MainWindow()
+
+    if icon_path.exists():
+        window.setWindowIcon(QIcon(str(icon_path)))
+
+    # Check if music_folder is set, force settings dialog if not
+    if not window.settings.music_folder or not os.path.isdir(window.settings.music_folder):
+        def deferred_settings():
+            splash.hide()
+            from musicplayer.ui.settings_dialog import SettingsDialog
+            settings_dialog = SettingsDialog(window.settings, window)
+            settings_dialog.music_folder_changed.connect(window.sidebar.set_music_folder_configured)
+            if settings_dialog.exec():
+                pass
+            splash.finish_animated(window)
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(50, deferred_settings)
+    else:
+        splash.finish_animated(window)
+
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()
