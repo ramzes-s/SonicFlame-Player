@@ -6,9 +6,7 @@ with signals for UI updates.
 """
 
 from PySide6.QtCore import QObject, Signal, QUrl, QTimer
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData, QMediaDevices
-from PySide6.QtGui import QImage
-
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from musicplayer.core.db import TrackInfo
 
 
@@ -90,15 +88,6 @@ class AudioPlayer(QObject):
         self._current_track = track
         url = QUrl.fromLocalFile(track.filepath)
         self._player.setSource(url)
-
-        meta = self._player.metaData()
-        meta.insert(QMediaMetaData.Key.Title, track.title)
-        meta.insert(QMediaMetaData.Key.Author, track.artist)
-        meta.insert(QMediaMetaData.Key.AlbumTitle, track.album)
-        if track.cover_data:
-            image = QImage.fromData(track.cover_data)
-            if not image.isNull():
-                meta.insert(QMediaMetaData.Key.CoverArtImage, image)
 
     def play(self):
         """Start or resume playback."""
