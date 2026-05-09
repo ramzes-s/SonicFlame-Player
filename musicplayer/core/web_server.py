@@ -14,7 +14,7 @@ from typing import Optional, Callable, List
 from aiohttp import web
 from PySide6.QtCore import QObject, Signal
 from musicplayer import config as cfg
-from musicplayer.core.db import TrackInfo, get_all_folders
+from musicplayer.core.db import TrackInfo, get_all_folders, get_filtered_library_track_count
 
 
 class WebServer(QObject):
@@ -52,6 +52,7 @@ class WebServer(QObject):
         self._playlist: List[TrackInfo] = []
         self._favorite_filepaths = set()
         self._playlist_title = ""
+        self._music_folder: Optional[str] = None
 
         self._on_play: Optional[Callable] = None
         self._on_pause: Optional[Callable] = None
@@ -333,9 +334,19 @@ class WebServer(QObject):
         return web.json_response({"ok": True})
 
     async def _handle_folders(self, request: web.Request) -> web.Response:
-        """Return list of indexed folders from DB."""
+        """Return list of indexed folders from DB, with optional root music folder as first entry."""
+        # Retrieve root music folder from settings
+        from musicplayer.core.settings import AppSettings
+        settings = AppSettings()
+        root_folder = settings.music_folder
+        # Total track count in library
+        total_tracks = get_filtered_library_track_count()
+        # Base list from DB
         folders = get_all_folders()
         result = []
+        # If a root music folder is configured, prepend it
+        if root_folder:
+            result.append({"path": root_folder, "name": "Вся музыка", "track_count": total_tracks})
         for f in folders:
             path = f[0]
             # Extract folder name (last part of path)

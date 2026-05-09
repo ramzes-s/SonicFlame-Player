@@ -330,7 +330,7 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
     final_energy = getattr(track, 'energy', 0.0)
     if final_energy == 0.0 and current_energy != 0.0:
         final_energy = current_energy
-        
+
     final_mood = getattr(track, 'mood', 0.0)
     if final_mood == 0.0 and current_mood != 0.0:
         final_mood = current_mood
@@ -339,6 +339,8 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
     final_play_count = getattr(track, 'play_count', 0)
     if preserve_play_count:
         final_play_count = current_count
+
+    
 
     with get_connection() as conn:
         conn.execute("""

@@ -1229,14 +1229,16 @@ class MainWindow(QMainWindow):
                 updated_track = extract_metadata(new_filepath)
                 if updated_track:
                     upsert_track(updated_track, os.path.getmtime(new_filepath))
-                    self.playlist_widget.update_track_data(old_filepath, updated_track)
+                    from musicplayer.core.db import get_track
+                    full_track = get_track(new_filepath) or updated_track
+                    self.playlist_widget.update_track_data(old_filepath, full_track)
                     if self._current_playing_filepath == old_filepath:
                         self._current_playing_filepath = new_filepath
                     if self._current_playing_filepath:
                         self.playlist_widget.set_playing_track(self._current_playing_filepath)
                     if was_playing:
-                        self.track_info_widget.update_track_info(updated_track)
-                        self.player.load_source(updated_track)
+                        self.track_info_widget.update_track_info(full_track)
+                        self.player.load_source(full_track)
                         QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
         else:  # Dialog was rejected
             if was_playing:

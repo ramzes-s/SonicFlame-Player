@@ -10,14 +10,11 @@
 MusicPlayer\
 ├── main.py                      # Точка входа (плеер + библиотека через --library)
 ├── requirements.txt             # Зависимости
-├── setup.py                     # Установка пакета
 ├── Sonic-Flame.ico              # Иконка приложения
 ├── SonicFlame.spec              # Спецификация PyInstaller
 ├── build.bat                    # Скрипт сборки
-├── audioplayer.md               # Исходный промт
 ├── TECHNICAL.md                 # Этот файл
 ├── README.md                    # Документация пользователя
-├── .gitignore                   # Файл игнорирования Git
 ├── res/                         # Ресурсы (фоновые изображения обложек)
 ├── musicplayer/
 │   ├── __init__.py
@@ -83,6 +80,12 @@ MusicPlayer\
 - `_audio_output: QAudioOutput` — аудиоустройство
 - **Сигналы**: `state_changed`, `position_changed`, `duration_changed`, `volume_changed`, `media_status_changed`, `error_occurred`
 - **Методы**: `load_source()`, `play()`, `pause()`, `stop()`, `toggle_play_pause()`, `set_position()`, `set_volume()`, `get_position()`, `get_duration()`, `get_volume()`, `get_state()`, `is_playing()`
+
+**Мониторинг устройств вывода звука**:
+- При инициализации запускается таймер опроса `_device_poll_timer` (интервал 1000мс)
+- `_check_audio_device()` сравнивает `QMediaDevices.defaultAudioOutput().id()` с сохранённым `_current_device_id`
+- При смене устройства пересоздаётся `QAudioOutput` с новым устройством, громкость сохраняется
+- Используется polling вместо signal-based подхода, т.к. `audioOutputsChanged` в PySide6 работает нестабильно (спамит сигналами)
 
 #### `core/playlist.py` — Playlist
 
@@ -650,10 +653,11 @@ User → Sidebar: открыть папку
 
 1. **FramelessWindowHint** — системный заголовок отключён, перетаскивание только за кастомный title bar
 2. **QMediaPlayer** — зависит от установленных кодеков FFmpeg в системе
-4. **Плейлист** — одна папка за раз + фильтрованные виды (избранное/топ)
-5. **Метаданные** — lyrics, BPM, composer не извлекаются
-6. **Обложки** — если несколько в файле, берётся первая
-7. **Мини-виджет** — позиционируется на основном мониторе
+3. **Плейлист** — одна папка за раз + фильтрованные виды (избранное/топ)
+4. **Метаданные** — lyrics, BPM, composer не извлекаются
+5. **Обложки** — если несколько в файле, берётся первая
+6. **Мини-виджет** — позиционируется на основном мониторе
+7. **SMTC (System Media Transport Controls)** — Qt6 `QMediaPlayer.metaData()` не пробрасывает метаданные в системный оверлей Windows. Для полной интеграции с SMTC требуется Windows Runtime API (`winrt`)
 
 ## Запуск
 
