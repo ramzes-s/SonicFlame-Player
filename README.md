@@ -104,52 +104,67 @@ python main.py --library
 
 ```
 MusicPlayer\
-├── main.py                      # Точка входа (плеер + библиотека через --library)
-├── requirements.txt             # Зависимости
-├── setup.py                     # Установка пакета
-├── Sonic-Flame.ico              # Иконка приложения
-├── SonicFlame.spec              # Спецификация PyInstaller
-├── build.bat                    # Скрипт сборки
-├── audioplayer.md               # Исходный промт
-├── TECHNICAL.md                 # Техническая документация
-├── README.md                    # Этот файл
-├── res/                         # Ресурсы (фоновые изображения обложек)
-├── musicplayer/                  # Основной пакет
+├── main.py                             # Точка входа (плеер + библиотека через --library)
+├── requirements.txt                    # Зависимости
+├── Sonic-Flame.ico                     # Иконка приложения
+├── SonicFlame.spec                     # Спецификация PyInstaller
+├── build.bat                           # Скрипт сборки
+├── TECHNICAL.md                        # Техническая документация
+├── README.md                           # Документация пользователя
+├── res/                                # Ресурсы (фоновые изображения обложек)
+├── musicplayer/
 │   ├── __init__.py
-│   ├── config.py                # Глобальный ACCENT_COLOR
+│   ├── config.py                       # Глобальный ACCENT_COLOR
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── player.py            # Обёртка над QMediaPlayer
-│   │   ├── playlist.py          # Управление плейлистом (shuffle/repeat)
-│   │   ├── db.py                # SQLite библиотека, избранное, топ, обложки
-│   │   ├── ipc.py               # IPC сервер и клиент для связи плеер ↔ библиотека
-│   │   ├── settings.py          # Постоянные настройки (JSON)
-│   │   ├── web_server.py       # HTTP сервер + веб-интерфейс
-│   │   ├── analysis_worker.py   # Анализ аудио (librosa)
-│   │   └── recommendations.py   # Алгоритм подбора похожих треков
+│   │   ├── player.py                   # Обёртка над QMediaPlayer
+│   │   ├── playlist.py                 # Управление плейлистом (shuffle/repeat)
+│   │   ├── db.py                       # SQLite библиотека, избранное, топ, обложки
+│   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
+│   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
+│   │   ├── settings.py                 # Постоянные настройки (JSON)
+│   │   ├── web_server.py               # HTTP сервер + веб-интерфейс
+│   │   ├── analysis_worker.py          # Анализ аудио (librosa)
+│   │   ├──  recommendations.py         # Алгоритм подбора похожих треков
+│   │   └──  windows_sleep_blocker.py   # механизм предотвращения перехода пк в спящий режим
 │   ├── ui/
 │   │   ├── __init__.py
-│   │   ├── artist_card_widget.py      # Карточка исполнителя для сетки
-│   │   ├── artist_processing_worker.py  # Фоновая обработка данных для вида "Артисты"
-│   │   ├── artist_view_widget.py      # Виджет с сеткой исполнителей
-│   │   ├── controls.py          # Контролы управления (transport, seek, volume)
-│   │   ├── library_dialog.py    # Диалог библиотеки (субпроцесс)
-│   │   ├── main_window.py       # Главное окно, координатор, tray, мини-виджет
-│   │   ├── mini_widget.py       # Мини-плеер для системного трея
-│   │   ├── playlist_view.py     # Плейлист с кастомным делегатом
-│   │   ├── settings_dialog.py   # Диалог настроек (акцент, папка, статистика)
-│   │   ├── sidebar.py           # Боковая панель (папки, избранное, топ, настройки)
-│   │   ├── svg_icons.py         # SVG-иконки как строки
-│   │   ├── tag_editor.py        # Редактор тегов
-│   │   └── track_info.py        # Виджет обложки с градиентной тенью
+│   │   ├── library/                    # Модули библиотеки
+│   │   │   ├── __init__.py             # Экспорт: LibraryDialog, LibraryModel, DataWorker
+│   │   │   ├── types.py                # Track dataclass, константы колонок (HEADERS, COL_*)
+│   │   │   ├── settings.py             # Сохранение ширины колонок
+│   │   │   ├── worker.py               # DataWorker (generic worker thread)
+│   │   │   ├── model.py                # LibraryModel + MoodStarDelegate
+│   │   │   ├── dialog.py               # LibraryDialog (основной диалог)
+│   │   │   ├── artist_view.py          # ArtistViewWidget (виджет "Исполнители")
+│   │   │   ├── artist_card.py          # ArtistCardWidget (карточка исполнителя)
+│   │   │   └── artist_worker.py        # ArtistProcessingWorker
+│   │   ├── controls.py                 # Контролы управления (transport, seek, volume)
+│   │   ├── main_window.py              # Главное окно, координатор, tray, мини-виджет
+│   │   ├── mini_widget.py              # Мини-плеер для системного трея
+│   │   ├── playlist_view.py            # Плейлист с кастомным делегатом
+│   │   ├── settings_dialog.py          # Диалог настроек (акцент, папка, статистика)
+│   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
+│   │   ├── svg_icons.py                # SVG-иконки как строки
+│   │   ├── tag_editor/                 # Редактор тегов (разделённый на модули)
+│   │   │   ├── __init__.py             # Реэкспорт для обратной совместимости
+│   │   │   ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
+│   │   │   ├── api.py                  # iTunes/Deezer API функции
+│   │   │   ├── cover.py                # Генерация абстрактной обложки
+│   │   │   ├── cover_thread.py         # Поток поиска обложек
+│   │   │   ├── threads.py              # Потоки поиска треков и сохранения тегов
+│   │   │   ├── widgets.py              # LoadingBar, CoverDisplayLabel
+│   │   │   ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog
+│   │   │   └── editor.py               # TagEditorDialog
+│   │   └── track_info.py               # Виджет обложки с градиентной тенью
 │   └── utils/
 │       ├── __init__.py
-│       ├── audio_scanner.py     # QThread сканер папок (sync с БД)
-│       └── helpers.py           # Утилиты форматирования
-└── .cache/                      # Данные приложения
-    ├── musicplayer.db           # SQLite библиотека (WAL mode)
-    ├── covers/                  # Обложки в формате WebP
-    └── settings.json            # Пользовательские настройки
+│       ├── audio_scanner.py            # QThread сканер папок (sync с БД)
+│       └── helpers.py                  # Утилиты форматирования
+└── .cache/                             # Данные приложения
+    ├── musicplayer.db                  # SQLite библиотека (WAL mode)
+    ├── covers/                         # Обложки в формате WebP
+    └── settings.json                   # Пользовательские настройки
 ```
 
 ## Цветовая схема

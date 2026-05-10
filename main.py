@@ -85,7 +85,7 @@ def main():
 
 def _run_library_mode(app: QApplication):
     """Run the application in library subprocess mode."""
-    from musicplayer.ui.library_dialog import LibraryDialog
+    from musicplayer.ui.library import LibraryDialog
     from musicplayer.ui.tag_editor import TagEditorDialog
     from musicplayer.core.db import extract_metadata, upsert_track, delete_track
     from musicplayer.core.ipc import IPCClient, SERVER_NAME

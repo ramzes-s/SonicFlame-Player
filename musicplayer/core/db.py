@@ -422,8 +422,8 @@ def _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fa
         params.extend(list(fav_set))
 
     if genre_filter:
-        where_clauses.append("genre = ?")
-        params.append(genre_filter)
+        where_clauses.append("genre LIKE ?")
+        params.append(f"%{genre_filter}%")
 
     if folder_filter:
         # Normalize the folder filter path
