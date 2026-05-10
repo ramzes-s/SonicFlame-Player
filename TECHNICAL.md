@@ -272,34 +272,36 @@ MusicPlayer\
 |------|------|----------|
 | GET | `/` | Веб-интерфейс (HTML) |
 | GET | `/Sonic-Flame.ico` | Favicon |
-| GET | `/api/status` | Статус воспроизведения (playing, position, duration, volume, repeat, shuffle) |
-| GET | `/api/track` | Информация о текущем треке (title, artist, album, duration, cover base64, is_favorite, playlist_title) |
-| GET | `/api/playlist` | Плейлист (массив треков) |
+| GET | `/api/status` | Статус воспроизведения (playing, position, duration, volume, repeat, **sort_mode**) |
+| GET | `/api/track` | Информация о текущем треке (title, artist, album, duration, **genre, bitrate**, cover base64, is_favorite, playlist_title) |
+| GET | `/api/playlist` | Плейлист (массив треков: title, artist, album, duration, filepath) |
 | GET | `/api/accent_color` | Текущий акцентный цвет |
-| GET | `/api/playing_data` | Статус + current_index + current_track_filepath + is_favorite + accent_color + sort_mode |
-| GET | `/api/folders` | Список индексированных папок с количеством треков |
-| GET | `/api/check` | Имя компьютера |
-| GET | `/api/next` | Следующий трек (без параметров, плеер сам определяет следующий) |
-| GET | `/api/previous` | Предыдущий трек (без параметров, плеер сам определяет предыдущий) |
+| GET | `/api/playing_data` | Статус + current_index + current_track_filepath + is_favorite + accent_color + **sort_mode** |
+| GET | `/api/folders` | Список папок (path, name, track_count). Включает "Вся музыка" с общим количеством треков если настроена корневая папка |
+| GET | `/api/check` | Имя компьютера (computer_name) |
+| GET | `/api/next` | Следующий трек |
+| GET | `/api/previous` | Предыдущий трек |
 | GET | `/api/play_favorites` | Загрузить плейлист "Избранное" |
 | GET | `/api/play_top` | Загрузить плейлист "Топ" |
-| GET | `/api/play_similar` | Загрузить плейлист похожих треков для текущего воспроизводимого трека |
+| GET | `/api/play_similar` | Загрузить плейлист похожих треков для текущего трека |
 | GET | `/api/toggle_repeat` | Переключить режим повтора (none → all → one → none) |
 | POST | `/api/play` | Воспроизведение |
 | POST | `/api/pause` | Пауза |
-| POST | `/api/seek` | Перемотка (position в мс) |
-| POST | `/api/volume` | Громкость (0.0–1.0) |
-| POST | `/api/play_track` | Воспроизвести трек по индексу |
-| POST | `/api/play_folder` | Воспроизвести папку (path в JSON) |
+| POST | `/api/seek` | Перемотка (`{"position": int}` в мс) |
+| POST | `/api/volume` | Громкость (`{"value": float}` 0.0–1.0) |
+| POST | `/api/play_track` | Воспроизвести трек по индексу (`{"index": int}`) |
+| POST | `/api/play_folder` | Воспроизвести папку (`{"path": str}`) |
 | POST | `/api/toggle_favorite` | Переключить статус "избранное" для текущего трека |
 
 **Ответ `/api/playing_data`**:
 ```json
 {
-  "status": {"playing": true, "position": 50000, "duration": 180000, "volume": 0.7, "repeat": "none", "shuffle": false},
+  "status": {"playing": true, "position": 50000, "duration": 180000, "volume": 0.7, "repeat": "none"},
   "current_index": 0,
+  "current_track_filepath": "C:/Music/track.mp3",
   "is_favorite": true,
-  "accent_color": "#ed6a02"
+  "accent_color": "#ed6a02",
+  "sort_mode": "artist"
 }
 ```
 
@@ -316,6 +318,15 @@ MusicPlayer\
   "cover": "base64encodedwebp...",
   "playlist_title": "Похожие треки (Track Name)"
 }
+```
+
+**Ответ `/api/folders`**:
+```json
+[
+  {"path": "C:/Music", "name": "Вся музыка", "track_count": 1250},
+  {"path": "C:/Music/Rock", "name": "Rock", "track_count": 320},
+  {"path": "C:/Music/Pop", "name": "Pop", "track_count": 180}
+]
 ```
 
 **Логика работы**:
