@@ -34,11 +34,11 @@ def get_color_from_features(tempo: float, energy: float, mood: float) -> QColor:
     """
     # 1. Define the padded min/max for each feature based on user feedback.
     # Mood observed in [0.1, 0.5], padded range is ~[0.05, 0.58]
-    min_mood, max_mood = 0.05, 0.58
+    min_mood, max_mood = 0.01, 0.8
     # Tempo observed in [80, 160], padded range is ~[64, 176]
-    min_tempo, max_tempo = 64.0, 176.0
+    min_tempo, max_tempo = 60.0, 200.0
     # Energy observed in [0.8, 1.0], padded range is ~[0.76, 1.0]
-    min_energy, max_energy = 0.76, 1.0
+    min_energy, max_energy = 0.01, 1.0
 
     # 2. Normalize each feature from its actual range to a [0, 1] scale.
     norm_mood = _normalize(mood, min_mood, max_mood)
