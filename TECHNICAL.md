@@ -1,6 +1,6 @@
 # SonicFlame Player — Техническое описание проекта
 
-## Обзор
+## Краткое описание
 
 Современный десктопный аудиоплеер на Python с графическим интерфейсом PySide6. Поддерживает воспроизведение MP3, FLAC, M4A/MP4 аудиофайлов с извлечением метаданных, обложек, библиотекой на SQLite, мини-виджетом для системного трея и субпроцессом библиотеки.
 
@@ -22,15 +22,17 @@ MusicPlayer\
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── player.py                   # Обёртка над QMediaPlayer
-│   │   ├── playlist.py                 # Управление плейлистом (shuffle/repeat)
+│   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── db.py                       # SQLite библиотека, избранное, топ, обложки
 │   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
 │   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
 │   │   ├── settings.py                 # Постоянные настройки (JSON)
-│   │   ├── web_server.py               # HTTP сервер + веб-интерфейс
+│   │   ├── web_server.py               # HTTP сервер (координатор)
+│   │   ├── web_api.py                  # API обработчики
+│   │   │── web_template.py             # HTML шаблон веб-интерфейса
 │   │   ├── analysis_worker.py          # Анализ аудио (librosa)
-│   │   ├──  recommendations.py         # Алгоритм подбора похожих треков
-│   │   └──  windows_sleep_blocker.py   # механизм предотвращения перехода пк в спящий режим во время воспроизведения
+│   │   ├── recommendations.py          # Алгоритм подбора похожих треков
+│   │   └── windows_sleep_blocker.py    # механизм предотвращения перехода пк в спящий режим во время воспроизведения
 │   ├── ui/
 │   │   ├── __init__.py
 │   │   ├── library/                    # Модули библиотеки (рефакторинг)
@@ -68,7 +70,9 @@ MusicPlayer\
 └── .cache/                             # Данные приложения
     ├── musicplayer.db                  # SQLite библиотека (WAL mode)
     ├── covers/                         # Обложки в формате WebP
+    ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
     ├── settings.json                   # Пользовательские настройки
+    ├── library_col_widths.json         # Ширина колонок библиотеки
     
 ```
 
@@ -255,8 +259,12 @@ MusicPlayer\
     - Возвращает до `limit` треков, чей балл сходства превышает `min_similarity_threshold`.
     - Результаты перемешиваются перед возвратом.
 
-#### `core/web_server.py` — WebServer
-Веб-сервер для удалённого управления плеером через браузер.
+#### `core/web_server.py` — WebServer (координатор)
+Веб-сервер для удалённого управления плеером через браузер. После рефакторинга разделён на три модуля:
+
+- `web_server.py` — координатор, инициализация, маршруты
+- `web_api.py` — обработчики API эндпоинтов
+- `web_template.py` — HTML/CSS/JS веб-интерфейса
 
 **Особенности**:
 - HTTP-сервер на aiohttp (порт настраивается, по умолчанию 8080)
@@ -277,7 +285,7 @@ MusicPlayer\
 | GET | `/api/playlist` | Плейлист (массив треков: title, artist, album, duration, filepath) |
 | GET | `/api/accent_color` | Текущий акцентный цвет |
 | GET | `/api/playing_data` | Статус + current_index + current_track_filepath + is_favorite + accent_color + **sort_mode** |
-| GET | `/api/folders` | Список папок (path, name, track_count). Включает "Вся музыка" с общим количеством треков если настроена корневая папка |
+| GET | `/api/folders` | Список папок (path, name, track_count). Включает "Вся музыка" с общим количеством треков |
 | GET | `/api/check` | Имя компьютера (computer_name) |
 | GET | `/api/next` | Следующий трек |
 | GET | `/api/previous` | Предыдущий трек |

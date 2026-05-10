@@ -733,26 +733,30 @@ class MainWindow(QMainWindow):
         view_tracks = self.playlist_widget.get_view_tracks()
         if not view_tracks:
             return
-        
-        # Find current track in view_tracks (not from core playlist which may be sorted differently)
+
         current_fp = self._current_playing_filepath
         current_index = -1
         for i, t in enumerate(view_tracks):
             if t.filepath == current_fp:
                 current_index = i
                 break
-        
-        # Get next track from view_tracks order
-        next_index = current_index + 1
+
         repeat_mode = self.playlist.get_repeat_mode()
-        
+
+        if repeat_mode == "one":
+            self.player.set_position(0)
+            self.player.play()
+            return
+
+        next_index = current_index + 1
+
         if next_index >= len(view_tracks):
             if repeat_mode == "all":
                 next_index = 0
             else:
                 self.player.stop()
                 return
-        
+
         self._play_track_at_view_index(next_index)
 
     def _on_previous(self):

@@ -7,7 +7,7 @@ Handles persistence of library UI settings like column widths.
 import json
 from pathlib import Path
 
-CACHE_DIR = Path(__file__).parent.parent.parent / ".cache"
+CACHE_DIR = Path(__file__).parent.parent.parent.parent / ".cache"
 COL_WIDTHS_FILE = CACHE_DIR / "library_col_widths.json"
 
 DEFAULT_COL_WIDTHS = {

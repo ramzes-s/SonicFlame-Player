@@ -123,7 +123,9 @@ MusicPlayer\
 │   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
 │   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
 │   │   ├── settings.py                 # Постоянные настройки (JSON)
-│   │   ├── web_server.py               # HTTP сервер + веб-интерфейс
+│   │   ├── web_server.py               # HTTP сервер (координатор)
+│   │   ├── web_api.py                  # API обработчики
+│   │   ├── web_template.py             # HTML шаблон веб-интерфейса
 │   │   ├── analysis_worker.py          # Анализ аудио (librosa)
 │   │   ├──  recommendations.py         # Алгоритм подбора похожих треков
 │   │   └──  windows_sleep_blocker.py   # механизм предотвращения перехода пк в спящий режим
