@@ -904,6 +904,7 @@ class MainWindow(QMainWindow):
         dialog.web_server_toggled.connect(self._on_web_server_toggled)
         dialog.web_server_port_changed.connect(self._on_web_server_port_changed)
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)
+        dialog.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         dialog.exec()
         apply_accent_to_main_window(self)
 
@@ -914,6 +915,11 @@ class MainWindow(QMainWindow):
                 self._start_web_server()
         else:
             self._stop_web_server()
+
+    def _on_prevent_sleep_toggled(self, enabled: bool):
+        """Handle prevent sleep toggle from settings."""
+        if self.player:
+            self.player.set_prevent_sleep(enabled)
 
     def _on_web_server_port_changed(self, port: int):
         """Handle web server port change from settings."""

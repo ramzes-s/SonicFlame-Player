@@ -6,10 +6,9 @@ with signals for UI updates.
 """
 
 from PySide6.QtCore import QObject, Signal, QUrl, QTimer
-import ctypes
-from enum import IntFlag
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from musicplayer.core.db import TrackInfo
+from musicplayer.core import settings
 
 
 class AudioPlayer(QObject):
@@ -36,18 +35,16 @@ class AudioPlayer(QObject):
         # Create audio output
         self._audio_output = QAudioOutput()
         self._audio_output.setVolume(0.5)
-        # Windows sleep blocker – activate only when audio is actually playing
+        
+        # Windows sleep blocker – enabled based on settings
         from .windows_sleep_blocker import WindowsSleepBlocker
         self._sleep_blocker = WindowsSleepBlocker()
-        # Timer to monitor audio output state (ActiveState ↔ block/unblock)
-        self._audio_state_timer = QTimer(self)
-        self._audio_state_timer.setInterval(1000)  # check once per second
-        self._audio_state_timer.timeout.connect(self._check_audio_output_state)
-        self._audio_state_timer.start()
-
+        self._prevent_sleep_enabled = settings.get_prevent_sleep()
+        if self._prevent_sleep_enabled:
+            self._sleep_blocker.enable()
 
         # Create media player
-        self._player = QMediaPlayer()
+        self._player = QMediaPlayer()  
         self._player.setAudioOutput(self._audio_output)
 
         # Connect signals
@@ -57,12 +54,19 @@ class AudioPlayer(QObject):
         self._player.mediaStatusChanged.connect(self._on_media_status_changed)
         self._player.errorOccurred.connect(self._on_error)
 
-
         # Poll for audio device changes
         self._current_device_id = self._get_default_device_id()
         self._device_poll_timer = QTimer(self)
         self._device_poll_timer.timeout.connect(self._check_audio_device)
         self._device_poll_timer.start(1000)
+
+    def set_prevent_sleep(self, enabled: bool):
+        """Enable or disable the sleep blocker."""
+        self._prevent_sleep_enabled = enabled
+        if enabled:
+            self._sleep_blocker.enable()
+        else:
+            self._sleep_blocker.disable()
 
     def _get_default_device_id(self) -> str:
         """Get unique identifier for current default audio output."""
@@ -100,27 +104,6 @@ class AudioPlayer(QObject):
     def _on_error(self, error: QMediaPlayer.Error, error_string: str):
         """Emit a unified error string for UI handling."""
         self.error_occurred.emit(f"{error_string} (Code: {error})")
-
-
-
-    def _check_audio_output_state(self):
-        """Poll QAudioOutput to decide whether to block sleep.
-
-        QAudioOutput does not expose a public ``stateChanged`` signal in PySide6,
-        therefore we periodically query ``isActive()`` – it returns ``True`` only
-        while the hardware is actually outputting sound. When the flag flips we
-        enable/disable the ``WindowsSleepBlocker`` accordingly.
-        """
-        try:
-            active = self._audio_output.isActive()
-        except Exception:
-            # Fallback for very old Qt versions – assume not active
-            active = False
-        if active:
-            self._sleep_blocker.enable()
-        else:
-            self._sleep_blocker.disable()
-
 
     def load_source(self, track: TrackInfo):
         """Load an audio file for playback."""

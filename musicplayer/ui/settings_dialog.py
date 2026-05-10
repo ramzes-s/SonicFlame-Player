@@ -132,6 +132,7 @@ class SettingsDialog(QDialog):
     web_server_toggled = Signal(bool)
     web_server_port_changed = Signal(int)
     music_folder_changed = Signal(bool)
+    prevent_sleep_toggled = Signal(bool)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -313,6 +314,12 @@ class SettingsDialog(QDialog):
         self.mini_widget_cb.setChecked(self.settings.mini_widget_on_minimize)
         self.mini_widget_cb.toggled.connect(self._on_mini_widget_toggled)
         left_col.addWidget(self.mini_widget_cb)
+
+        # Prevent sleep checkbox
+        self.prevent_sleep_cb = QCheckBox("Блокировать сон при работающем плеере")
+        self.prevent_sleep_cb.setChecked(self.settings.prevent_sleep)
+        self.prevent_sleep_cb.toggled.connect(self._on_prevent_sleep_toggled)
+        left_col.addWidget(self.prevent_sleep_cb)
 
         # Dynamic color checkbox
         self.dynamic_color_cb = QCheckBox("Динамический цвет (из обложки)")
@@ -532,6 +539,11 @@ class SettingsDialog(QDialog):
         """Save mini widget on minimize setting."""
         self.settings.mini_widget_on_minimize = checked
 
+    def _on_prevent_sleep_toggled(self, checked: bool):
+        """Save prevent sleep setting."""
+        self.settings.prevent_sleep = checked
+        self.prevent_sleep_toggled.emit(checked)
+
     def _on_dynamic_color_toggled(self, checked: bool):
         """Save dynamic color setting and emit signal."""
         self.settings.dynamic_color = checked
@@ -627,6 +639,7 @@ class SettingsDialog(QDialog):
         self.mini_widget_cb.setStyleSheet(checkbox_style)
         self.dynamic_color_cb.setStyleSheet(checkbox_style)
         self.web_server_cb.setStyleSheet(checkbox_style)
+        self.prevent_sleep_cb.setStyleSheet(checkbox_style)
 
     def _on_cleanup_clicked(self):
         """Run database cleanup in background thread and show result."""

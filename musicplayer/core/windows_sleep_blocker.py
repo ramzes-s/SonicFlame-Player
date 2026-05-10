@@ -1,48 +1,38 @@
 import ctypes
 from enum import IntFlag
 
+ES_CONTINUOUS = 0x80000000
+ES_SYSTEM_REQUIRED = 0x00000001
+ES_DISPLAY_REQUIRED = 0x00000002
+
+
 class ExecutionState(IntFlag):
-    ES_CONTINUOUS = 0x80000000
-    ES_SYSTEM_REQUIRED = 0x00000001
-    ES_DISPLAY_REQUIRED = 0x00000002
-    ES_AUDIO_PLAYBACK = 0x00000040  # Windows 10 1703+
+    ES_CONTINUOUS = ES_CONTINUOUS
+    ES_SYSTEM_REQUIRED = ES_SYSTEM_REQUIRED
+    ES_DISPLAY_REQUIRED = ES_DISPLAY_REQUIRED
+
 
 class WindowsSleepBlocker:
-    """Block Windows sleep while audio is actively outputting.
-
-    Usage example:
-        blocker = WindowsSleepBlocker()
-        blocker.enable()   # prevents system sleep
-        ...
-        blocker.disable()  # restore normal behavior
-    """
+    """Block Windows sleep while audio is actively outputting."""
 
     def __init__(self):
         self._active = False
-        # Detect if OS supports the audio flag (Windows 10+). Simple heuristic – assume True.
-        self._supports_audio_flag = True
 
     def enable(self, allow_display_off: bool = True):
-        """Enable sleep blocking.
-
-        If ``allow_display_off`` is True the display may turn off, otherwise it stays on.
-        """
-        if self._active:
-            return
-        flags = ExecutionState.ES_CONTINUOUS | ExecutionState.ES_SYSTEM_REQUIRED
-        if self._supports_audio_flag:
-            flags |= ExecutionState.ES_AUDIO_PLAYBACK
-        if not allow_display_off:
-            flags |= ExecutionState.ES_DISPLAY_REQUIRED
-        ctypes.windll.kernel32.SetThreadExecutionState(int(flags))
+        """Enable sleep blocking."""
+        flags = ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+        
+        result = ctypes.windll.kernel32.SetThreadExecutionState(flags)
+        
         self._active = True
+        return result
 
     def disable(self):
         """Disable previously set sleep blocking."""
         if not self._active:
             return
-        # Reset to continuous without other flags.
-        ctypes.windll.kernel32.SetThreadExecutionState(ExecutionState.ES_CONTINUOUS)
+        # MUST call with the SAME flags as enable to clear them
+        ctypes.windll.kernel32.SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)
         self._active = False
 
     def __enter__(self):

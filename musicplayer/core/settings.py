@@ -47,6 +47,12 @@ def ensure_default_playlist_sort_mode():
         data["playlist_sort_mode"] = "artist"
         _write_settings_json(data)
 
+def ensure_default_prevent_sleep():
+    data = _read_settings_json()
+    if "prevent_sleep" not in data:
+        data["prevent_sleep"] = True
+        _write_settings_json(data)
+
 def get_playlist_sort_mode():
     data = _read_settings_json()
     return data.get("playlist_sort_mode", "artist")
@@ -62,8 +68,20 @@ def set_playlist_sort_mode(mode: str):
     for instance in _app_settings_instances:
         instance._data["playlist_sort_mode"] = mode
 
+def get_prevent_sleep():
+    data = _read_settings_json()
+    return data.get("prevent_sleep", True)
+
+def set_prevent_sleep(value: bool):
+    data = _read_settings_json()
+    data["prevent_sleep"] = value
+    _write_settings_json(data)
+    for instance in _app_settings_instances:
+        instance._data["prevent_sleep"] = value
+
 # Ensure default on import
 ensure_default_playlist_sort_mode()
+ensure_default_prevent_sleep()
 
 class AppSettings:
     """Manages persistent application settings."""
@@ -232,4 +250,13 @@ class AppSettings:
     @web_server_port.setter
     def web_server_port(self, value: int):
         self._data["web_server_port"] = value
+        self._save()
+
+    @property
+    def prevent_sleep(self) -> bool:
+        return self._data.get("prevent_sleep", True)
+
+    @prevent_sleep.setter
+    def prevent_sleep(self, value: bool):
+        self._data["prevent_sleep"] = value
         self._save()
