@@ -18,6 +18,14 @@ from musicplayer.core.db.tracks import (
 # ---- Filter building ----
 
 
+def _escape_like_pattern(text: str) -> str:
+    r"""Escape special characters in SQL LIKE pattern.
+    Escapes: % _ \ to treat them as literal characters.
+    """
+    # Order matters: escape backslash first
+    return text.replace('\\', '\\\\').replace('%', r'\%').replace('_', r'\_')
+
+
 def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: str,
                           fav_only: bool, fav_set: Set[str]) -> Tuple[str, List]:
     """Helper to build WHERE clauses and parameters for filtering."""
@@ -33,15 +41,20 @@ def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: st
 
     if genre_filter:
         where_clauses.append("genre LIKE ?")
-        params.append(f"%{genre_filter}%")
+        escaped_genre = _escape_like_pattern(genre_filter)
+        params.append(f"%{escaped_genre}%")
 
     if folder_filter:
         normalized_folder = normalize_path(folder_filter)
+        # Escape LIKE wildcards in folder path
+        escaped_folder = _escape_like_pattern(normalized_folder)
         where_clauses.append("filepath LIKE ?")
-        params.append(normalized_folder + os.sep + '%')
+        params.append(escaped_folder + os.sep + '%')
 
     if search_term:
-        search_like = f"%{search_term}%"
+        # Escape special LIKE characters so user can search for literal % or _
+        escaped_search = _escape_like_pattern(search_term)
+        search_like = f"%{escaped_search}%"
         where_clauses.append("(title LIKE ? COLLATE NOCASE OR artist LIKE ? COLLATE NOCASE OR album LIKE ? COLLATE NOCASE)")
         params.extend([search_like, search_like, search_like])
 
@@ -52,6 +65,15 @@ def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: st
 
 
 # ---- Library queries ----
+
+
+def _validate_int(value: int, default: int, min_val: int = 0, max_val: int = 1000000) -> int:
+    """Validate and sanitize integer parameter."""
+    try:
+        value = int(value)
+        return max(min_val, min(max_val, value))
+    except (TypeError, ValueError):
+        return default
 
 
 def get_filtered_library_track_count(
@@ -89,12 +111,16 @@ def get_library_tracks_page(
     fav_only: bool = False
 ) -> List[TrackInfo]:
     """Get a page of library tracks with filtering and sorting."""
+    # Validate and sanitize integer parameters
+    offset = _validate_int(offset, 0)
+    limit = _validate_int(limit, 50, 1, 500)
+
     fav_set_for_filter = get_favorite_filepaths() if fav_only else set()
     where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fav_set_for_filter)
 
     fav_set_for_sort = get_favorite_filepaths()
 
-    # Map UI sort names to DB columns
+    # Map UI sort names to DB columns - whitelist approach
     sort_map = {
         "Название": "title COLLATE NOCASE",
         "Артист": "artist COLLATE NOCASE",
@@ -108,13 +134,18 @@ def get_library_tracks_page(
         "♡": "is_favorite"
     }
 
+    # Validate sort_col against whitelist - prevent SQL injection in ORDER BY
     if sort_col == "♡" and fav_set_for_sort:
         order_col = "EXISTS(SELECT 1 FROM favorites f WHERE f.filepath = library.filepath)"
     elif sort_col == "♡":
         order_col = "0"
+    elif sort_col in sort_map:
+        order_col = sort_map[sort_col]
     else:
-        order_col = sort_map.get(sort_col, "title COLLATE NOCASE")
+        # Unknown sort column - default to safe value
+        order_col = "title COLLATE NOCASE"
 
+    # Validate sort direction - only allow ASC or DESC
     order_dir = "DESC" if sort_ord.upper() == "DESC" else "ASC"
     order_clause = f"{order_col} {order_dir}, title COLLATE NOCASE ASC"
 

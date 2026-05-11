@@ -565,8 +565,12 @@ def get_tracks_by_artist(artist_name: str) -> List[TrackInfo]:
 def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
     """Get all tracks belonging to a specific folder."""
     import os as os_module
+    from musicplayer.core.db.queries import _escape_like_pattern
+
     folder = Path(folder_path)
     folder_str = str(folder)
+    # Escape LIKE wildcards in folder path
+    escaped_folder = _escape_like_pattern(folder_str)
 
     with get_connection() as conn:
         cursor = conn.execute("""
@@ -580,7 +584,7 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
             FROM library
             WHERE filepath LIKE ?
             ORDER BY filepath
-        """, (folder_str + os_module.sep + "%",))
+        """, (escaped_folder + os_module.sep + "%",))
 
         results = []
         for row in cursor.fetchall():
@@ -598,12 +602,15 @@ def get_folder_filepaths(folder_path: str):
     """Get all filepaths in the library for a specific folder."""
     import os as os_module
     from typing import Set
+    from musicplayer.core.db.queries import _escape_like_pattern
 
     folder = Path(folder_path)
     folder_str = str(folder)
+    # Escape LIKE wildcards in folder path
+    escaped_folder = _escape_like_pattern(folder_str)
 
     with get_connection() as conn:
-        cursor = conn.execute("SELECT filepath FROM library WHERE filepath LIKE ?", (folder_str + os_module.sep + "%",))
+        cursor = conn.execute("SELECT filepath FROM library WHERE filepath LIKE ?", (escaped_folder + os_module.sep + "%",))
         results: Set[str] = set()
         for row in cursor.fetchall():
             try:
