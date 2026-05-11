@@ -280,7 +280,7 @@ class TrackInfoWidget(QWidget):
         # Create layout
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         # Album art - size constraints for the cover itself
         self.album_art_widget = AlbumArtWidget()
@@ -296,7 +296,7 @@ class TrackInfoWidget(QWidget):
         # Fixed row heights to prevent jumping (enough for 2 lines)
         TITLE_HEIGHT = 28
         ARTIST_HEIGHT = 28
-        ALBUM_HEIGHT = 30
+        ALBUM_HEIGHT = 20
 
         self.title_label = QLabel("No Track Selected")
         self.title_label.setMinimumHeight(TITLE_HEIGHT)
@@ -328,7 +328,7 @@ class TrackInfoWidget(QWidget):
         self.album_label.setSizePolicy(text_policy)
         self.album_label.setMinimumWidth(0)
 
-        layout.addSpacing(12)
+        layout.addSpacing(2)
         layout.addWidget(self.title_label)
         layout.addWidget(self.artist_label)
         layout.addWidget(self.album_label)
