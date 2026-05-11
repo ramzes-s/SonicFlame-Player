@@ -5,11 +5,25 @@ Accent Style Applier — динамическое применение акце�
 """
 
 from musicplayer import config as cfg
+from PySide6.QtWidgets import QWidget
 
 
 def apply_accent_to_main_window(window, settings_dialog=None):
     """Обновить акцентный цвет во всех виджетах главного окна."""
     accent = cfg.get_accent_color()
+
+    # Update container border
+    container = window.findChild(QWidget, "main_container")
+    if container:
+        r = int(accent[1:3], 16)
+        g = int(accent[3:5], 16)
+        b = int(accent[5:7], 16)
+        container.setStyleSheet(f"""
+            #main_container {{
+                background-color: #000000;
+                border: 1px solid rgba({r}, {g}, {b}, 0.1);
+            }}
+        """)
 
     # Controls
     if hasattr(window, 'controls_widget'):

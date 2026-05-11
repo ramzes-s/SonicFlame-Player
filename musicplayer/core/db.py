@@ -479,8 +479,12 @@ def get_library_tracks_page(
     """
     Get a page of library tracks with filtering and sorting.
     """
-    fav_set = get_favorite_filepaths() if fav_only else set()
-    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fav_set)
+    # Always get fav_set for sorting by favorite, even if fav_only is False
+    fav_set_for_filter = get_favorite_filepaths() if fav_only else set()
+    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fav_set_for_filter)
+
+    # Always get fav_set for sorting (independent of fav_only filter)
+    fav_set_for_sort = get_favorite_filepaths()
 
     # Map UI sort names to DB columns
     sort_map = {
@@ -493,14 +497,17 @@ def get_library_tracks_page(
         "Битрейт": "bitrate",
         "Топ": "play_count",
         "★": "mood",
-        "♡": f"CASE WHEN filepath IN ({','.join('?' for _ in fav_set)}) THEN 1 ELSE 0 END"
+        "♡": "is_favorite"
     }
-    
-    # Add favorites to params for the ORDER BY clause if sorting by favorite
-    if sort_col == "♡":
-        params.extend(list(fav_set))
 
-    order_col = sort_map.get(sort_col, "title COLLATE NOCASE")
+    if sort_col == "♡" and fav_set_for_sort:
+        # Use EXISTS subquery for favorite sorting
+        order_col = "EXISTS(SELECT 1 FROM favorites f WHERE f.filepath = library.filepath)"
+    elif sort_col == "♡":
+        order_col = "0"
+    else:
+        order_col = sort_map.get(sort_col, "title COLLATE NOCASE")
+
     order_dir = "DESC" if sort_ord.upper() == "DESC" else "ASC"
     
     # Add secondary sort criteria for stability

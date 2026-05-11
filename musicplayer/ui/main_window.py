@@ -9,8 +9,8 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QFileDialog, QMessageBox, QPushButton, QLabel,
                                 QApplication, QDialog, QCheckBox, QSystemTrayIcon, QMenu, QComboBox)
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtCore import Qt, QPoint, QTimer, QByteArray, QUrl, Q_ARG, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QFont, QIcon, QColor, QPalette
+from PySide6.QtCore import Qt, QPoint, QTimer, QByteArray, QUrl, Q_ARG, QPropertyAnimation, QEasingCurve, Property, QEvent
+from PySide6.QtGui import QFont, QIcon, QColor, QPalette, QPainter, QPaintEvent
 import subprocess
 import sys
 import os
@@ -233,6 +233,30 @@ class MainWindow(QMainWindow):
             return Path(sys.executable).parent / "Sonic-Flame.ico"
         return Path(__file__).parent.parent.parent / "Sonic-Flame.ico"
 
+    def paintEvent(self, event: QPaintEvent):
+        """Draw accent border around the window."""
+        # First call default painter
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        accent = cfg.get_accent_color()
+        color = QColor(accent)
+
+        # Draw multiple lines for more visibility
+        for i in range(1, 4):
+            c = QColor(color)
+            c.setAlpha(80 - i * 15)
+            pen = painter.pen()
+            pen.setColor(c)
+            pen.setWidth(1)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+
+            rect = self.rect().adjusted(i, i, -i, -i)
+            painter.drawRect(rect)
+
     def _setup_tray_icon(self):
         """Create system tray icon."""
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -380,10 +404,38 @@ class MainWindow(QMainWindow):
                 self.playlist_widget.set_playing_track(current_fp)
     
     def _setup_ui(self):
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+        # Container with border effect (set as central widget)
+        container = QWidget()
+        container.setObjectName("main_container")
+
+        # Apply shadow to container
+        from PySide6.QtWidgets import QGraphicsDropShadowEffect
+        from PySide6.QtGui import QColor
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(16)
+        shadow.setXOffset(0)
+        shadow.setYOffset(2)
+        shadow.setColor(QColor(200, 200, 200, 100))
+        container.setGraphicsEffect(shadow)
+
+        # Add border style - thin and light like settings dialog
+        accent = cfg.get_accent_color()
+        # Convert hex to rgba with low opacity
+        r = int(accent[1:3], 16)
+        g = int(accent[3:5], 16)
+        b = int(accent[5:7], 16)
+        container.setStyleSheet(f"""
+            #main_container {{
+                background-color: #000000;
+                border: 2px solid rgba({r}, {g}, {b}, 0.1);
+            }}
+        """)
+
+        self.setCentralWidget(container)
+
+        # Layout with margins to show border inside
+        main_layout = QVBoxLayout(container)
+        main_layout.setContentsMargins(2, 2, 2, 2)  # margin = border width
         main_layout.setSpacing(0)
         main_layout.addWidget(self._setup_custom_title_bar())
         middle_layout = QHBoxLayout()
@@ -962,10 +1014,12 @@ class MainWindow(QMainWindow):
             return
         except StopIteration:
             pass
-        
+
         from musicplayer.core.db import get_track
         track = get_track(filepath)
         if track:
+            # Bring window to front
+            self._bring_to_front()
             # If track's folder is current, just play it without rescanning
             if self._current_folder_path == str(Path(filepath).parent):
                 self._play_track_from_db(track)
@@ -973,6 +1027,54 @@ class MainWindow(QMainWindow):
                 # Playing from different folder = Playlist mode
                 self.settings.playlist_type = "Playlist"
                 self._scan_folder_and_play(str(Path(filepath).parent), filepath)
+
+    def _bring_to_front(self):
+        """Bring window to front and give it focus."""
+        hwnd = int(self.windowHandle().winId())
+        if not hwnd:
+            return
+
+        # Show window first
+        self.showNormal()
+        self.setWindowState(self.windowState() & ~Qt.WindowMinimized)
+        self.raise_()
+        QApplication.processEvents()
+
+        def do_bring():
+            try:
+                import ctypes
+                from ctypes import wintypes
+
+                user32 = ctypes.windll.user32
+                kernel32 = ctypes.windll.kernel32
+
+                # Allow foreground
+                user32.AllowSetForegroundWindow(kernel32.GetCurrentProcessId())
+
+                # Get current foreground window
+                fgwnd = user32.GetForegroundWindow()
+                if fgwnd:
+                    # Get thread IDs
+                    fg_tid = user32.GetWindowThreadProcessId(fgwnd, None)
+                    our_tid = user32.GetWindowThreadProcessId(hwnd, None)
+
+                    # Attach to foreground thread input
+                    user32.AttachThreadInput(our_tid, fg_tid, True)
+
+                    # Restore and bring to top
+                    user32.ShowWindow(hwnd, 9)
+                    user32.BringWindowToTop(hwnd)
+
+                    # Detach
+                    user32.AttachThreadInput(our_tid, fg_tid, False)
+
+                    # Now set foreground
+                    user32.SetForegroundWindow(hwnd)
+            except: pass
+
+        QTimer.singleShot(100, do_bring)
+        QTimer.singleShot(300, do_bring)
+        QTimer.singleShot(600, do_bring)
 
     def _on_play_artist_requested(self, artist_name: str):
         """Load all tracks by an artist and play them."""
@@ -984,21 +1086,17 @@ class MainWindow(QMainWindow):
         self._start_blink_animation()
 
         from musicplayer.core.db import get_tracks_by_artist
-        
-        self.showNormal() # Bring window to front
-        self.raise_()
-        self.activateWindow()
 
         tracks = get_tracks_by_artist(artist_name)
         if not tracks:
             self._stop_blink_animation()
             return
-            
+
         self.playlist.clear()
         self.playlist.set_tracks(tracks)
         self.playlist_widget.load_tracks(tracks)
         self._update_web_server_playlist()
-        
+
         # Reset any special view modes
         if self.sidebar._favorites_active:
             self.sidebar._favorites_active = False
@@ -1010,12 +1108,13 @@ class MainWindow(QMainWindow):
             self.settings.top_mode = False
 
         self.settings.playlist_type = "Playlist"
-        # self.playlist_title_label.setText(artist_name) # Already set above
-        # self.sep_label.setVisible(True) # Already set above
-        
+
         track_count = self.playlist.get_track_count()
         self._stop_blink_animation()
         self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+
+        # Bring to front after playlist is loaded
+        QTimer.singleShot(200, self._bring_to_front)
         self.scanning_status_label.setText(f"{track_count}")
         self.scanning_status_label.setVisible(True)
         
