@@ -293,29 +293,35 @@ class TrackInfoWidget(QWidget):
         text_policy = QSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
         text_policy.setHorizontalStretch(0)
 
+        # Fixed row heights to prevent jumping (enough for 2 lines)
+        TITLE_HEIGHT = 28
+        ARTIST_HEIGHT = 28
+        ALBUM_HEIGHT = 30
+
         self.title_label = QLabel("No Track Selected")
+        self.title_label.setMinimumHeight(TITLE_HEIGHT)
         self.title_label.setStyleSheet(
-            f"color: {cfg.get_accent_color()}; font-size: 18px; font-weight: bold;"
+            f"color: {cfg.get_accent_color()}; font-size: 20px; font-weight: bold;"
         )
         self.title_label.setAlignment(Qt.AlignCenter)
         self.title_label.setWordWrap(True)
         self.title_label.setSizePolicy(text_policy)
         self.title_label.setMinimumWidth(0)
 
-        # Artist - same size as title (reduced by 25%)
         self.artist_label = QLabel("Unknown Artist")
+        self.artist_label.setMinimumHeight(ARTIST_HEIGHT)
         self.artist_label.setStyleSheet(
-            "color: #FFFFFF; font-size: 18px; font-weight: bold;"
+            "color: #FFFFFF; font-size: 20px; font-weight: 600;"
         )
         self.artist_label.setAlignment(Qt.AlignCenter)
         self.artist_label.setWordWrap(True)
         self.artist_label.setSizePolicy(text_policy)
         self.artist_label.setMinimumWidth(0)
 
-        # Album - reduced by 25% (16 -> 12)
         self.album_label = QLabel("")
+        self.album_label.setFixedHeight(ALBUM_HEIGHT)
         self.album_label.setStyleSheet(
-            "color: #AAAAAA; font-size: 12px;"
+            "color: #AAAAAA; font-size: 14px;"
         )
         self.album_label.setAlignment(Qt.AlignCenter)
         self.album_label.setWordWrap(True)
@@ -331,16 +337,54 @@ class TrackInfoWidget(QWidget):
     def update_track_info(self, track: TrackInfo):
         """Update display with track metadata."""
         if track:
+            # Calculate font size based on text length
+            title_len = len(track.title or "")
+            artist_len = len(track.artist or "")
+            album_len = len(track.album or "")
+
+            # Title font size: <25 -> 20px, 25-45 -> 18px, >45 -> 16px
+            if title_len < 25:
+                title_size = 24
+            elif title_len <= 45:
+                title_size = 18
+            else:
+                title_size = 16
+
+            # Artist font size: same logic
+            if artist_len < 25:
+                artist_size = 20
+            elif artist_len <= 45:
+                artist_size = 18
+            else:
+                artist_size = 16
+
+            # Album font size: <25 -> 14px, >=25 -> 12px
+            if album_len < 25:
+                album_size = 16
+            else:
+                album_size = 14
+
+            # Apply styles with calculated sizes
+            accent = cfg.get_accent_color()
+            self.title_label.setStyleSheet(
+                f"color: {accent}; font-size: {title_size}px; font-weight: bold;"
+            )
+            self.artist_label.setStyleSheet(
+                f"color: #FFFFFF; font-size: {artist_size}px; font-weight: 600;"
+            )
+            self.album_label.setStyleSheet(
+                f"color: #AAAAAA; font-size: {album_size}px;"
+            )
+
             self.title_label.setText(track.title)
             self.artist_label.setText(track.artist)
             self.album_label.setText(track.album if track.album else "")
-            
+
             if track.has_cover and track.cover_data:
                 self.album_art_widget.set_album_art(track.cover_data)
             else:
                 self.album_art_widget.clear()
 
-            # Pass analysis features to the album art widget
             self.album_art_widget.set_analysis_features(
                 tempo=getattr(track, 'tempo', 0.0),
                 energy=getattr(track, 'energy', 0.0),
@@ -358,6 +402,7 @@ class TrackInfoWidget(QWidget):
 
     def apply_accent_color(self, color: str):
         """Update accent color for title label."""
+        # Use default size for empty state
         self.title_label.setStyleSheet(
-            f"color: {color}; font-size: 18px; font-weight: bold;"
+            f"color: {color}; font-size: 20px; font-weight: bold;"
         )
