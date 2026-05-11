@@ -8,6 +8,7 @@ Provides algorithms for finding similar tracks based on various criteria
 import math
 from typing import List, Optional
 from musicplayer.core.db import TrackInfo
+from musicplayer import config as cfg
 import random
 
 # --- Weights and thresholds ---
@@ -17,24 +18,16 @@ WEIGHT_ENERGY = 0.27
 WEIGHT_MOOD = 0.24
 PENALTY_ARTIST = -0.05
 
-# --- Real Ranges for Normalization from User Data ---
-# Tempo (BPM)
-MIN_TEMPO = 60
-MAX_TEMPO = 200
-
-# Energy (0-1)
-MIN_ENERGY = 0.01
-MAX_ENERGY = 1.0
-
-# Mood (0-1)
-MIN_MOOD = 0.01
-MAX_MOOD = 0.8
-
+# Use ranges from config
+MIN_TEMPO = cfg.MIN_TEMPO
+MAX_TEMPO = cfg.MAX_TEMPO
+MIN_ENERGY = cfg.MIN_ENERGY
+MAX_ENERGY = cfg.MAX_ENERGY
+MIN_MOOD = cfg.MIN_MOOD
+MAX_MOOD = cfg.MAX_MOOD
 
 # Other constants
-# MAX_TEMPO = 200.0  # Assumed max tempo for normalization (no longer needed, using real max)
-# METRICS_DISTANCE_THRESHOLD_FOR_SIMILARITY_SCORE = 0.2 # No longer needed for 3D Euclidean distance
-METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.04 # NEW: Threshold for single dimension similarity score
+METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.04
 
 
 def _normalize_metric(value: float, min_val: float, max_val: float) -> float:
