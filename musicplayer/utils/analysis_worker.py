@@ -57,7 +57,7 @@ class AnalysisWorker(QThread):
         try:
             # Skip files larger than 100MB to avoid memory/timeout issues
             file_size = os.path.getsize(filepath)
-            if file_size > 100 * 1024 * 1024:
+            if file_size > 500 * 1024 * 1024:
                 print(f"Skipping large file: {filepath} ({file_size // (1024*1024)}MB)")
                 return 0.0, 0.0, 0.0
 
