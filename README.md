@@ -103,7 +103,7 @@ python main.py --library
 ## Структура проекта
 
 ```
-MusicPlayer\
+SonicFlame\
 ├── main.py                             # Точка входа (плеер + библиотека через --library)
 ├── requirements.txt                    # Зависимости
 ├── Sonic-Flame.ico                     # Иконка приложения

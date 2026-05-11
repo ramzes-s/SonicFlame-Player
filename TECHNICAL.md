@@ -7,7 +7,7 @@
 ## Структура проекта
 
 ```
-MusicPlayer\
+SonicFlame\
 ├── main.py                             # Точка входа (плеер + библиотека через --library)
 ├── requirements.txt                    # Зависимости
 ├── Sonic-Flame.ico                     # Иконка приложения
@@ -21,6 +21,7 @@ MusicPlayer\
 │   ├── config.py                       # Глобальный ACCENT_COLOR
 │   ├── core/
 │   │   ├── __init__.py
+│   │   ├── normalize.py                # Нормализация некоторых метаданных полученных спомощью mutagen
 │   │   ├── player.py                   # Обёртка над QMediaPlayer
 │   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── db.py                       # SQLite библиотека, избранное, топ, обложки

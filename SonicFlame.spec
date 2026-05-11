@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('res', 'res')],
+    datas=[('res', 'res'), ('SonicFlame.manifest', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -36,4 +36,5 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon=['Sonic-Flame.ico'],
+    manifest='SonicFlame.manifest',
 )

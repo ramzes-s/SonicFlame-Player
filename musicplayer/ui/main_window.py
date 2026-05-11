@@ -611,8 +611,8 @@ class MainWindow(QMainWindow):
         self.ipc_server.send_refresh()
         self._update_web_server_playlist()
 
-        # Start background analysis for new/unanalyzed tracks
-        self.analysis_manager.start_analysis(self.playlist.get_tracks()) # ADDED
+        # Start background analysis for new/unanalyzed tracks (delayed to not block UI)
+        QTimer.singleShot(100, lambda: self.analysis_manager.start_analysis(self.playlist.get_tracks()))
     
     def _on_scanning_error(self, error_msg: str):
         self._stop_blink_animation()

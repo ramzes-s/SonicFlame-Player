@@ -2,10 +2,11 @@ from PySide6.QtCore import QObject, QThread, Signal
 from typing import List, Optional
 from pathlib import Path
 import librosa
-from librosa.feature.rhythm import tempo as tempo_rhythm # ADDED
+from librosa.feature.rhythm import tempo as tempo_rhythm
 import numpy as np
 import os
 import sys
+import time
 
 # Import TrackInfo from db.py
 # This requires a relative import, which can be tricky with QThreads.
@@ -34,7 +35,15 @@ class AnalysisWorker(QThread):
                 if self._is_cancelled:
                     break
 
+                start_time = time.time()
                 tempo, energy, mood = self._analyze_single_track(filepath)
+                elapsed = time.time() - start_time
+
+                # Skip if analysis took too long (> 10 seconds)
+                if elapsed > 10:
+                    print(f"Skipping slow file: {filepath} ({elapsed:.1f}s)")
+                    tempo, energy, mood = 0.0, 0.0, 0.0
+
                 self.track_analyzed.emit(filepath, tempo, energy, mood)
             self.analysis_finished.emit()
         except Exception as e:
@@ -46,6 +55,12 @@ class AnalysisWorker(QThread):
         Returns (tempo, energy, mood).
         """
         try:
+            # Skip files larger than 100MB to avoid memory/timeout issues
+            file_size = os.path.getsize(filepath)
+            if file_size > 100 * 1024 * 1024:
+                print(f"Skipping large file: {filepath} ({file_size // (1024*1024)}MB)")
+                return 0.0, 0.0, 0.0
+
             # Load audio file - librosa expects mono audio by default
             y, sr = librosa.load(filepath, sr=None, mono=True, duration=30) # Limit duration for faster analysis
 
@@ -109,9 +124,12 @@ class AnalysisManager(QObject):
         
         filepaths_to_analyze = [t.filepath for t in self._tracks_to_analyze]
 
+        # Cancel any existing worker first
         if self._worker:
-            self._worker.cancel()
-            self._worker.wait() # Wait for previous worker to finish cancelling
+            if self._worker.isRunning():
+                self._worker.terminate()  # Force stop immediately
+                self._worker.wait(500)   # Wait max 500ms
+            self._worker = None
 
         self._worker = AnalysisWorker(filepaths_to_analyze, self)
         self._worker.track_analyzed.connect(self._on_track_analyzed)
@@ -134,9 +152,10 @@ class AnalysisManager(QObject):
 
     def _on_analysis_finished(self):
         """Slot for when the analysis worker finishes."""
-        self._worker.quit()
-        self._worker.wait()
-        self._worker = None
+        if self._worker:
+            self._worker.quit()
+            self._worker.wait()
+            self._worker = None
         self.analysis_finished.emit()
 
     def _on_analysis_error(self, message: str):

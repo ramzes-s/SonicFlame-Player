@@ -307,7 +307,11 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
     Insert or update a track in the library. Saves cover to file cache.
     If preserve_play_count is True, keep the existing play_count value.
     Also preserves existing analysis data (tempo, energy, mood).
+    Normalizes metadata before saving.
     """
+    from musicplayer.core.normalize import normalize_track
+    normalized = normalize_track(track)
+
     current_count = 0
     current_tempo = 0.0
     current_energy = 0.0
@@ -322,7 +326,6 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
         if row:
             current_count, current_tempo, current_energy, current_mood = row
 
-    # If new track data doesn't have analysis, use the old values
     final_tempo = getattr(track, 'tempo', 0.0)
     if final_tempo == 0.0 and current_tempo != 0.0:
         final_tempo = current_tempo
@@ -335,12 +338,9 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
     if final_mood == 0.0 and current_mood != 0.0:
         final_mood = current_mood
 
-    # Handle play count preservation
     final_play_count = getattr(track, 'play_count', 0)
     if preserve_play_count:
         final_play_count = current_count
-
-    
 
     with get_connection() as conn:
         conn.execute("""
@@ -350,15 +350,15 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
                  tempo, energy, mood)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            track.filepath,
+            normalized.filepath,
             mtime,
-            track.title,
-            track.artist,
-            track.album,
-            track.duration,
-            1 if track.has_cover else 0,
-            track.genre,
-            1 if track.is_lossless else 0,
+            normalized.title,
+            normalized.artist,
+            normalized.album,
+            normalized.duration,
+            1 if normalized.has_cover else 0,
+            normalized.genre,
+            1 if normalized.is_lossless else 0,
             final_play_count,
             getattr(track, 'bitrate', 0),
             final_tempo,
@@ -366,7 +366,6 @@ def upsert_track(track: "TrackInfo", mtime: float, preserve_play_count: bool = T
             final_mood,
         ))
 
-    # Save cover art to file cache
     if track.has_cover and track.cover_data:
         _save_cover(track.filepath, track.cover_data)
 
@@ -1153,6 +1152,19 @@ def extract_metadata(filepath: str) -> Optional["TrackInfo"]:
 
             # Try to extract cover art
             cover_data = _extract_cover(audio, tags)
+
+        # Normalize metadata before returning
+        from musicplayer.core.normalize import normalize_metadata
+        normalized = normalize_metadata(
+            title=title,
+            artist=artist,
+            album=album,
+            genre=genre
+        )
+        title = normalized.get('title', title)
+        artist = normalized.get('artist', artist)
+        album = normalized.get('album', album)
+        genre = normalized.get('genre', genre)
 
         return TrackInfo(
             filepath=filepath,
