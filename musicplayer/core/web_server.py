@@ -123,6 +123,9 @@ class WebServer(QObject):
 
     def _setup_routes(self):
         """Setup all routes."""
+        # Add CORS and security headers middleware
+        self._app.middlewares.append(_security_middleware)
+
         self._app.router.add_get('/', self._handle_index)
         self._app.router.add_get('/Sonic-Flame.ico', self._handle_favicon)
 
@@ -222,3 +225,16 @@ class WebServer(QObject):
                 return web.Response(body=icon_path.read_bytes(), content_type='image/x-icon')
         print(f"[WebServer] Favicon not found, checked: {checked}")
         return web.Response(text="Not Found", status=404)
+
+
+async def _security_middleware(app, handler):
+    """Add security headers to all responses."""
+    async def middleware_handler(request):
+        response = await handler(request)
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        if request.method not in ('GET', 'POST'):
+            return web.Response(status=405, text='Method Not Allowed')
+        return response
+    return middleware_handler

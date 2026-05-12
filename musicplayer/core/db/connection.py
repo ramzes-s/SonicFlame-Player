@@ -24,6 +24,45 @@ def normalize_path(path_str: str) -> str:
     return path_str.replace("/", os.sep).replace("\\", os.sep)
 
 
+def is_safe_filepath(filepath: str, base_dir: Optional[str] = None) -> bool:
+    """Validate that a filepath is safe and doesn't contain path traversal.
+    
+    Args:
+        filepath: The path to validate
+        base_dir: Optional base directory to check containment against
+        
+    Returns:
+        True if path is safe, False otherwise
+    """
+    if not filepath:
+        return False
+    
+    # Check for path traversal attempts
+    normalized = os.path.normpath(filepath)
+    if '..' in normalized.split(os.sep):
+        return False
+    
+    # Check for absolute path escaping (e.g., C:\..\..\)
+    abs_path = os.path.abspath(normalized)
+    if base_dir:
+        abs_base = os.path.abspath(base_dir)
+        # Ensure the path is within the base directory
+        if not abs_path.startswith(abs_base + os.sep) and abs_path != abs_base:
+            return False
+    
+    return True
+
+
+def get_music_folder() -> Optional[str]:
+    """Get the configured music folder from settings."""
+    try:
+        from musicplayer.core.settings import AppSettings
+        settings = AppSettings()
+        return settings.music_folder
+    except Exception:
+        return None
+
+
 # Database location
 DB_DIR = _get_exe_dir() / ".cache"
 DB_PATH = DB_DIR / "musicplayer.db"

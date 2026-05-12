@@ -190,6 +190,12 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
     """
     from musicplayer.core.normalize import normalize_track
 
+    # Validate filepath for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(track.filepath, music_folder):
+        return
+
     normalized = normalize_track(track)
 
     current_count = 0
@@ -276,8 +282,13 @@ def increment_play_count(filepath: str) -> int:
 
 def delete_track(filepath: str):
     """Delete a track from the library (and favorites, and cover file)."""
-    from musicplayer.core.db.cache import delete_cover
+    # Validate filepath for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(filepath, music_folder):
+        return
 
+    from musicplayer.core.db.cache import delete_cover
     delete_cover(filepath)
 
     with get_connection() as conn:
@@ -348,6 +359,12 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
 
     Returns TrackInfo object or None if extraction fails.
     """
+    # Validate filepath for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(filepath, music_folder):
+        return None
+
     try:
         audio = MutagenFile(filepath, easy=False)
         if audio is None:
@@ -623,6 +640,12 @@ def get_folder_filepaths(folder_path: str):
 
 def delete_folder_tracks(folder_path: str):
     """Delete all tracks from a specific folder."""
+    # Validate folder_path for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(folder_path, music_folder):
+        return
+
     to_delete = get_folder_filepaths(folder_path)
     for fp in to_delete:
         delete_track(fp)

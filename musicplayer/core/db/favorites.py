@@ -15,6 +15,12 @@ from musicplayer.core.db.tracks import (
 
 def is_favorite(filepath: str) -> bool:
     """Check if a track is in favorites."""
+    # Validate filepath for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(filepath, music_folder):
+        return False
+
     with get_connection() as conn:
         cursor = conn.execute("SELECT 1 FROM favorites WHERE filepath = ?", (filepath,))
         return cursor.fetchone() is not None
@@ -22,6 +28,12 @@ def is_favorite(filepath: str) -> bool:
 
 def toggle_favorite(filepath: str) -> bool:
     """Toggle favorite status. Returns new state (True = favorite)."""
+    # Validate filepath for path traversal
+    from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
+    music_folder = get_music_folder()
+    if not is_safe_filepath(filepath, music_folder):
+        return False
+
     if is_favorite(filepath):
         with get_connection() as conn:
             conn.execute("DELETE FROM favorites WHERE filepath = ?", (filepath,))
