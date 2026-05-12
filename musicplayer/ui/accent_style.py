@@ -58,9 +58,9 @@ def apply_accent_to_main_window(window, settings_dialog=None):
         window.playlist_widget.list_widget.viewport().update()
 
     # Title bar close button
-    if hasattr(window, '_get_title_button_style'):
-        window.close_btn.setStyleSheet(
-            window._get_title_button_style(accent)
+    if hasattr(window, 'title_bar'):
+        window.title_bar.close_btn.setStyleSheet(
+            window.title_bar._get_title_button_style(accent)
         )
 
     # Settings dialog (if open)

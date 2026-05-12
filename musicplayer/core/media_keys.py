@@ -28,6 +28,30 @@ def _install_media_keys_filter(hwnd, callback):
     return _MediaKeyHandler(hwnd, callback)
 
 
+def create_media_keys_handler(hwnd, player, on_next, on_previous):
+    """
+    Create a media keys handler with player control callbacks.
+
+    Args:
+        hwnd: Window handle
+        player: AudioPlayer instance with toggle_play_pause() method
+        on_next: Callback for next track
+        on_previous: Callback for previous track
+
+    Returns:
+        Handler object with .uninstall() method
+    """
+    def on_media_key(action: str):
+        if action == "play_pause":
+            player.toggle_play_pause()
+        elif action == "next_track":
+            on_next()
+        elif action == "prev_track":
+            on_previous()
+
+    return _install_media_keys_filter(hwnd, on_media_key)
+
+
 # VK codes for media keys
 VK_MEDIA_PLAY_PAUSE = 0xB3
 VK_MEDIA_NEXT_TRACK = 0xB0

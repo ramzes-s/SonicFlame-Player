@@ -7,35 +7,36 @@ Handles coordination between player, playlist, and controls.
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QFileDialog, QMessageBox, QPushButton, QLabel,
-                                QApplication, QDialog, QCheckBox, QSystemTrayIcon, QMenu, QComboBox)
+                                QApplication, QDialog, QCheckBox, QSystemTrayIcon, QMenu, QComboBox,
+                                QGraphicsDropShadowEffect)
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtCore import Qt, QPoint, QTimer, QByteArray, QUrl, Q_ARG, QPropertyAnimation, QEasingCurve, Property, QEvent
 from PySide6.QtGui import QFont, QIcon, QColor, QPalette, QPainter, QPaintEvent
+from PySide6.QtSvgWidgets import QSvgWidget
 import subprocess
 import sys
 import os
 import socket
 from pathlib import Path
-from PySide6.QtGui import QFont, QIcon
-from PySide6.QtSvgWidgets import QSvgWidget
 
 from musicplayer.core.player import AudioPlayer
 from musicplayer.core.playlist import Playlist
 from musicplayer.core.db import TrackInfo
 from musicplayer.core.settings import AppSettings, get_playlist_sort_mode, set_playlist_sort_mode
 from musicplayer.core.ipc import IPCServer
-from musicplayer.core.web_server import WebServer
 from musicplayer.core.db import is_favorite as db_is_favorite, toggle_favorite as db_toggle_favorite
+from musicplayer.ui.web_integration import WebIntegration
 from musicplayer.ui.svg_icons import get_music_note_svg
 from musicplayer.utils.audio_scanner import AudioScanner
 from musicplayer.utils.analysis_worker import AnalysisManager # ADDED
-
 from musicplayer.ui.track_info import TrackInfoWidget
 from musicplayer.ui.playlist_view import PlaylistWidget, PlaylistItem
 from musicplayer.ui.controls import ControlsWidget
 from musicplayer.ui.sidebar import SideBarWidget
 from musicplayer.ui.mini_widget import MiniPlayerWidget
-from musicplayer.core.media_keys import _install_media_keys_filter
+from musicplayer.ui.remove_track_dialog import MissingTrackDialog, remove_track_from_library
+from musicplayer.ui.player.title_bar import TitleBarWidget
+from musicplayer.core.media_keys import create_media_keys_handler
 from musicplayer.core.recommendations import find_similar_tracks # NEW import
 from musicplayer.core.db import get_all_library_tracks_light # NEW import
 
@@ -53,105 +54,6 @@ def _get_exe_dir() -> Path:
     return Path(__file__).parent.parent.parent
 
 
-class MissingTrackDialog(QMessageBox):
-    """
-    Dialog shown when a track file is missing.
-    Asks user whether to remove the track from the library.
-    """
-
-    def __init__(self, track_title: str, track_artist: str, filepath: str, parent=None):
-        super().__init__(parent)
-
-        self.setWindowTitle("Трек не найден")
-        self.setIcon(QMessageBox.Warning)
-
-        # Custom text with track info
-        file_name = Path(filepath).name
-        self.setText(
-            f"<b>Файл не найден:</b><br><br>"
-            f"<i>{track_title}</i> — {track_artist}<br>"
-            f"<span style='color: #888888; font-size: 11px;'>{file_name}</span><br><br>"
-            f"Удалить запись из библиотеки?"
-        )
-
-        # Add standard buttons
-        self.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        self.setDefaultButton(QMessageBox.No)
-
-
-def remove_track_from_library(filepath: str, playlist_widget=None, playlist=None, main_window=None) -> bool:
-    """
-    Remove a track from the library database and cache.
-
-    Args:
-        filepath: Path to the track file
-        playlist_widget: Optional PlaylistWidget reference to remove from view
-        playlist: Optional Playlist object to update current index
-        main_window: Optional MainWindow reference to clear playing state
-
-    Returns:
-        True if track was successfully removed
-    """
-    from musicplayer.core.db import delete_track
-
-    # Delete from DB (also removes cover file via delete_track)
-    delete_track(filepath)
-
-    # Remove from playlist view if provided
-    if playlist_widget:
-        # Remove from _full_tracks (always)
-        original_full = playlist_widget._full_tracks
-        playlist_widget._full_tracks = [
-            t for t in original_full if t.filepath != filepath
-        ]
-
-        # Handle _view_tracks
-        if playlist_widget._view_tracks is original_full:
-            # _view_tracks points to same list as _full_tracks
-            playlist_widget._view_tracks = playlist_widget._full_tracks
-        else:
-            # _view_tracks is a separate filtered list (e.g. favorites)
-            playlist_widget._view_tracks = [
-                t for t in playlist_widget._view_tracks if t.filepath != filepath
-            ]
-
-        # Update delegate reference
-        playlist_widget.delegate.tracks_ref = playlist_widget._view_tracks
-
-        # Clear and rebuild the QListWidget
-        playlist_widget.list_widget.clear()
-        for i, track in enumerate(playlist_widget._view_tracks):
-            item = PlaylistItem(track, i)
-            playlist_widget.list_widget.addItem(item)
-        playlist_widget._current_index = -1
-
-        # Force viewport repaint
-        playlist_widget.list_widget.viewport().update()
-
-    # Update the core Playlist object if provided
-    if playlist:
-        full_tracks = playlist.get_tracks()
-        updated_tracks = [t for t in full_tracks if t.filepath != filepath]
-        playlist.set_tracks(updated_tracks)
-
-        # If the removed track was the current one, reset current index
-        current_track = playlist.get_current_track()
-        if current_track and current_track.filepath == filepath:
-            if len(updated_tracks) > 0:
-                playlist.play_track_at(0)
-            else:
-                playlist._current_index = -1
-
-    # Clear playing state in main window if provided
-    if main_window:
-        if main_window._current_playing_filepath == filepath:
-            main_window._current_playing_filepath = None
-            main_window.controls_widget.set_current_track_favorite("", False)
-            main_window.player.stop()
-
-    return True
-
-
 class MainWindow(QMainWindow):
     """
     Main application window.
@@ -166,8 +68,6 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1100, 600)
         self.setStyleSheet("background-color: #000000;")
 
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
-        from PySide6.QtGui import QColor
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(16)
         shadow.setXOffset(0)
@@ -194,9 +94,7 @@ class MainWindow(QMainWindow):
         self.ipc_server.library_closed.connect(self._on_ipc_library_closed)
 
         # Web server for remote control
-        self._web_server = WebServer()
-        # Wire web server signals to player methods using dedicated slots
-        self._wire_web_server_signals()
+        self._web_integration = WebIntegration(self)
         # ---
 
         # Analysis Manager for background audio feature extraction
@@ -225,7 +123,7 @@ class MainWindow(QMainWindow):
 
         # Start web server if enabled
         if self.settings.web_server_enabled:
-            self._start_web_server()
+            self._web_integration.start(self.settings.web_server_port)
 
     def _get_icon_path(self) -> Path:
         """Get path to icon file."""
@@ -297,106 +195,18 @@ class MainWindow(QMainWindow):
         if saved_color:
             cfg.ACCENT_COLOR = saved_color
 
-    def _setup_custom_title_bar(self):
-        title_bar = QWidget()
-        title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
-        
-        title_layout = QHBoxLayout(title_bar)
-        title_layout.setContentsMargins(15, 0, 10, 0)
-        title_layout.setSpacing(10)
-        
-        self.title_icon_widget = QSvgWidget()
-        self.title_icon_widget.setFixedSize(20, 20)
-        self.title_icon_widget.renderer().load(get_music_note_svg(60).encode('utf-8'))
-        title_layout.addWidget(self.title_icon_widget)
+    def _setup_title_bar(self) -> TitleBarWidget:
+        self.title_bar = TitleBarWidget()
+        self.title_bar.minimize_button.clicked.connect(self.showMinimized)
+        self.title_bar.close_button.clicked.connect(self.close)
+        self.title_bar.sort_mode_changed.connect(self._on_sort_mode_changed)
+        return self.title_bar
 
-        title_label = QLabel("SonicFlame Player")
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
-        title_layout.addWidget(title_label)
-
-        self.playlist_title_label = QLabel("")
-        self.playlist_title_label.setStyleSheet("color: #888888; font-size: 12px; margin-left: 4px;")
-        title_layout.addWidget(self.playlist_title_label)
-
-        self.sep_label = QLabel("•")
-        self.sep_label.setStyleSheet("color: #555555; font-size: 12px;")
-        self.sep_label.setVisible(False)
-        title_layout.addWidget(self.sep_label)
-
-        self.scanning_status_label = QLabel("")
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
-        self.scanning_status_label.setVisible(False)
-        title_layout.addWidget(self.scanning_status_label)
-        
-        title_layout.addStretch()
-
-        # Sort mode dropdown (placed at the far right near the minimize button)
-        self._sort_combo = QComboBox()
-        self._sort_combo.setStyleSheet(
-            """
-            QComboBox { background: #000000; border: none; color: #CCCCCC; font-size: 12px; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView { background: #000000; color: #CCCCCC; selection-background-color: #333333; }
-            """
-        )
-        self._sort_combo.setFixedSize(170, 26)
-        self._sort_combo.addItems(["По исполнителю", "По названию", "По новизне", "Перемешать"])
-        
-        self._sort_combo.blockSignals(True)
-        try:
-            current = get_playlist_sort_mode()
-        except Exception:
-            current = "artist"
-        index_map = {"artist": 0, "title": 1, "newest": 2, "shuffle": 3}
-        self._sort_combo.setCurrentIndex(index_map.get(current, 0))
-        self._sort_combo.blockSignals(False)
-        
-        self._sort_combo.currentIndexChanged.connect(self._on_sort_mode_changed)
-        title_layout.addWidget(self._sort_combo)
-        
-        min_btn = QPushButton("─")
-        min_btn.setFixedSize(36, 30)
-        min_btn.setCursor(Qt.PointingHandCursor)
-        min_btn.setStyleSheet(self._get_title_button_style())
-        min_btn.clicked.connect(self.showMinimized)
-        title_layout.addWidget(min_btn)
-        
-        self.close_btn = QPushButton("✕")
-        self.close_btn.setFixedSize(36, 30)
-        self.close_btn.setCursor(Qt.PointingHandCursor)
-        self.close_btn.setStyleSheet(self._get_title_button_style(cfg.get_accent_color()))
-        self.close_btn.clicked.connect(self.close)
-        title_layout.addWidget(self.close_btn)
-        
-        return title_bar
-    
-    def _get_title_button_style(self, hover_color: str = "#333333") -> str:
-        return f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: {hover_color}; }}
-            QPushButton:pressed {{ background-color: #555555; }}
-        """
-
-    def _on_sort_mode_changed(self, index: int):
-        # Map UI index to internal sort mode
-        mapping = {0: "artist", 1: "title", 2: "newest", 3: "shuffle"}
-        mode = mapping.get(index, "artist")
-        
-        try:
-            set_playlist_sort_mode(mode)
-        except Exception:
-            pass
-        
-        # Apply to the active playlist display
+    def _on_sort_mode_changed(self, mode: str):
         if hasattr(self, 'playlist'):
             self.playlist.set_sort_mode(mode)
-            
-        # Re-render the UI list to reflect new order
         if self.playlist_widget:
             self.playlist_widget.load_tracks(self.playlist.get_tracks())
-            
-            # Restore current track highlight if possible
             current = self.playlist.get_current_track()
             current_fp = getattr(self, "_current_playing_filepath", None) or (current.filepath if current else None)
             if current_fp:
@@ -409,8 +219,6 @@ class MainWindow(QMainWindow):
         container.setObjectName("main_container")
 
         # Apply shadow to container
-        from PySide6.QtWidgets import QGraphicsDropShadowEffect
-        from PySide6.QtGui import QColor
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(16)
         shadow.setXOffset(0)
@@ -437,7 +245,7 @@ class MainWindow(QMainWindow):
         main_layout = QVBoxLayout(container)
         main_layout.setContentsMargins(2, 2, 2, 2)  # margin = border width
         main_layout.setSpacing(0)
-        main_layout.addWidget(self._setup_custom_title_bar())
+        main_layout.addWidget(self._setup_title_bar())
         middle_layout = QHBoxLayout()
         middle_layout.setContentsMargins(0, 0, 0, 0)
         middle_layout.setSpacing(0)
@@ -489,7 +297,7 @@ class MainWindow(QMainWindow):
 
     def _on_volume_changed_for_web(self, volume: float):
         """Update web server when volume changes."""
-        self._update_web_server_state()
+        self._web_integration.update_state()
     
     def _on_open_folder(self):
         start_dir = self._current_folder_path or self.settings.last_folder or self.settings.music_folder or ""
@@ -509,11 +317,10 @@ class MainWindow(QMainWindow):
                 return
         self.settings.last_folder = folder
         self.settings.playlist_type = "Folder"
-        self.playlist_title_label.setText(Path(folder).name)
-        self.sep_label.setVisible(True)
-        self.scanning_status_label.setStyleSheet("color: #888888; font-size: 11px;")
-        self.scanning_status_label.setText("Сканирование...")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_playlist_title(Path(folder).name)
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status("Сканирование...", True)
         self._start_blink_animation()
         self._scan_folder(folder)
     
@@ -580,10 +387,10 @@ class MainWindow(QMainWindow):
         g = int(136 + (255 - 136) * t)
         b = int(136 + (255 - 136) * t)
         color = f"#{r:02x}{g:02x}{b:02x}"
-        self.scanning_status_label.setStyleSheet(f"color: {color}; font-size: 11px;")
+        self.title_bar.set_scanning_status_style(f"color: {color}; font-size: 11px;")
 
     def _on_scanning_progress(self, current: int, total: int):
-        self.scanning_status_label.setText(f"Сканирование: {current}/{total}")
+        self.title_bar.set_scanning_status(f"Сканирование: {current}/{total}")
 
     def _on_tracks_removed(self, count: int):
         self._removed_tracks_count += count
@@ -596,20 +403,19 @@ class MainWindow(QMainWindow):
         from musicplayer.core.db import upsert_folder
 
         self._stop_blink_animation()
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        self.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
 
         removed = self._removed_tracks_count
         track_count = len(tracks)
         status = f"Загружено: {track_count} треков"
         if removed > 0:
             status += f". Не найдено: {removed}"
-        self.scanning_status_label.setText(status)
+        self.title_bar.set_scanning_status(status)
 
         if self._current_folder_path:
             upsert_folder(self._current_folder_path, track_count)
         QTimer.singleShot(3000, lambda: (
-                self.scanning_status_label.setText(f"{track_count}"),
-                self.scanning_status_label.setVisible(True)
+                self.title_bar.set_scanning_status(f"{track_count}", True)
             ))
         self.sidebar.set_all_buttons_enabled(True)
 
@@ -642,11 +448,11 @@ class MainWindow(QMainWindow):
         sort_mode = get_playlist_sort_mode()
         self.playlist.set_sort_mode(sort_mode)
         self.playlist_widget.load_tracks(self.playlist.get_tracks())
-        if hasattr(self, "_sort_combo"):
-            self._sort_combo.blockSignals(True)
+        if hasattr(self, "title_bar"):
+            self.title_bar.sort_combo.blockSignals(True)
             index_map = {"artist": 0, "title": 1, "newest": 2, "shuffle": 3}
-            self._sort_combo.setCurrentIndex(index_map.get(sort_mode, 0))
-            self._sort_combo.blockSignals(False)
+            self.title_bar.sort_combo.setCurrentIndex(index_map.get(sort_mode, 0))
+            self.title_bar.sort_combo.blockSignals(False)
 
         last_fp = self.settings.last_track
         restored = False
@@ -661,14 +467,14 @@ class MainWindow(QMainWindow):
 
         self._update_playlist_title()
         self.ipc_server.send_refresh()
-        self._update_web_server_playlist()
+        self._web_integration.update_playlist()
 
         # Start background analysis for new/unanalyzed tracks (delayed to not block UI)
         QTimer.singleShot(100, lambda: self.analysis_manager.start_analysis(self.playlist.get_tracks()))
     
     def _on_scanning_error(self, error_msg: str):
         self._stop_blink_animation()
-        self.scanning_status_label.setVisible(False)
+        self.title_bar.hide_scanning_status()
         self.sidebar.set_all_buttons_enabled(True)
         QMessageBox.warning(self, "Scan Error", error_msg)
 
@@ -680,8 +486,8 @@ class MainWindow(QMainWindow):
             text, show_sep = "Избранное", True
         elif self._current_folder_path:
             text, show_sep = Path(self._current_folder_path).name, True
-        self.playlist_title_label.setText(text)
-        self.sep_label.setVisible(show_sep)
+        self.title_bar.set_playlist_title(text)
+        self.title_bar.set_show_separator(show_sep)
 
     def _handle_missing_track(self, filepath: str):
         remove_track_from_library(
@@ -748,7 +554,7 @@ class MainWindow(QMainWindow):
 
         # Force web server state update after starting a track.
         # A small delay allows the player to report the correct duration.
-        QTimer.singleShot(100, self._update_web_server_state)
+        QTimer.singleShot(100, self._web_integration.update_state)
 
     def _update_mini_widget_track(self, track):
         if self._mini_widget and self._mini_widget.isVisible():
@@ -779,7 +585,7 @@ class MainWindow(QMainWindow):
 
     def _on_play_pause(self):
         self.player.toggle_play_pause()
-        self._update_web_server_state()
+        self._web_integration.update_state()
     
     def _on_next(self):
         view_tracks = self.playlist_widget.get_view_tracks()
@@ -853,18 +659,18 @@ class MainWindow(QMainWindow):
     
     def _on_position_changed(self, position_ms: int):
         self.controls_widget.set_position(position_ms)
-        self._update_web_server_state()
+        self._web_integration.update_state()
 
     def _on_duration_changed(self, duration_ms: int):
         self.controls_widget.set_duration(duration_ms)
-        self._update_web_server_state()
+        self._web_integration.update_state()
 
     def _on_state_changed(self, state):
         is_playing = (state == QMediaPlayer.PlayingState)
         self.controls_widget.set_play_state(is_playing)
         if self._mini_widget and self._mini_widget.isVisible():
             self._mini_widget.set_play_state(is_playing)
-        self._update_web_server_state()
+        self._web_integration.update_state()
     
     def _on_media_status_changed(self, status):
         if status == QMediaPlayer.EndOfMedia:
@@ -877,11 +683,10 @@ class MainWindow(QMainWindow):
         QMessageBox.critical(self, "Player Error", error_msg)
 
     def _on_favorites_toggled(self, enabled: bool):
-        self.playlist_title_label.setText("Избранное")
-        self.sep_label.setVisible(True)
-        self.scanning_status_label.setStyleSheet("color: #888888; font-size: 11px;")
-        self.scanning_status_label.setText("Загрузка...")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_playlist_title("Избранное")
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status("Загрузка...", True)
         self._start_blink_animation()
 
         from musicplayer.core.db import get_favorite_tracks
@@ -890,7 +695,7 @@ class MainWindow(QMainWindow):
         if fav_tracks:
             self.playlist.set_tracks(fav_tracks)
             self.playlist_widget.load_tracks(self.playlist.get_tracks())
-        self._update_web_server_playlist()
+        self._web_integration.update_playlist()
         self.player.stop()
         self._current_playing_filepath = None
         
@@ -907,16 +712,14 @@ class MainWindow(QMainWindow):
         if self.playlist.get_track_count() > 0: self._play_track_at_view_index(0)
         else: self.controls_widget.set_current_track_favorite("", False)
         self._stop_blink_animation()
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
-        self.scanning_status_label.setText(f"{self.playlist.get_track_count()}")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self.title_bar.set_scanning_status(f"{self.playlist.get_track_count()}", True)
 
     def _on_top_toggled(self, enabled: bool):
-        self.playlist_title_label.setText("Топ")
-        self.sep_label.setVisible(True)
-        self.scanning_status_label.setStyleSheet("color: #888888; font-size: 11px;")
-        self.scanning_status_label.setText("Загрузка...")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_playlist_title("Топ")
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status("Загрузка...", True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self._start_blink_animation()
 
         from musicplayer.core.db import get_top_tracks
@@ -925,7 +728,7 @@ class MainWindow(QMainWindow):
         if top_tracks:
             self.playlist.set_tracks(top_tracks)
             self.playlist_widget.load_tracks(self.playlist.get_tracks())
-        self._update_web_server_playlist()
+        self._web_integration.update_playlist()
         self.player.stop()
         self._current_playing_filepath = None
 
@@ -942,9 +745,8 @@ class MainWindow(QMainWindow):
         if self.playlist.get_track_count() > 0: self._play_track_at_view_index(0)
         else: self.controls_widget.set_current_track_favorite("", False)
         self._stop_blink_animation()
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
-        self.scanning_status_label.setText(f"{self.playlist.get_track_count()}")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self.title_bar.set_scanning_status(f"{self.playlist.get_track_count()}", True)
 
     def _on_playlist_type_changed(self, playlist_type: str):
         """Handle playlist type changes from sidebar."""
@@ -957,31 +759,17 @@ class MainWindow(QMainWindow):
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))
         dialog.dynamic_color_toggled.connect(self._on_dynamic_color_toggled)
-        dialog.web_server_toggled.connect(self._on_web_server_toggled)
-        dialog.web_server_port_changed.connect(self._on_web_server_port_changed)
+        dialog.web_server_toggled.connect(self._web_integration.set_enabled)
+        dialog.web_server_port_changed.connect(self._web_integration.set_port)
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)
         dialog.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         dialog.exec()
         apply_accent_to_main_window(self)
 
-    def _on_web_server_toggled(self, enabled: bool):
-        """Handle web server toggle from settings."""
-        if enabled:
-            if not self._web_server.is_running():
-                self._start_web_server()
-        else:
-            self._stop_web_server()
-
     def _on_prevent_sleep_toggled(self, enabled: bool):
         """Handle prevent sleep toggle from settings."""
         if self.player:
             self.player.set_prevent_sleep(enabled)
-
-    def _on_web_server_port_changed(self, port: int):
-        """Handle web server port change from settings."""
-        if self._web_server.is_running():
-            self._stop_web_server()
-            self._start_web_server()
 
     def _on_library_requested(self):
         # Start server before launching client to prevent race condition
@@ -1078,11 +866,10 @@ class MainWindow(QMainWindow):
 
     def _on_play_artist_requested(self, artist_name: str):
         """Load all tracks by an artist and play them."""
-        self.playlist_title_label.setText(artist_name)
-        self.sep_label.setVisible(True)
-        self.scanning_status_label.setStyleSheet("color: #888888; font-size: 11px;")
-        self.scanning_status_label.setText("Загрузка...")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_playlist_title(artist_name)
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status("Загрузка...", True)
         self._start_blink_animation()
 
         from musicplayer.core.db import get_tracks_by_artist
@@ -1095,7 +882,7 @@ class MainWindow(QMainWindow):
         self.playlist.clear()
         self.playlist.set_tracks(tracks)
         self.playlist_widget.load_tracks(tracks)
-        self._update_web_server_playlist()
+        self._web_integration.update_playlist()
 
         # Reset any special view modes
         if self.sidebar._favorites_active:
@@ -1111,12 +898,11 @@ class MainWindow(QMainWindow):
 
         track_count = self.playlist.get_track_count()
         self._stop_blink_animation()
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        self.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
 
         # Bring to front after playlist is loaded
         QTimer.singleShot(200, self._bring_to_front)
-        self.scanning_status_label.setText(f"{track_count}")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_scanning_status(f"{track_count}", True)
         
         if track_count > 0:
             # Set playlist_type BEFORE playing to override _play_track_at_view_index logic
@@ -1139,10 +925,9 @@ class MainWindow(QMainWindow):
         from musicplayer.core.db import increment_play_count
         increment_play_count(current_track.filepath)
 
-        self.scanning_status_label.setText("Поиск похожих...")
-        self.scanning_status_label.setVisible(True)
-        self.playlist_title_label.setText("Похожие треки" + (f" ({current_track.title[:150]}...)" if len(current_track.title) > 150 else f" ({current_track.title})"))
-        self.sep_label.setVisible(True)
+        self.title_bar.set_scanning_status("Поиск похожих...", True)
+        self.title_bar.set_playlist_title("Похожие треки" + (f" ({current_track.title[:150]}...)" if len(current_track.title) > 150 else f" ({current_track.title})"))
+        self.title_bar.set_show_separator(True)
 
         # Disable sidebar buttons while loading
         self.sidebar.set_all_buttons_enabled(False, include_folder=False)
@@ -1155,7 +940,7 @@ class MainWindow(QMainWindow):
 
         if not search_pool:
             QMessageBox.information(self, "Поиск похожих треков", "Недостаточно треков в библиотеке с данными для анализа, чтобы найти похожие.")
-            self.scanning_status_label.setVisible(False)
+            self.title_bar.hide_scanning_status()
             self.sidebar.set_all_buttons_enabled(True)
             return
 
@@ -1163,14 +948,14 @@ class MainWindow(QMainWindow):
 
         if not similar_tracks:
             QMessageBox.information(self, "Поиск похожих треков", "Не удалось найти похожие треки.")
-            self.scanning_status_label.setVisible(False)
+            self.title_bar.hide_scanning_status()
             self.sidebar.set_all_buttons_enabled(True)
             return
 
         self.playlist.clear()
         self.playlist.set_tracks(similar_tracks)
         self.playlist_widget.load_tracks(similar_tracks)
-        self._update_web_server_playlist()
+        self._web_integration.update_playlist()
 
         # Reset any special view modes from sidebar
         if self.sidebar._favorites_active:
@@ -1185,8 +970,7 @@ class MainWindow(QMainWindow):
         self.settings.playlist_type = "Similar" # Set playlist type
 
         # Update status label with count and re-enable sidebar buttons
-        self.scanning_status_label.setText(f"{len(similar_tracks)}")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_scanning_status(f"{len(similar_tracks)}", True)
         self.sidebar.set_all_buttons_enabled(True)
 
         # Start playing the first similar track, or the current track if it's in the similar list
@@ -1200,7 +984,7 @@ class MainWindow(QMainWindow):
             else:
                 self._play_track_at_view_index(0) # Play the most similar track
 
-        self._update_web_server_state()
+        self._web_integration.update_state()
 
     def _play_track_from_db(self, track):
         from musicplayer.core.db import ensure_cover_for_track
@@ -1227,11 +1011,10 @@ class MainWindow(QMainWindow):
 
     def _scan_folder_and_play(self, folder_path: str, target_filepath: str):
         # NEW: Update title bar immediately
-        self.playlist_title_label.setText(Path(folder_path).name)
-        self.sep_label.setVisible(True)
-        self.scanning_status_label.setStyleSheet("color: #888888; font-size: 11px;")
-        self.scanning_status_label.setText("Загрузка...")
-        self.scanning_status_label.setVisible(True)
+        self.title_bar.set_playlist_title(Path(folder_path).name)
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status("Загрузка...", True)
         self._start_blink_animation()
 
         if self.scanner and self.scanner.isRunning(): self.scanner.cancel()
@@ -1259,15 +1042,14 @@ class MainWindow(QMainWindow):
 
     def _on_scan_finished_and_play(self, tracks: list, target_filepath: str):
         self._stop_blink_animation()
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        self.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
 
         removed = self._removed_tracks_count
         status = f"Загружено: {len(tracks)} треков"
         if removed > 0: status += f". Не найдено: {removed}"
-        self.scanning_status_label.setText(status)
+        self.title_bar.set_scanning_status(status)
         QTimer.singleShot(3000, lambda: (
-                self.scanning_status_label.setText(f"{len(tracks)}"),
-                self.scanning_status_label.setVisible(True)
+                self.title_bar.set_scanning_status(f"{len(tracks)}", True)
             ))
         self.sidebar.set_all_buttons_enabled(True)
 
@@ -1297,7 +1079,7 @@ class MainWindow(QMainWindow):
                 self.playlist_widget.set_playing_track(self._current_playing_filepath)
             if self._current_playing_filepath == track.filepath:
                 self.controls_widget.set_current_track_favorite(track.filepath, new_state)
-            self._update_web_server_favorites()
+            self._web_integration.update_favorites()
 
     def _on_badge_clicked(self, index: int):
         from musicplayer.ui.tag_editor import TagEditorDialog
@@ -1365,7 +1147,7 @@ class MainWindow(QMainWindow):
             new_state = db_toggle_favorite(self._current_playing_filepath)
             self.controls_widget.set_current_track_favorite(self._current_playing_filepath, new_state)
             self.playlist_widget.list_widget.viewport().update()
-            self._update_web_server_favorites()
+            self._web_integration.update_favorites()
 
     def _restore_state(self):
         vol = self.settings.volume
@@ -1390,7 +1172,7 @@ class MainWindow(QMainWindow):
             mode = get_playlist_sort_mode()
             self.playlist.set_sort_mode(mode)
             self.playlist_widget.load_tracks(self.playlist.get_tracks())
-            self._update_web_server_playlist()
+            self._web_integration.update_playlist()
             self.settings.playlist_type = "Favorites"
             self._update_playlist_title()
             # Restore last played track
@@ -1413,7 +1195,7 @@ class MainWindow(QMainWindow):
             mode = get_playlist_sort_mode()
             self.playlist.set_sort_mode(mode)
             self.playlist_widget.load_tracks(self.playlist.get_tracks())
-            self._update_web_server_playlist()
+            self._web_integration.update_playlist()
             self.settings.playlist_type = "Top"
             self._update_playlist_title()
             # Restore last played track
@@ -1493,159 +1275,16 @@ class MainWindow(QMainWindow):
         if self._media_keys_handler:
             self._media_keys_handler.uninstall()
 
-        self._stop_web_server()
+        self._web_integration.stop()
         
         event.accept()
 
     def _setup_media_keys(self):
-        def on_media_key(action: str):
-            if action == "play_pause": self.player.toggle_play_pause()
-            elif action == "next_track": self._on_next()
-            elif action == "prev_track": self._on_previous()
-        self._media_keys_handler = _install_media_keys_filter(int(self.winId()), on_media_key)
-
-    def _wire_web_server_signals(self):
-        """Connect web server signals to player/UI actions.
-        This ensures the Web UI triggers real player methods on the main thread.
-        """
-        ws = self._web_server
-        if not ws:
-            return
-        ws.play_requested.connect(self.player.play)
-        ws.pause_requested.connect(self.player.pause)
-        ws.next_requested.connect(self._on_next)
-        ws.previous_requested.connect(self._on_previous)
-        ws.volume_requested.connect(self.player.set_volume)
-        ws.seek_requested.connect(self.player.set_position)
-        ws.play_track_requested.connect(lambda idx: self._play_track_at_view_index(idx))
-        ws.play_folder_requested.connect(self._on_play_folder_from_web)
-        ws.toggle_favorite_requested.connect(self._on_web_toggle_favorite)
-        ws.toggle_repeat_requested.connect(self._on_web_toggle_repeat)
-        ws.play_favorites_requested.connect(lambda: self._on_favorites_toggled(True))
-        ws.play_top_requested.connect(lambda: self._on_top_toggled(True))
-        ws.play_similar_requested.connect(self._on_similar_tracks_requested)
-
-    def _on_web_toggle_favorite(self):
-        """Handle favorite toggle request from web UI."""
-        # The controls widget button is the source of truth for this action
-        self.controls_widget.favorite_toggled.emit()
-
-    def _on_web_toggle_repeat(self):
-        """Cycle through repeat modes: none -> all -> one -> none."""
-        from musicplayer.core.playlist import RepeatMode
-        current = self.playlist.get_repeat_mode()
-        if current == RepeatMode.NONE:
-            new_mode = RepeatMode.ALL
-        elif current == RepeatMode.ALL:
-            new_mode = RepeatMode.ONE
-        else:
-            new_mode = RepeatMode.NONE
-        self.playlist.set_repeat_mode(new_mode)
-        self.controls_widget.set_repeat_mode(new_mode)
-        if self._web_server.is_running():
-            self._web_server.update_state(
-                self.player.is_playing(),
-                self.player.get_position(),
-                self.player.get_duration(),
-                self.player.get_volume(),
-                new_mode
-            )
-
-    def _on_play_folder_from_web(self, folder_path: str):
-        """Обработка запроса на воспроизведение папки из веб-интерфейса."""
-        if not os.path.isdir(folder_path):
-            print(f"[MainWindow] Папка не найдена: {folder_path}")
-            return
-        music_folder = self.settings.music_folder
-        if music_folder and os.path.isdir(music_folder):
-            folder_norm = os.path.normpath(folder_path)
-            music_norm = os.path.normpath(music_folder)
-            if not folder_norm.startswith(music_norm + os.sep) and folder_norm != music_norm:
-                print(f"[MainWindow] Папка вне музыкальной директории: {folder_path}")
-                return
-        self._scan_folder(folder_path)
-
-    def _start_web_server(self):
-        """Start the web server."""
-        port = self.settings.web_server_port
-        print(f"[MainWindow] Starting web server on port {port}")
-        try:
-            self._web_server.start_async(port)
-            print(f"[MainWindow] Web server started")
-            QTimer.singleShot(1000, self._sync_playlist_now)
-            QTimer.singleShot(1000, self._update_web_server_favorites)
-        except Exception as e:
-            print(f"Failed to start web server: {e}")
-
-    def _sync_playlist_now(self):
-        """Sync playlist to web server."""
-        if self._web_server.is_running():
-            tracks = self.playlist_widget.get_view_tracks()
-            print(f"[WEB] Initial sync: {len(tracks)} tracks")
-            self._web_server.update_playlist(tracks)
-
-    def _stop_web_server(self):
-        """Stop the web server."""
-        self._web_server.stop()
-
-    def _update_web_server_playlist(self):
-        """Update playlist in web server."""
-        if self._web_server.is_running():
-            self._web_server.update_playlist(self.playlist_widget.get_view_tracks())
-    
-    def _update_web_server_favorites(self):
-        """Update favorites list in web server."""
-        from musicplayer.core.db import get_favorite_filepaths
-        if self._web_server.is_running():
-            self._web_server.update_favorites(get_favorite_filepaths())
-
-    def _update_web_server_state(self):
-        """Update web server with current player state."""
-        if not self._web_server.is_running():
-            return
-        
-        # This update can be frequent, so we also sync favorites here
-        self._update_web_server_favorites()
-
-        # Use current playing filepath from widget, not from core playlist (which may be sorted differently)
-        view_tracks = self.playlist_widget.get_view_tracks()
-        playing_fp = self._current_playing_filepath
-        
-        # Find current track in view_tracks (the actual playing order, not sorted order)
-        current_track = None
-        current_index = -1
-        if playing_fp:
-            for i, t in enumerate(view_tracks):
-                if t.filepath == playing_fp:
-                    current_track = t
-                    current_index = i
-                    break
-        
-        if not current_track:
-            return
-
-        sort_mode = get_playlist_sort_mode()
-        
-        self._web_server.update_state(
-            self.player.is_playing(),
-            self.player.get_position(),
-            self.player.get_duration(),
-            self.player.get_volume(),
-            self.playlist.get_repeat_mode()
+        self._media_keys_handler = create_media_keys_handler(
+            int(self.winId()),
+            self.player,
+            self._on_next,
+            self._on_previous
         )
-        self._web_server.update_sort_mode(sort_mode)
-        self._web_server.update_playlist_title(self.playlist_title_label.text() or "")
-        self._web_server.update_track(current_track)
-        self._web_server.update_current_index(current_index)
 
-        if not hasattr(self, '_web_last_track_fp'):
-            self._web_last_track_fp = current_track.filepath
-            return
-
-        if self._web_last_track_fp != current_track.filepath:
-            self._web_last_track_fp = current_track.filepath
-            tracks = self.playlist_widget.get_view_tracks()
-            self._web_server.update_playlist(tracks)
-            print(f"[WEB] Playlist update: {len(tracks)} tracks, playing: {current_track.filepath}")
-
-
+    

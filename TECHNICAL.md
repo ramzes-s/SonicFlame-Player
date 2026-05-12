@@ -44,6 +44,7 @@ SonicFlame\
 │   │   └── windows_sleep_blocker.py    # механизм предотвращения перехода пк в спящий режим во время воспроизведения
 │   ├── ui/
 │   │   ├── __init__.py
+│   │   ├── web_integration.py          # Интеграция веб-сервера (вынесено из main_window)
 │   │   ├── library/                    # Модули библиотеки (рефакторинг)
 │   │   │   ├── __init__.py             # Экспорт: LibraryDialog, LibraryModel, DataWorker, ArtistViewWidget
 │   │   │   ├── types.py                # Track dataclass, константы колонок (HEADERS, COL_*)
@@ -54,10 +55,13 @@ SonicFlame\
 │   │   │   ├── artist_view.py          # ArtistViewWidget (виджет "Исполнители")
 │   │   │   ├── artist_card.py          # ArtistCardWidget (карточка исполнителя)
 │   │   │   └── artist_worker.py        # ArtistProcessingWorker
+│   │   ├── player/                     # UI компоненты плеера
+│   │   │   └── title_bar.py            # Кастомный заголовок окна с кнопками и сортировкой
 │   │   ├── controls.py                 # Контролы управления (transport, seek, volume)
 │   │   ├── main_window.py              # Главное окно, координатор, tray, мини-виджет
 │   │   ├── mini_widget.py              # Мини-плеер для системного трея
 │   │   ├── playlist_view.py            # Плейлист с кастомным делегатом
+│   │   ├── remove_track_dialog.py      # Диалог и функция удаления трека из библиотеки
 │   │   ├── settings_dialog.py          # Диалог настроек (акцент, папка, статистика)
 │   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
 │   │   ├── svg_icons.py                # SVG-иконки как строки
@@ -285,6 +289,19 @@ SonicFlame\
     - Возвращает до `limit` треков, чей балл сходства превышает `min_similarity_threshold`.
     - Результаты перемешиваются перед возвратом.
 
+#### `core/media_keys.py` — Media Keys Handler
+Обработчик глобальных медиа-клавиш (Play/Pause, Next, Previous) для Windows.
+
+**Функции**:
+- `_install_media_keys_filter(hwnd, callback)` — регистрация горячих клавиш, callback получает `"play_pause"`, `"next_track"`, `"prev_track"`
+- `create_media_keys_handler(hwnd, player, on_next, on_previous)` — создание обработчика с удобным API (принимает player и callbacks)
+
+**Особенности**:
+- Использует Windows RegisterHotKey API + QAbstractNativeEventFilter
+- Работает глобально даже при свёрнутом в трей окне
+- Дедупликация событий (150мс)
+- Автоматическая отписка при выходе
+
 #### `core/web_server.py` — WebServer (координатор)
 Веб-сервер для удалённого управления плеером через браузер. После рефакторинга разделён на три модуля:
 
@@ -395,8 +412,36 @@ SonicFlame\
 
 ### UI модули
 
+#### `ui/web_integration.py` — WebIntegration
+Вынесенный из main_window.py модуль для управления веб-сервером.
+
+**Класс `WebIntegration(QObject)`**:
+- `_main_window` — ссылка на MainWindow
+- `_web_server` — экземпляр WebServer
+- `_web_last_track_fp` — отслеживание смены трека
+
+**Методы**:
+- `start(port)` — запуск веб-сервера
+- `stop()` — остановка веб-сервера
+- `is_running()` — проверка состояния
+- `set_enabled(enabled)` — включение/выключение из настроек
+- `set_port(port)` — смена порта с перезапуском
+- `update_playlist()` — синхронизация плейлиста
+- `update_favorites()` — синхронизация избранного
+- `update_state()` — синхронизация состояния плеера
+
+**Внутренние методы**:
+- `_wire_signals()` — подключение сигналов WebServer к методам MainWindow
+- `_on_play_folder()` — обработка воспроизведения папки
+- `_on_toggle_favorite()` — обработка избранного
+- `_on_toggle_repeat()` — обработка повтора
+
 #### `ui/main_window.py` — MainWindow
 Главное окно приложения (координатор всех компонентов).
+
+**Рефакторинг**:
+- `TitleBarWidget` вынесен в `ui/player/title_bar.py` — кастомный заголовок с SVG-иконкой, статусом сканирования, выпадающим списком сортировки и кнопками сворачивания/закрытия
+- `MissingTrackDialog` и `remove_track_from_library` вынесены в `ui/remove_track_dialog.py`
 
 **Сортировка треков (UI)**:
 - В титл-баре добавлен выпадающий список (right-aligned) с четырьмя режимами: По исполнителю, По названию, По новизне, Перемешать.
@@ -407,12 +452,12 @@ SonicFlame\
 
 **Особенности**:
 - `Qt.FramelessWindowHint` + `Qt.WA_TranslucentBackground` — безрамочное окно с прозрачностью
-- Кастомный title bar с SVG-иконкой, статусом сканирования, кнопками сворачивания/закрытия. **Теперь динамически обновляет статус (название папки/плейлиста) и количество треков при начале загрузки/сканирования.**
+- Кастомный title bar (`TitleBarWidget`) с динамическим обновлением статуса (название папки/плейлиста, количество треков)
 - Закруглённые углы (12px) через `paintEvent()`
 - Перетаскивание окна мышью за title bar
 - **Системный трей**: `QSystemTrayIcon` с контекстным меню (Показать/Выход)
 - **Мини-виджет**: `MiniPlayerWidget` при сворачивании в трей (если включено в настройках)
-- **Обработка удаления трека**: После закрытия `TagEditorDialog` метод `_on_badge_clicked` проверяет флаг `dialog.delete_confirmed`. Если он `True`, вызывается `remove_track_from_library` для очистки из плейлиста и БД, после чего файл удаляется с диска через `os.remove`.
+- **Обработка удаления трека**: использует `remove_track_from_library` из `ui/remove_track_dialog.py`
 - **Библиотека-субпроцесс**: запуск `main.py --library` через `subprocess.Popen`
 
 **Поиск похожих треков (UI)**:
@@ -458,8 +503,54 @@ SonicFlame\
 **Акцентный цвет** — загружается из настроек ДО построения UI, применяется ко всему интерфейсу через `config.ACCENT_COLOR`
 
 **Интеграция с веб-сервером**:
-- При изменении громкости через API (`/api/volume`) сигнал `volume_requested` подключён к `player.set_volume()`
-- Для обновления UI слайдера громкости добавлено соединение: `player.volume_changed.connect(controls_widget.set_volume)`
+- Вынесена в отдельный класс `WebIntegration` (`ui/web_integration.py`)
+- Инициализируется в `__init__`: `self._web_integration = WebIntegration(self)`
+- Методы MainWindow вызывают `_web_integration.update_playlist()`, `_web_integration.update_state()`, `_web_integration.update_favorites()`
+- Настройки веб-сервера подключены напрямую: `dialog.web_server_toggled.connect(self._web_integration.set_enabled)`
+
+**Медиа-клавиши**:
+- Использует `create_media_keys_handler(hwnd, player, on_next, on_previous)` из `core/media_keys.py`
+- Упрощённая инициализация в `_setup_media_keys()`
+
+#### `ui/player/title_bar.py` — TitleBarWidget
+
+Вынесенный из main_window.py кастомный заголовок окна.
+
+**Компоненты**:
+- Иконка приложения (SVG музыкальная нота)
+- Заголовок "SonicFlame Player"
+- `playlist_title_label` — название текущего плейлиста/папки
+- `sep_label` — разделитель (•)
+- `scanning_status_label` — статус сканирования/загрузки
+- Выпадающий список сортировки (По исполнителю, По названию, По новизне, Перемешать)
+- Кнопки минимизации и закрытия
+
+**Сигналы**:
+- `sort_mode_changed(str)` — при изменении режима сортировки
+
+**Методы управления**:
+- `set_playlist_title(title)` — установить название плейлиста
+- `set_show_separator(show)` — показать/скрыть разделитель
+- `set_scanning_status(text, visible)` — установить текст статуса
+- `set_scanning_status_style(style)` — установить стиль статуса
+- `hide_scanning_status()` — скрыть статус
+- `set_sort_mode(mode)` — установить режим сортировки
+- `update_close_button_color(color)` — обновить цвет кнопки закрытия
+
+#### `ui/remove_track_dialog.py` — MissingTrackDialog + remove_track_from_library
+
+Вынесенные из main_window.py диалог и функция для удаления треков.
+
+**MissingTrackDialog**:
+- Диалог при отсутствии файла трека
+- Показывает информацию о треке (название, артист, имя файла)
+- Кнопки "Да"/"Нет" для удаления из библиотеки
+
+**remove_track_from_library(filepath, playlist_widget, playlist, main_window)**:
+- Удаляет трек из БД (`delete_track`)
+- Обновляет плейлист виджета
+- Очищает обложку из кеша
+- Сбрасывает состояние воспроизведения в main_window
 
 #### `ui/track_info.py` — TrackInfoWidget + AlbumArtWidget
 **`AlbumArtWidget`**:
