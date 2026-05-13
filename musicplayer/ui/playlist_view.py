@@ -396,6 +396,7 @@ class PlaylistWidget(QWidget):
     track_selected = Signal(int)  # Emitted when user clicks a track (view index)
     favorite_clicked = Signal(int)  # Emitted when user clicks heart icon (view index)
     badge_clicked = Signal(int)  # Emitted when user clicks badge area (view index)
+    playlist_loaded = Signal()  # Emitted after tracks are loaded
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -488,6 +489,7 @@ class PlaylistWidget(QWidget):
         self._full_tracks = list(tracks)
         self._view_tracks = self._full_tracks  # Same reference when showing full
         self._display_tracks()
+        self.playlist_loaded.emit()
 
     def update_track_data(self, old_filepath: str, new_track: TrackInfo):
         """
@@ -622,11 +624,13 @@ class PlaylistWidget(QWidget):
         fav_tracks = get_library_tracks_page(offset=0, limit=99999, fav_only=True, sort_col='artist', sort_ord='ASC')
         self._view_tracks = fav_tracks
         self._display_tracks()
+        self.playlist_loaded.emit()
 
     def show_full_playlist(self):
         """Show the full playlist from current folder."""
         self._view_tracks = self._full_tracks
         self._display_tracks()
+        self.playlist_loaded.emit()
 
     def get_view_tracks(self) -> list:
         """Get the currently displayed tracks (for next/prev logic)."""

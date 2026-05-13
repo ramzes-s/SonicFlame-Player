@@ -16,7 +16,7 @@ def _generate_abstract_cover(artist: str, title: str) -> bytes:
         base_path = Path(__file__).resolve().parent.parent.parent.parent
 
     res_folder_path = base_path / "res"
-    background_images = [f"cover{i}.jpg" for i in range(1, 11)]
+    background_images = [f"cover{i}.jpg" for i in range(1, 15)]
     selected_image_name = random.choice(background_images)
     background_image_path = res_folder_path / selected_image_name
 

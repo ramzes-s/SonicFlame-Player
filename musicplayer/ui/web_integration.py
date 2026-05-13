@@ -47,7 +47,7 @@ class WebIntegration(QObject):
         try:
             self._web_server.start_async(port)
             QTimer.singleShot(1000, self._sync_playlist)
-            QTimer.singleShot(1000, self._update_favorites)
+            QTimer.singleShot(1000, self.update_favorites)
             print(f"[WebIntegration] Web server started on port {port}")
         except Exception as e:
             print(f"[WebIntegration] Failed to start web server: {e}")
@@ -120,9 +120,11 @@ class WebIntegration(QObject):
             self._web_server.update_playlist(tracks)
 
     def update_playlist(self):
-        """Update playlist in web server."""
-        if self._web_server.is_running():
-            self._web_server.update_playlist(self._main_window.playlist_widget.get_view_tracks())
+        """Sync playlist to web server (called once per playlist load)."""
+        if not self._web_server.is_running():
+            return
+        tracks = self._main_window.playlist_widget.get_view_tracks()
+        self._web_server.update_playlist(tracks)
 
     def update_favorites(self):
         """Update favorites list in web server."""
@@ -133,7 +135,6 @@ class WebIntegration(QObject):
         """Update web server with current player state."""
         if not self._web_server.is_running():
             return
-
         self.update_favorites()
 
         view_tracks = self._main_window.playlist_widget.get_view_tracks()
@@ -164,12 +165,3 @@ class WebIntegration(QObject):
         self._web_server.update_playlist_title(self._main_window.title_bar.get_playlist_title() or "")
         self._web_server.update_track(current_track)
         self._web_server.update_current_index(current_index)
-
-        if not hasattr(self, '_web_last_track_fp'):
-            self._web_last_track_fp = current_track.filepath
-            return
-
-        if self._web_last_track_fp != current_track.filepath:
-            self._web_last_track_fp = current_track.filepath
-            tracks = self._main_window.playlist_widget.get_view_tracks()
-            self._web_server.update_playlist(tracks)
