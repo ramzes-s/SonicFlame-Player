@@ -84,7 +84,7 @@ class AlbumArtWidget(QWidget):
         self._mood = mood
 
         if self._tempo > 0.0:
-            star_size = 24
+            star_size = 20
             pixmap = QPixmap(star_size, star_size)
             pixmap.fill(Qt.transparent)
             

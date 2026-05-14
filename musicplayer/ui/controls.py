@@ -44,7 +44,7 @@ class IconButton(QPushButton):
             self._opacity_anim.setDuration(200)
             self._opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
 
-        self.setFixedSize(size + 8, size + 8)
+        self.setFixedSize(size + 6, size + 6)
         self.setCursor(Qt.PointingHandCursor)
 
         if self._circular_hover:
@@ -481,7 +481,7 @@ class ControlsWidget(QWidget):
 
         # Play/Pause
         self.play_pause_btn = IconButton(get_play_svg, size=50, tooltip="Play")
-        self.play_pause_btn.setFixedSize(62, 62)
+        self.play_pause_btn.setFixedSize(58, 58)
         self.play_pause_btn.setStyleSheet(self._get_play_button_style())
         self.play_pause_btn.clicked.connect(self._on_play_pause_clicked)
         controls_layout.addWidget(self.play_pause_btn)
@@ -611,15 +611,14 @@ class ControlsWidget(QWidget):
             QPushButton {
                 background-color: transparent;
                 border: none;
-                border-radius: 31px;
-                padding: 10px;
+                border-radius: 29px;
+                padding: 6px;
             }
             QPushButton:hover {
-                background-color: rgba(80, 80, 80, 0.4);
+                background-color: rgba(80, 80, 80, 0.3);
             }
             QPushButton:pressed {
-                background-color: rgba(80, 80, 80, 0.6);
-            }
+                background-color: rgba(80, 80, 80, 0.5);
         """
     
     def _on_volume_changed(self, value: int):

@@ -20,7 +20,7 @@ def get_play_svg(size: int = 42, color: str = "#FFFFFF") -> str:
     <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path fill-rule="evenodd" fill="{color}" d="
             M12 1a11 11 0 1 0 0 22 11 11 0 0 0 0-22z
-            M8.5 5.5v13l10-6.5z
+            M8.85 6.15v11.7l9-5.85z
         "/>
     </svg>
     """
