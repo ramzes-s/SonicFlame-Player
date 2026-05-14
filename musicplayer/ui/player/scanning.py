@@ -5,9 +5,10 @@ Scanning logic: folder scanning, progress, callbacks.
 from musicplayer.core.db import upsert_folder
 from musicplayer.core.settings import get_playlist_sort_mode
 from musicplayer.utils.audio_scanner import AudioScanner
+from musicplayer.ui.player.managers import PlayerManagerBase
 
 
-class ScanningManager:
+class ScanningManager(PlayerManagerBase):
     """Manages folder scanning and tracking scan progress."""
 
     def __init__(self, main_window):
@@ -33,7 +34,7 @@ class ScanningManager:
         if self._scanner and self._scanner.isRunning():
             self._scanner.cancel()
 
-    def _on_started(self, folder_path: str):
+    def _on_started(self):
         self._mw.playlist.clear()
         try:
             self._mw.playlist.begin_bulk_add()
@@ -42,7 +43,8 @@ class ScanningManager:
         self._mw.playlist_widget.clear()
         self._mw.playlist_widget._view_tracks = self._mw.playlist_widget._full_tracks
         self._mw.playlist_widget.delegate.tracks_ref = self._mw.playlist_widget._view_tracks
-        self._mw.sidebar.set_all_buttons_enabled(False, include_folder=False)
+        self._mw.sidebar.set_all_buttons_enabled(False)
+        self._mw.title_bar.set_sort_enabled(False)
 
     def _on_track_scanned(self, track):
         self._mw.playlist.add_tracks([track])
@@ -74,6 +76,7 @@ class ScanningManager:
             self._mw.title_bar.set_scanning_status(f"{track_count}", True)
         ))
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.title_bar.set_sort_enabled(True)
 
         self._reset_sidebar_state()
 
@@ -123,15 +126,6 @@ class ScanningManager:
         self._mw._blink_animation.stop()
         self._mw.title_bar.hide_scanning_status()
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.title_bar.set_sort_enabled(True)
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.warning(self._mw, "Scan Error", error_msg)
-
-    def _reset_sidebar_state(self):
-        if self._mw.sidebar._favorites_active:
-            self._mw.sidebar._favorites_active = False
-            self._mw.sidebar.favorites_btn.set_active(False)
-            self._mw.settings.favorites_mode = False
-        if self._mw.sidebar._top_active:
-            self._mw.sidebar._top_active = False
-            self._mw.sidebar.top_btn.set_active(False)
-            self._mw.settings.top_mode = False

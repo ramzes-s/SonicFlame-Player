@@ -57,6 +57,7 @@ SonicFlame\
 │   │   │   └── artist_worker.py    # ArtistProcessingWorker
 │   │   ├── player/                  # Рефакторинг main_window.py — координатор и менеджеры
 │   │   │   ├── __init__.py         # Реэкспорт MainWindow
+│   │   │   ├── managers.py         # PlayerManagerBase — базовый класс (shared methods)
 │   │   │   ├── main_window.py      # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
 │   │   │   ├── title_bar.py        # Кастомный заголовок окна (с кнопками и сортировкой)
 │   │   │   ├── animation.py         # BlinkAnimation — мигание статуса при сканировании
@@ -783,7 +784,7 @@ User → Sidebar: открыть папку
         → If mtime unchanged: load from DB
         → Else: extract_metadata() → upsert_track()
       → emit track_scanned(TrackInfo)
-        → MainWindow._on_track_scanned()
+        → ScanningManager._on_track_scanned()
           → playlist.add_tracks()
           → playlist_widget.add_track()
     → emit scanning_finished(tracks)

@@ -4,15 +4,6 @@ Blink animation for scanning status label.
 
 from PySide6.QtCore import QPropertyAnimation, QEasingCurve, Property
 
-
-def hex_to_rgb(hex_color: str):
-    """Convert hex color to RGB tuple."""
-    r = int(hex_color[1:3], 16)
-    g = int(hex_color[3:5], 16)
-    b = int(hex_color[5:7], 16)
-    return r, g, b
-
-
 def update_status_blink_color(phase: float, title_bar) -> str:
     """Calculate blink color and apply to title bar."""
     t = abs(0.5 - phase) * 2

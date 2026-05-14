@@ -4,7 +4,6 @@ Playback and navigation logic.
 
 import os
 
-from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QMessageBox, QDialog
@@ -20,9 +19,10 @@ from musicplayer.core.db import (
 )
 from musicplayer.ui.remove_track_dialog import MissingTrackDialog, remove_track_from_library
 from musicplayer.utils.audio_scanner import AudioScanner
+from musicplayer.ui.player.managers import PlayerManagerBase
 
 
-class PlaybackManager:
+class PlaybackManager(PlayerManagerBase):
     """Manages track playback, navigation, and tag editing."""
 
     def __init__(self, main_window):
@@ -140,11 +140,7 @@ class PlaybackManager:
         self._mw.playlist_widget._view_tracks = self._mw.playlist_widget._full_tracks
         self._mw.playlist_widget.delegate.tracks_ref = self._mw.playlist_widget._view_tracks
 
-        if self._mw.sidebar._favorites_active:
-            self._mw.sidebar._favorites_active = False
-            self._mw.sidebar.favorites_btn.set_active(False)
-            self._mw.settings.favorites_mode = False
-
+        self._reset_sidebar_state()
         self._mw.title_bar.set_playlist_title(os.path.basename(folder_path))
         self._mw.title_bar.set_show_separator(True)
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
@@ -156,31 +152,15 @@ class PlaybackManager:
 
         self._mw.scanner = AudioScanner(folder_path, use_cache=True)
         self._mw._removed_tracks_count = 0
-        self._mw.scanner.scanning_started.connect(self._on_scan_started)
-        self._mw.scanner.track_scanned.connect(self._on_track_scanned)
-        self._mw.scanner.scanning_progress.connect(self._on_scan_progress)
-        self._mw.scanner.tracks_removed.connect(self._on_tracks_removed)
         self._mw.scanner.scanning_finished.connect(lambda tracks: self._on_scan_finished_and_play(tracks, target_filepath))
         self._mw.scanner.scanning_error.connect(self._on_scan_error)
         self._mw.scanner.start()
-
-    def _on_scan_started(self, folder_path: str):
-        pass
-
-    def _on_track_scanned(self, track):
-        self._mw.playlist.add_tracks([track])
-        self._mw.playlist_widget.add_track(track)
-
-    def _on_scan_progress(self, current: int, total: int):
-        self._mw.title_bar.set_scanning_status(f"Сканирование: {current}/{total}")
-
-    def _on_tracks_removed(self, count: int):
-        self._mw._removed_tracks_count += count
 
     def _on_scan_error(self, error_msg: str):
         self._mw._blink_animation.stop()
         self._mw.title_bar.hide_scanning_status()
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.title_bar.set_sort_enabled(True)
         QMessageBox.warning(self._mw, "Scan Error", error_msg)
 
     def _on_scan_finished_and_play(self, tracks: list, target_filepath: str):
@@ -196,6 +176,7 @@ class PlaybackManager:
             self._mw.title_bar.set_scanning_status(f"{len(tracks)}", True)
         ))
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.title_bar.set_sort_enabled(True)
 
         if self._mw.playlist.get_track_count() == 0 and tracks:
             self._mw.playlist.set_tracks(tracks)
@@ -352,41 +333,6 @@ class PlaybackManager:
     def _resume_after_tag_edit(self, position: int):
         self._mw.player.player.setPosition(position)
         self._mw.player.play()
-
-    def _bring_to_front(self):
-        """Bring window to front and give it focus."""
-        from PySide6.QtWidgets import QApplication
-        import ctypes
-
-        hwnd = int(self._mw.windowHandle().winId())
-        if not hwnd:
-            return
-
-        self._mw.showNormal()
-        self._mw.setWindowState(self._mw.windowState() & ~Qt.WindowMinimized)
-        self._mw.raise_()
-        QApplication.processEvents()
-
-        def do_bring():
-            try:
-                user32 = ctypes.windll.user32
-                kernel32 = ctypes.windll.kernel32
-                user32.AllowSetForegroundWindow(kernel32.GetCurrentProcessId())
-                fgwnd = user32.GetForegroundWindow()
-                if fgwnd:
-                    fg_tid = user32.GetWindowThreadProcessId(fgwnd, None)
-                    our_tid = user32.GetWindowThreadProcessId(hwnd, None)
-                    user32.AttachThreadInput(our_tid, fg_tid, True)
-                    user32.ShowWindow(hwnd, 9)
-                    user32.BringWindowToTop(hwnd)
-                    user32.AttachThreadInput(our_tid, fg_tid, False)
-                    user32.SetForegroundWindow(hwnd)
-            except Exception:
-                pass
-
-        QTimer.singleShot(100, do_bring)
-        QTimer.singleShot(300, do_bring)
-        QTimer.singleShot(600, do_bring)
 
     def on_dynamic_color_toggled(self, enabled: bool):
         if not enabled:

@@ -13,9 +13,10 @@ from musicplayer.core.db import (
     toggle_favorite as db_toggle_favorite,
 )
 from musicplayer.core.recommendations import find_similar_tracks
+from musicplayer.ui.player.managers import PlayerManagerBase
 
 
-class PlaylistManager:
+class PlaylistManager(PlayerManagerBase):
     """Manages playlist operations: favorites, top, artist view, similar tracks."""
 
     def __init__(self, main_window):
@@ -184,49 +185,3 @@ class PlaylistManager:
             self._mw.controls_widget.set_current_track_favorite(self._mw._current_playing_filepath, new_state)
             self._mw.playlist_widget.list_widget.viewport().update()
             self._mw._web_integration.update_favorites()
-
-    def _reset_sidebar_state(self):
-        if self._mw.sidebar._favorites_active:
-            self._mw.sidebar._favorites_active = False
-            self._mw.sidebar.favorites_btn.set_active(False)
-            self._mw.settings.favorites_mode = False
-        if self._mw.sidebar._top_active:
-            self._mw.sidebar._top_active = False
-            self._mw.sidebar.top_btn.set_active(False)
-            self._mw.settings.top_mode = False
-
-    def _bring_to_front(self):
-        """Bring window to front and give it focus."""
-        from PySide6.QtWidgets import QApplication
-        import ctypes
-        from PySide6.QtCore import Qt
-
-        hwnd = int(self._mw.windowHandle().winId())
-        if not hwnd:
-            return
-
-        self._mw.showNormal()
-        self._mw.setWindowState(self._mw.windowState() & ~Qt.WindowMinimized)
-        self._mw.raise_()
-        QApplication.processEvents()
-
-        def do_bring():
-            try:
-                user32 = ctypes.windll.user32
-                kernel32 = ctypes.windll.kernel32
-                user32.AllowSetForegroundWindow(kernel32.GetCurrentProcessId())
-                fgwnd = user32.GetForegroundWindow()
-                if fgwnd:
-                    fg_tid = user32.GetWindowThreadProcessId(fgwnd, None)
-                    our_tid = user32.GetWindowThreadProcessId(hwnd, None)
-                    user32.AttachThreadInput(our_tid, fg_tid, True)
-                    user32.ShowWindow(hwnd, 9)
-                    user32.BringWindowToTop(hwnd)
-                    user32.AttachThreadInput(our_tid, fg_tid, False)
-                    user32.SetForegroundWindow(hwnd)
-            except Exception:
-                pass
-
-        QTimer.singleShot(100, do_bring)
-        QTimer.singleShot(300, do_bring)
-        QTimer.singleShot(600, do_bring)

@@ -59,7 +59,7 @@ def apply_accent_to_main_window(window, settings_dialog=None):
 
     # Title bar close button
     if hasattr(window, 'title_bar'):
-        window.title_bar.close_btn.setStyleSheet(
+        window.title_bar.close_button.setStyleSheet(
             window.title_bar._get_title_button_style(accent)
         )
 

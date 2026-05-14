@@ -51,7 +51,3 @@ class TrayManager:
     @property
     def tray_icon(self):
         return self._tray_icon
-
-    def on_close(self):
-        if self._tray_icon:
-            self._tray_icon.setVisible(False)

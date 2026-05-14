@@ -115,6 +115,9 @@ class TitleBarWidget(QWidget):
     def hide_scanning_status(self):
         self.scanning_status_label.setVisible(False)
 
+    def set_sort_enabled(self, enabled: bool):
+        self._sort_combo.setEnabled(enabled)
+
     def set_sort_mode(self, mode: str):
         index_map = {"artist": 0, "title": 1, "newest": 2, "shuffle": 3}
         self._sort_combo.blockSignals(True)
@@ -130,10 +133,6 @@ class TitleBarWidget(QWidget):
 
     @property
     def close_button(self):
-        return self._close_btn
-
-    @property
-    def close_btn(self):
         return self._close_btn
 
     @property

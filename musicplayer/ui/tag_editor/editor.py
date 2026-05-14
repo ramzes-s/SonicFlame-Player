@@ -113,9 +113,12 @@ class TagEditorDialog(QDialog):
     def _content_widget(self):
         widget = QWidget()
         widget.setStyleSheet("background-color: #000000;")
-        layout = QHBoxLayout(widget)
+        layout = QVBoxLayout(widget)
         layout.setContentsMargins(20, 16, 20, 20)
         layout.setSpacing(20)
+
+        content_layout = QHBoxLayout()
+        content_layout.setSpacing(20)
 
         left_col = QVBoxLayout()
         left_col.setSpacing(10)
@@ -138,7 +141,7 @@ class TagEditorDialog(QDialog):
         left_col.addWidget(self.search_track_btn)
 
         left_col.addStretch()
-        layout.addLayout(left_col)
+        content_layout.addLayout(left_col)
 
         right_col = QVBoxLayout()
         right_col.setSpacing(12)
@@ -190,6 +193,8 @@ class TagEditorDialog(QDialog):
         self.track_edit = self._text_input()
         form.addRow("Трек №:", self.track_edit)
 
+        fname_col = QVBoxLayout()
+        fname_col.setSpacing(4)
         fname_row = QHBoxLayout()
         fname_row.setSpacing(0)
         self.filename_edit = self._text_input()
@@ -197,7 +202,11 @@ class TagEditorDialog(QDialog):
         self.filename_from_tags_btn = self._action_button("Из тегов", width=100)
         self.filename_from_tags_btn.clicked.connect(self._apply_title_from_tags)
         fname_row.addWidget(self.filename_from_tags_btn)
-        form.addRow("Имя файла:", fname_row)
+        fname_col.addLayout(fname_row)
+        self.filepath_hint = QLabel()
+        self.filepath_hint.setStyleSheet("color: #999999; font-size: 11px; padding-left: 2px;")
+        fname_col.addWidget(self.filepath_hint)
+        form.addRow("Имя файла:", fname_col)
 
         badge_style = """
             QLabel { background-color: rgba(40, 40, 40, 0.8); color: #BBBBBB; border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: bold; }
@@ -226,6 +235,9 @@ class TagEditorDialog(QDialog):
         right_col.addLayout(form)
         right_col.addStretch()
 
+        content_layout.addLayout(right_col)
+        layout.addLayout(content_layout)
+
         btn_row = QHBoxLayout()
         self.delete_btn = self._destructive_button("Удалить")
         self.delete_btn.clicked.connect(self._prompt_delete_track)
@@ -240,8 +252,7 @@ class TagEditorDialog(QDialog):
         self.cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(self.cancel_btn)
 
-        right_col.addLayout(btn_row)
-        layout.addLayout(right_col)
+        layout.addLayout(btn_row)
         return widget
 
     def mousePressEvent(self, event):
@@ -472,6 +483,7 @@ class TagEditorDialog(QDialog):
 
         self._refresh_genre_tags()
         self.filename_edit.setText(Path(self.file_path).stem)
+        self.filepath_hint.setText(str(Path(self.file_path).parent).replace(os.sep, " ➤ "))
         self._update_fname_buttons()
 
     def _apply_title_from_tags(self):
