@@ -18,72 +18,74 @@ SonicFlame\
 ├── res/                                # Ресурсы (фоновые изображения обложек)
 ├── musicplayer/
 │   ├── __init__.py
-│   ├── config.py                       # Глобальный ACCENT_COLOR
+│   ├── config.py                       # Глобальные константы: ACCENT_COLOR, CACHE_DIR, пути кэша
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── normalize.py                # Нормализация метаданных (mutagen)
-│   │   ├── player.py                  # Обёртка над QMediaPlayer
+│   │   ├── player.py                   # Обёртка над QMediaPlayer
 │   │   ├── playlist.py                 # Управление плейлистом
-│   │   ├── db/                        # SQLite библиотека (рефакторинг — пакет)
-│   │   │   ├── __init__.py            # Обратная совместимость — экспорт всех функций
-│   │   │   ├── connection.py          # Подключение к БД, конфигурация, валидация путей
-│   │   │   ├── tracks.py             # CRUD операции с треками, извлечение метаданных
-│   │   │   ├── favorites.py          # Операции с избранным
-│   │   │   ├── cache.py              # Кэширование обложек и исполнителей
-│   │   │   ├── folders.py            # Операции с папками
-│   │   │   └── queries.py            # Фильтрация, сортировка, сложные запросы
-│   │   ├── db.py                     # Обратная совместимость (импорт из пакета db/)
-│   │   ├── db_cleaner.py             # Очистка БД от отсутствующих файлов
-│   │   ├── ipc.py                   # IPC сервер и клиент для связи плеер ↔ библиотека
-│   │   ├── settings.py               # Постоянные настройки (JSON)
-│   │   ├── web_server.py            # HTTP сервер (aiohttp)
-│   │   ├── web_api.py               # API обработчики с валидацией
-│   │   └── web_template.py          # HTML шаблон веб-интерфейса
-│   │   ├── analysis_worker.py       # Анализ аудио (librosa)
-│   │   ├── recommendations.py        # Алгоритм подбора похожих треков
-│   │   └── windows_sleep_blocker.py # Предотвращение спящего режима во время воспроизведения
+│   │   ├── db/                         # SQLite библиотека
+│   │   │   ├── __init__.py             # Обратная совместимость — экспорт всех функций
+│   │   │   ├── connection.py           # Подключение к БД (пути из config)
+│   │   │   ├── tracks.py               # CRUD операции с треками, извлечение метаданных
+│   │   │   ├── favorites.py            # Операции с избранным
+│   │   │   ├── cache.py                # Кэширование обложек
+│   │   │   ├── folders.py              # Операции с папками
+│   │   │   └── queries.py              # Фильтрация, сортировка, сложные запросы
+│   │   ├── db.py                        # Обратная совместимость (импорт из пакета db/)
+│   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
+│   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
+│   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
+│   │   ├── web_server.py               # HTTP сервер (aiohttp)
+│   │   ├── web_api.py                  # API обработчики с валидацией
+│   │   ├── web_template.py             # HTML шаблон веб-интерфейса
+│   │   ├── analysis_worker.py          # Анализ аудио (librosa)
+│   │   ├── recommendations.py          # Алгоритм подбора похожих треков
+│   │   └── windows_sleep_blocker.py    # Предотвращение спящего режима во время воспроизведения
 │   ├── ui/
 │   │   ├── __init__.py
-│   │   ├── web_integration.py       # Qt-мост к веб-серверу (QObject + сигналы)
-│   │   ├── library/                 # Модули библиотеки (рефакторинг)
-│   │   │   ├── __init__.py          # Экспорт: LibraryDialog, LibraryModel, DataWorker, ArtistViewWidget
-│   │   │   ├── types.py             # Track dataclass, константы колонок (HEADERS, COL_*)
-│   │   │   ├── settings.py          # Сохранение ширины колонок
-│   │   │   ├── worker.py           # DataWorker (generic worker thread)
-│   │   │   ├── model.py             # LibraryModel + MoodStarDelegate
-│   │   │   ├── dialog.py            # LibraryDialog (основной диалог)
-│   │   │   ├── artist_view.py      # ArtistViewWidget (виджет "Исполнители")
-│   │   │   ├── artist_card.py      # ArtistCardWidget (карточка исполнителя)
-│   │   │   └── artist_worker.py    # ArtistProcessingWorker
-│   │   ├── player/                  # Рефакторинг main_window.py — координатор и менеджеры
-│   │   │   ├── __init__.py         # Реэкспорт MainWindow
-│   │   │   ├── managers.py         # PlayerManagerBase — базовый класс (shared methods)
-│   │   │   ├── main_window.py      # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
-│   │   │   ├── title_bar.py        # Кастомный заголовок окна (с кнопками и сортировкой)
-│   │   │   ├── animation.py         # BlinkAnimation — мигание статуса при сканировании
-│   │   │   ├── tray.py            # TrayManager — системный трей и иконка
-│   │   │   ├── scanning.py         # ScanningManager — логика сканирования папок
-│   │   │   ├── playback.py         # PlaybackManager — воспроизведение, навигация, редактирование тегов
-│   │   │   └── playlist_ops.py     # PlaylistManager — избранное, топ, артист, похожие треки
-│   │   ├── controls.py             # Контролы управления (transport, seek, volume)
-│   │   ├── main_window.py          # Обратная совместимость (shim → ui.player.main_window)
-│   │   ├── mini_widget.py          # Мини-плеер для системного трея
-│   │   ├── playlist_view.py         # Плейлист с кастомным делегатом
-│   │   ├── remove_track_dialog.py  # Диалог и функция удаления трека из библиотеки
-│   │   ├── settings_dialog.py       # Диалог настроек (акцент, папка, статистика)
-│   │   ├── sidebar.py               # Боковая панель (папки, избранное, топ, настройки)
-│   │   ├── svg_icons.py            # SVG-иконки как строки
-│   │   ├── track_info.py           # Виджет обложки с градиентной тенью
-│   │   └── tag_editor/             # Редактор тегов (разделённый на модули)
-│   │       ├── __init__.py         # Реэкспорт для обратной совместимости
-│   │       ├── constants.py         # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
-│   │       ├── api.py               # iTunes/Deezer API функции
-│   │       ├── cover.py             # Генерация абстрактной обложки
-│   │       ├── cover_thread.py      # Поток поиска обложек
-│   │       ├── threads.py           # Потоки поиска треков и сохранения тегов
-│   │       ├── widgets.py           # LoadingBar, CoverDisplayLabel
-│   │       ├── dialogs.py           # TrackSearchResultsDialog, CoverSearchResultsDialog
-│   │       └── editor.py            # TagEditorDialog
+│   │   ├── web_integration.py          # Qt-мост к веб-серверу (QObject + сигналы)
+│   │   ├── library/                    # Модули библиотеки
+│   │   │   ├── __init__.py             # Экспорт: LibraryDialog, LibraryModel, DataWorker, ArtistViewWidget
+│   │   │   ├── types.py                # Track dataclass, константы колонок (HEADERS, COL_*)
+│   │   │   ├── settings.py             # Сохранение ширины колонок (пути из config)
+│   │   │   ├── worker.py               # DataWorker (generic worker thread)
+│   │   │   ├── model.py                # LibraryModel + MoodStarDelegate
+│   │   │   ├── dialog.py               # LibraryDialog (основной диалог)
+│   │   │   ├── artist_view.py          # ArtistViewWidget (виджет "Исполнители")
+│   │   │   ├── artist_card.py          # ArtistCardWidget (карточка исполнителя)
+│   │   │   └── artist_worker.py        # ArtistProcessingWorker (пути из config)
+│   │   ├── player/                     # Рефакторинг main_window.py — координатор и менеджеры
+│   │   │   ├── __init__.py             # Реэкспорт MainWindow
+│   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
+│   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
+│   │   │   ├── title_bar.py            # Кастомный заголовок окна (с кнопками и сортировкой)
+│   │   │   ├── animation.py            # BlinkAnimation — мигание статуса при сканировании
+│   │   │   ├── tray.py                 # TrayManager — системный трей и иконка
+│   │   │   ├── scanning.py             # ScanningManager — логика сканирования папок
+│   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов
+│   │   │   └── playlist_ops.py         # PlaylistManager — избранное, топ, артист, похожие треки
+│   │   ├── controls.py                 # Контролы управления (transport, seek, volume)
+│   │   ├── main_window.py              # Обратная совместимость (shim → ui.player.main_window)
+│   │   ├── mini_widget.py              # Мини-плеер для системного трея
+│   │   ├── playlist_view.py            # Плейлист с кастомным делегатом
+│   │   ├── remove_track_dialog.py      # Диалог и функция удаления трека из библиотеки
+│   │   ├── settings_dialog.py          # Диалог настроек (акцент, папка, статистика)
+│   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
+│   │   ├── svg_icons.py               # SVG-иконки как строки
+│   │   ├── track_info.py              # Виджет обложки с градиентной тенью
+│   │   └── tag_editor/                # Редактор тегов (разделённый на модули)
+│   │       ├── __init__.py            # Реэкспорт для обратной совместимости
+│   │       ├── base_dialog.py         # BaseFramelessDialog — базовый класс frameless-диалогов
+│   │       ├── constants.py           # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
+│   │       ├── api.py                 # iTunes/Deezer API функции (с логгированием)
+│   │       ├── cover.py               # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
+│   │       ├── cover_thread.py        # Поток поиска обложек (дедупликация через MD5)
+│   │       ├── threads.py             # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
+│   │       ├── widgets.py             # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
+│   │       ├── dialogs.py             # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
+│   │       ├── track_mover.py         # move_track_to_folder — перемещение трека с сохранением избранного
+│   │       └── editor.py              # TagEditorDialog (наследует BaseFramelessDialog)
 │   └── utils/
 │       ├── __init__.py
 │       ├── audio_scanner.py          # QThread сканер папок (sync с БД)
@@ -245,7 +247,7 @@ SonicFlame\
 8. Каждый трек эмитится через `track_scanned` для динамического добавления в UI
 
 #### `core/settings.py` — AppSettings
-Хранение настроек в `.cache/settings.json`.
+Хранение настроек в `settings.json` (путь из `config.SETTINGS_FILE`).
 
 **Функции сортировки** (строки 44-64):
 - `ensure_default_playlist_sort_mode()` — создаёт `playlist_sort_mode: "artist"` при первом запуске
@@ -679,22 +681,47 @@ SonicFlame\
 - **Сигнал**: `artist_ready` при готовности каждого исполнителя (динамическое добавление в UI).
 - **Кеширование**: Результат сохраняется в таблицу `artists_cache` БД.
 
-#### `ui/tag_editor.py` — TagEditorDialog
+#### `ui/tag_editor/` — Редактор тегов (пакет)
 
-Редактор тегов с расширенными возможностями (mutagen):
+Редактор тегов с расширенными возможностями (mutagen), разделён на модули:
 
-- **Удаление трека**:
-    - В редактор добавлена кнопка "Удалить" со стилем, привлекающим внимание к деструктивному действию.
-    - При нажатии открывается диалог `QMessageBox` для подтверждения операции. В диалоге отображается название трека, полный путь к файлу и предупреждение о **безвозвратном** удалении.
-    - При подтверждении диалог закрывается, устанавливая флаг `delete_confirmed = True`.
-    - `MainWindow` проверяет этот флаг после закрытия диалога и запускает процесс полного удаления трека.
+##### `base_dialog.py` — BaseFramelessDialog
+Базовый класс для frameless-диалогов. Содержит:
+- `paintEvent` с акцентной рамкой
+- `mousePressEvent`/`mouseMoveEvent` для перетаскивания окна
+- `_build_title_bar(title_text)` — кастомный заголовок с иконкой, кнопкой закрытия
+- `_setup_ui()` — создание контейнера с чёрным фоном (единая структура для всех диалогов)
+
+##### `editor.py` — TagEditorDialog
+Наследует `BaseFramelessDialog`. Основной диалог редактора:
+- **Удаление трека**: кнопка "Удалить" → подтверждение → флаг `delete_confirmed`.
+- **Перемещение трека**: кнопка "Переместить в папку" → вызов `move_track_to_folder()` → обновление `file_path`.
 - **Редактирование полей**: title, artist, album, year, track number, genre.
-- **Синхронизация с именем файла**:
-    - Заполнение тегов из имени файла (формат `Artist - Title`).
-    - Генерация имени файла на основе тегов.
-    - Переименование файла на диске с обновлением пути в БД и плейлисте.
-- **Управление обложками**:
-    - Загрузка обложки из локального файла.
+- **Синхронизация с именем файла**: заполнение из имени, генерация имени из тегов.
+- **Управление обложками**: загрузка, онлайн-поиск (iTunes/Deezer), генерация.
+- **Поиск метаданных онлайн** через iTunes и Deezer.
+- **Асинхронное сохранение** в фоновом потоке.
+
+##### `track_mover.py` — move_track_to_folder
+Функция перемещения трека в другую папку:
+- Валидация: папка внутри `music_folder`, не совпадает с текущей, нет дубликата имени.
+- `shutil.move()` + обновление избранного (`toggle_favorite(new_path)`).
+- Возвращает новый путь или `None`.
+
+##### `base_dialog.py`, `dialogs.py` — Dialog classes
+- `TrackSearchResultsDialog` — результаты поиска треков.
+- `CoverSearchResultsDialog` — выбор обложки.
+- `CoverTile` — плитка обложки с SVG-заглушкой.
+- Все наследуют `BaseFramelessDialog`, устранено ~55 строк дублирования.
+
+##### `threads.py` — Worker threads
+- `_TrackSearchThread` — поиск треков через iTunes/Deezer.
+- `_CoverDownloadThread` — асинхронная загрузка обложек (не блокирует UI).
+- `_SaveTagsThread` — сохранение тегов в фоне (MP3, FLAC, M4A/MP4).
+
+##### `cover.py`, `cover_thread.py` — Cover generation
+- `_generate_abstract_cover()` — генерация обложки на фоновом изображении.
+- `_CoverSearchThread` — поиск обложек с дедупликацией через MD5.
     - **Онлайн-поиск обложек**: Поиск по API iTunes и Deezer с выбором из результатов.
     - Генерация обложек двойным кликом по фрейму отсутствующей обложки трека
 - **Поиск информации о треке**:
@@ -767,10 +794,19 @@ QThread для сканирования папок. Для максимальн�
 
 ## Глобальные константы
 
-| Константа        | Значение  | Файл                   |
-|------------------|-----------|------------------------|
-| ACCENT_COLOR     | `#ed6a02` | `musicplayer/config.py`|
-| Мин. размер окна | 1100×600  | `ui/main_window.py`    |
+| Константа           | Значение        | Файл                   |
+|---------------------|-----------------|------------------------|
+| ACCENT_COLOR        | `#ed6a02`       | `musicplayer/config.py`|
+| PROJECT_DIR         | корень проекта  | `musicplayer/config.py`|
+| CACHE_DIR           | `.cache/`       | `musicplayer/config.py`|
+| DB_PATH             | `.cache/musicplayer.db` | `musicplayer/config.py`|
+| COVERS_DIR          | `.cache/covers/`| `musicplayer/config.py`|
+| ARTIST_COLLAGES_DIR | `.cache/artist_collages/` | `musicplayer/config.py`|
+| SETTINGS_FILE       | `.cache/settings.json` | `musicplayer/config.py`|
+| COL_WIDTHS_FILE     | `.cache/library_col_widths.json` | `musicplayer/config.py`|
+| Мин. размер окна    | 1100×600        | `ui/main_window.py`    |
+
+Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.
 
 ## Поток данных при воспроизведении
 
