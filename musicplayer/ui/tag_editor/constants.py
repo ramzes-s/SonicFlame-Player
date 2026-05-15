@@ -7,12 +7,12 @@ ID3_GENRES = [
     "Contemporary Christian", "Country Rock", "Drum & Bass", "Dubstep", "Death Metal",
     "Easy Listening", "Electronic", "Eurodance", "Folk", "Folk-Rock",
     "Gospel", "Gothic Rock", "Hard Rock", "Hardcore", "Heavy Metal",
-    "House", "Indie", "Industrial", "Instrumental", "Jungle", "latina", "Lo-Fi", "Lounge",
-    "New Wave", "Opera", "Orchestral", "Party", "Podcast", "Pop", "Post-Rock", "Post-Hardcore",
+    "House", "Indie", "Industrial", "Instrumental", "Jungle", "Latina", "Lo-Fi", "Lounge",
+    "New Wave", "Opera", "Orchestral", "Party", "Podcast", "Post-Rock", "Post-Hardcore",
     "Pop Punk", "Pop Rock", "Power Pop", "Progressive Rock", "Psychedelic", "Punk", "Salsa",
     "Samba", "Singer-Songwriter", "Ska", "Ska-Punk", "Slow Rock", "Smooth Jazz",
     "Soundtrack", "Soul", "Synthwave", "Tango", "Thrash Metal",
-    "Trance", "Trap", "Trip-Hop", "Vocal", "World Music"
+    "Trap", "Trip-Hop", "Vocal", "World Music"
 ]
 
 # Constants for generated cover

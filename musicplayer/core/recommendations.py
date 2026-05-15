@@ -12,10 +12,10 @@ from musicplayer import config as cfg
 import random
 
 # --- Weights and thresholds ---
-WEIGHT_GENRE = 0.25
-WEIGHT_TEMPO = 0.24
-WEIGHT_ENERGY = 0.27
-WEIGHT_MOOD = 0.24
+WEIGHT_GENRE = 0.30
+WEIGHT_TEMPO = 0.23
+WEIGHT_ENERGY = 0.24
+WEIGHT_MOOD = 0.23
 PENALTY_ARTIST = -0.05
 
 # Use ranges from config

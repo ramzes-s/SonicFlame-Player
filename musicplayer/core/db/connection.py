@@ -5,18 +5,12 @@ Handles SQLite connection setup, WAL mode, and path configuration.
 """
 
 import os
-import sys
 import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 from typing import Optional
 
-
-def _get_exe_dir() -> Path:
-    """Get the directory containing the exe (or project root in dev mode)."""
-    if getattr(sys, 'frozen', False):
-        return Path(sys.executable).parent
-    return Path(__file__).parent.parent.parent
+from musicplayer import config
 
 
 def normalize_path(path_str: str) -> str:
@@ -64,9 +58,9 @@ def get_music_folder() -> Optional[str]:
 
 
 # Database location
-DB_DIR = _get_exe_dir() / ".cache"
-DB_PATH = DB_DIR / "musicplayer.db"
-COVERS_DIR = DB_DIR / "covers"
+DB_DIR = config.CACHE_DIR
+DB_PATH = config.DB_PATH
+COVERS_DIR = config.COVERS_DIR
 
 
 @contextmanager

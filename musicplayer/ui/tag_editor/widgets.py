@@ -1,6 +1,6 @@
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QWidget, QLabel
 from PySide6.QtCore import Qt, Signal, QTimer
-from PySide6.QtGui import QPainter, QPaintEvent, QColor, QLinearGradient
+from PySide6.QtGui import QPainter, QPaintEvent, QColor, QLinearGradient, QPixmap, QMouseEvent
 from musicplayer import config as cfg
 
 
@@ -42,6 +42,7 @@ class LoadingBar(QWidget):
 
         accent = cfg.get_accent_color()
         color = QColor(accent)
+        c = (color.red(), color.green(), color.blue())
 
         w = self.width()
         h = self.height()
@@ -49,17 +50,12 @@ class LoadingBar(QWidget):
         x_start = int(self._offset * w) - bar_width
 
         gradient = QLinearGradient(x_start, 0, x_start + bar_width, 0)
-        gradient.setColorAt(0, QColor(color.red(), color.green(), color.blue(), 0))
+        gradient.setColorAt(0, QColor(*c, 0))
         gradient.setColorAt(0.3, color)
         gradient.setColorAt(0.7, color)
-        gradient.setColorAt(1, QColor(color.red(), color.green(), color.blue(), 0))
+        gradient.setColorAt(1, QColor(*c, 0))
 
         painter.fillRect(x_start, 0, bar_width, h, gradient)
-
-
-from PySide6.QtWidgets import QLabel
-from PySide6.QtCore import Signal
-from PySide6.QtGui import QPixmap, QMouseEvent
 
 
 class CoverDisplayLabel(QLabel):
@@ -67,6 +63,7 @@ class CoverDisplayLabel(QLabel):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._is_generated_cover = False
         self.setAlignment(Qt.AlignCenter)
         self.setText("Нет обложки")
         self.setStyleSheet("""

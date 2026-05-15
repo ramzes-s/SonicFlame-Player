@@ -91,18 +91,10 @@ def _run_library_mode(app: QApplication):
     from musicplayer.core.ipc import IPCClient, SERVER_NAME
     import musicplayer.config
 
-    if getattr(sys, 'frozen', False):
-        PROJECT_DIR = Path(sys.executable).parent
-    else:
-        PROJECT_DIR = Path(__file__).parent
-    
-    CACHE_DIR = PROJECT_DIR / ".cache"
-    SETTINGS_FILE = CACHE_DIR / "settings.json"
-    
     def _get_accent_color() -> str:
-        if SETTINGS_FILE.exists():
+        if musicplayer.config.SETTINGS_FILE.exists():
             try:
-                data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+                data = json.loads(musicplayer.config.SETTINGS_FILE.read_text(encoding="utf-8"))
                 color = data.get("accent_color")
                 if color: return color
             except (json.JSONDecodeError, IOError): pass
@@ -113,7 +105,7 @@ def _run_library_mode(app: QApplication):
     app.setFont(QFont("Segoe UI", 10))
     musicplayer.config.ACCENT_COLOR = _get_accent_color()
 
-    icon_path = PROJECT_DIR / "Sonic-Flame.ico"
+    icon_path = musicplayer.config.PROJECT_DIR / "Sonic-Flame.ico"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 

@@ -10,20 +10,14 @@ Persistent storage for user preferences:
 """
 
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
-
-def _get_exe_dir() -> Path:
-    """Get the directory containing the exe (or project root in dev mode)."""
-    if getattr(sys, 'frozen', False):
-        return Path(sys.executable).parent
-    return Path(__file__).parent.parent.parent
+from musicplayer import config
 
 
-SETTINGS_DIR = _get_exe_dir() / ".cache"
-SETTINGS_FILE = SETTINGS_DIR / "settings.json"
+SETTINGS_DIR = config.CACHE_DIR
+SETTINGS_FILE = config.SETTINGS_FILE
 
 def _read_settings_json():
     try:

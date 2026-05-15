@@ -16,6 +16,7 @@ from PySide6.QtCore import QThread, Signal
 from PIL import Image
 
 from musicplayer.core import db
+from musicplayer import config
 
 
 class ArtistProcessingWorker(QThread):
@@ -28,7 +29,7 @@ class ArtistProcessingWorker(QThread):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.collages_dir = db.DB_DIR / "artist_collages"
+        self.collages_dir = config.ARTIST_COLLAGES_DIR
 
     def run(self):
         if self.collages_dir.exists():

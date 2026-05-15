@@ -1,96 +1,49 @@
 import urllib.request
-from PySide6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QScrollArea, QFrame, QGridLayout)
-from PySide6.QtCore import Qt, Signal, QPoint, QByteArray
-from PySide6.QtGui import QPainter, QPaintEvent, QColor, QPixmap, QMouseEvent, QLinearGradient
-from PySide6.QtSvgWidgets import QSvgWidget
+from PySide6.QtCore import Qt, Signal, QByteArray
+from PySide6.QtGui import QPainter, QPixmap, QMouseEvent, QColor
+from PySide6.QtSvg import QSvgRenderer
 from musicplayer import config as cfg
 from musicplayer.ui.svg_icons import get_music_note_svg
+from .base_dialog import BaseFramelessDialog
 
 
-class TrackSearchResultsDialog(QDialog):
+def _music_note_pixmap(size=120, color="#666666"):
+    svg_bytes = get_music_note_svg(size, color=color).encode('utf-8')
+    renderer = QSvgRenderer(QByteArray(svg_bytes))
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    renderer.render(painter)
+    painter.end()
+    return pixmap
+
+
+class TrackSearchResultsDialog(BaseFramelessDialog):
     def __init__(self, track_results, parent=None, artist="", title="", duration=""):
         super().__init__(parent)
         self.track_results = track_results
         self.selected_track = None
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(760, 710)
-        self.setModal(True)
-        self._drag_pos = QPoint()
         self._artist = artist
         self._title = title
         self._duration = duration
         self._build_ui()
 
-    def paintEvent(self, event: QPaintEvent):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        accent = cfg.get_accent_color()
-        color = QColor(accent)
-        color.setAlpha(26)
-        pen = painter.pen()
-        pen.setColor(color)
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        rect = self.rect().adjusted(1, 1, -2, -2)
-        painter.drawRect(rect)
-
     def showEvent(self, event):
         super().showEvent(event)
-        if self.parent():
-            parent_center = self.parent().geometry().center()
-            self_rect = self.rect()
-            new_x = parent_center.x() - self_rect.width() // 2
-            new_y = parent_center.y() - self_rect.height() // 2 + 50
-            self.move(new_x, new_y)
+        self.center_on_parent(50)
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
-
-        container = QWidget()
-        container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: #000000; }")
-        inner = QVBoxLayout(container)
-        inner.setContentsMargins(0, 0, 0, 0)
-        inner.setSpacing(0)
-
-        title_bar = QWidget()
-        title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
-        title_layout = QHBoxLayout(title_bar)
-        title_layout.setContentsMargins(15, 0, 10, 0)
-        title_layout.setSpacing(10)
-
-        title_icon = QSvgWidget()
-        title_icon.setFixedSize(20, 20)
-        svg_data = get_music_note_svg(60).encode('utf-8')
-        title_icon.renderer().load(QByteArray(svg_data))
-        title_layout.addWidget(title_icon)
+        inner = self._setup_ui()
 
         title_text = "Результаты поиска"
         if self._artist or self._title or self._duration:
             title_text = f"Результаты поиска для: {self._artist} - {self._title}"
             if self._duration:
                 title_text += f" ♪ {self._duration}"
-        title_label = QLabel(title_text)
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(36, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        accent = cfg.get_accent_color()
-        close_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: {accent}; }}
-        """)
-        close_btn.clicked.connect(self.reject)
-        title_layout.addWidget(close_btn)
+        title_bar = self._build_title_bar(title_text)
         inner.addWidget(title_bar)
 
         content = QWidget()
@@ -122,17 +75,6 @@ class TrackSearchResultsDialog(QDialog):
         scroll.setWidget(card_container)
         content_layout.addWidget(scroll)
         inner.addWidget(content, stretch=1)
-        layout.addWidget(container)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
 
     def _build_card(self, track_data, score, original_artist, original_title, original_duration):
         card = QFrame()
@@ -174,9 +116,9 @@ class TrackSearchResultsDialog(QDialog):
                     cover_label.setPixmap(scaled)
                     cover_label.setText("")
             except Exception:
-                cover_label.setText("🎵")
+                cover_label.setPixmap(_music_note_pixmap(COVER_SIZE))
         else:
-            cover_label.setText("🎵")
+            cover_label.setPixmap(_music_note_pixmap(COVER_SIZE))
 
         pick_btn = QPushButton("✓ Подходит")
         pick_btn.setFixedWidth(COVER_SIZE)
@@ -272,6 +214,7 @@ class CoverTile(QWidget):
         self.setCursor(Qt.PointingHandCursor)
         self._pixmap = QPixmap()
         self._pixmap.loadFromData(cover_data)
+        self._overlay_color = QColor(0, 0, 0, 180)
 
     def enterEvent(self, event):
         self._hovered = True
@@ -285,7 +228,7 @@ class CoverTile(QWidget):
         if event.button() == Qt.LeftButton:
             self.selected.emit(self.cover_data)
 
-    def paintEvent(self, event: QPaintEvent):
+    def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
@@ -296,11 +239,10 @@ class CoverTile(QWidget):
             painter.drawPixmap(x, y, scaled)
         else:
             painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, QColor("#1a1a1a"))
-            painter.setPen(QColor("#666666"))
-            font = painter.font()
-            font.setPointSize(24)
-            painter.setFont(font)
-            painter.drawText(self.rect(), Qt.AlignCenter, "🎵")
+            pix = _music_note_pixmap(80, "#666666")
+            nx = (self.TILE_SIZE - pix.width()) // 2
+            ny = (self.TILE_SIZE - pix.height()) // 2
+            painter.drawPixmap(nx, ny, pix)
 
         if self._hovered:
             accent = cfg.get_accent_color()
@@ -311,7 +253,7 @@ class CoverTile(QWidget):
             painter.setFont(font)
             painter.drawText(self.rect(), Qt.AlignCenter, "✓")
         else:
-            painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, QColor(0, 0, 0, 180))
+            painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, self._overlay_color)
             painter.setPen(QColor("#FFFFFF"))
             font = painter.font()
             font.setPointSize(12)
@@ -321,85 +263,27 @@ class CoverTile(QWidget):
             painter.drawText(text_rect, Qt.TextWordWrap | Qt.AlignCenter, self.label)
 
 
-class CoverSearchResultsDialog(QDialog):
+class CoverSearchResultsDialog(BaseFramelessDialog):
     def __init__(self, covers, parent=None, artist="", title=""):
         super().__init__(parent)
         self.covers = covers
         self.selected_cover = None
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setFixedSize(700, 500)
-        self.setModal(True)
-        self._drag_pos = QPoint()
         self._artist = artist
         self._title = title
         self._build_ui()
 
-    def paintEvent(self, event: QPaintEvent):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        accent = cfg.get_accent_color()
-        color = QColor(accent)
-        color.setAlpha(26)
-        pen = painter.pen()
-        pen.setColor(color)
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        rect = self.rect().adjusted(1, 1, -2, -2)
-        painter.drawRect(rect)
-
     def showEvent(self, event):
         super().showEvent(event)
-        if self.parent():
-            parent_center = self.parent().geometry().center()
-            self_rect = self.rect()
-            new_x = parent_center.x() - self_rect.width() // 2
-            new_y = parent_center.y() - self_rect.height() // 2 + 50
-            self.move(new_x, new_y)
+        self.center_on_parent(50)
 
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
-
-        container = QWidget()
-        container.setStyleSheet("#container { background-color: #000000; }")
-        inner = QVBoxLayout(container)
-        inner.setContentsMargins(0, 0, 0, 0)
-        inner.setSpacing(0)
-
-        title_bar = QWidget()
-        title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
-        title_layout = QHBoxLayout(title_bar)
-        title_layout.setContentsMargins(15, 0, 10, 0)
-        title_layout.setSpacing(10)
-
-        title_icon = QSvgWidget()
-        title_icon.setFixedSize(20, 20)
-        svg_data = get_music_note_svg(60).encode('utf-8')
-        title_icon.renderer().load(QByteArray(svg_data))
-        title_layout.addWidget(title_icon)
+        inner = self._setup_ui()
 
         title_text = "Выбор обложки трека"
         if self._artist or self._title:
             title_text = f"Выбор обложки для: {self._artist} - {self._title}"
-        title_label = QLabel(title_text)
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-
-        accent = cfg.get_accent_color()
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(36, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        close_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: {accent}; }}
-        """)
-        close_btn.clicked.connect(self.reject)
-        title_layout.addWidget(close_btn)
+        title_bar = self._build_title_bar(title_text)
         inner.addWidget(title_bar)
 
         content = QWidget()
@@ -426,17 +310,6 @@ class CoverSearchResultsDialog(QDialog):
         card_layout.setRowStretch((len(self.covers) + cols - 1) // cols, 1)
         content_layout.addWidget(card_container)
         inner.addWidget(content, stretch=1)
-        layout.addWidget(container)
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
 
     def _select_cover(self, cover_data: bytes):
         self.selected_cover = cover_data

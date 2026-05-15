@@ -5,10 +5,11 @@ Handles persistence of library UI settings like column widths.
 """
 
 import json
-from pathlib import Path
 
-CACHE_DIR = Path(__file__).parent.parent.parent.parent / ".cache"
-COL_WIDTHS_FILE = CACHE_DIR / "library_col_widths.json"
+from musicplayer import config
+
+CACHE_DIR = config.CACHE_DIR
+COL_WIDTHS_FILE = config.COL_WIDTHS_FILE
 
 DEFAULT_COL_WIDTHS = {
     0: 400,

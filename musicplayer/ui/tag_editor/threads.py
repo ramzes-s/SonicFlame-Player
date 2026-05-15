@@ -1,10 +1,12 @@
-from PySide6.QtCore import QThread, Signal
-from pathlib import Path
 import os
+import urllib.request
+from pathlib import Path
+from PySide6.QtCore import QThread, Signal
 from mutagen import File as MutagenFile
 from mutagen.flac import FLAC, Picture as FlacPicture
 from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, TRCK, APIC, ID3NoHeaderError
+from mutagen.mp4 import MP4, MP4Cover
 from .api import _search_itunes_tracks_static, _search_deezer_tracks_static
 
 
@@ -21,6 +23,23 @@ class _TrackSearchThread(QThread):
         all_results.extend(_search_itunes_tracks_static(self.artist, self.title))
         all_results.extend(_search_deezer_tracks_static(self.artist, self.title))
         self.finished_tracks.emit(all_results)
+
+
+class _CoverDownloadThread(QThread):
+    finished_cover = Signal(bytes)
+
+    def __init__(self, url):
+        super().__init__()
+        self.url = url
+
+    def run(self):
+        try:
+            req = urllib.request.Request(self.url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = resp.read()
+            self.finished_cover.emit(data)
+        except Exception:
+            pass
 
 
 class _SaveTagsThread(QThread):
@@ -43,17 +62,6 @@ class _SaveTagsThread(QThread):
         try:
             current_filepath = self.file_path
             old_path_obj = Path(current_filepath)
-
-            if self.new_filename_stem:
-                new_filename = self.new_filename_stem + old_path_obj.suffix
-
-                if new_filename.lower() != old_path_obj.name.lower():
-                    new_path_str = str(old_path_obj.with_name(new_filename))
-                    if os.path.exists(new_path_str) and os.path.normpath(new_path_str) != os.path.normpath(current_filepath):
-                        self.error.emit(f"Файл «{new_filename}» уже существует!")
-                        return
-                    os.rename(current_filepath, new_path_str)
-                    current_filepath = new_path_str
 
             audio = MutagenFile(current_filepath, easy=False)
             if audio is None:
@@ -105,9 +113,47 @@ class _SaveTagsThread(QThread):
 
                 audio.save()
 
+            elif isinstance(audio, MP4):
+                if self.title:
+                    audio["\xa9nam"] = self.title
+                if self.artist:
+                    audio["\xa9ART"] = self.artist
+                if self.album:
+                    audio["\xa9alb"] = self.album
+                if self.year:
+                    audio["\xa9day"] = self.year
+                if self.track:
+                    try:
+                        track_num = int(self.track.split('/')[0])
+                    except ValueError:
+                        track_num = 0
+                    audio["trkn"] = [(track_num, 0)]
+                if self.genres:
+                    audio["\xa9gen"] = self.genres
+                audio["\xa9too"] = ""
+
+                if "covr" in audio:
+                    del audio["covr"]
+                if self.cover_data:
+                    mime = "image/jpeg" if not self.cover_data.startswith(b'\x89PNG') else "image/png"
+                    fmt = MP4Cover.FORMAT_JPEG if mime == "image/jpeg" else MP4Cover.FORMAT_PNG
+                    audio["covr"] = [MP4Cover(self.cover_data, fmt)]
+
+                audio.save()
+
             else:
                 self.error.emit("Сохранение тегов для этого формата файла не поддерживается.")
                 return
+
+            if self.new_filename_stem:
+                new_filename = self.new_filename_stem + old_path_obj.suffix
+                if new_filename.lower() != old_path_obj.name.lower():
+                    new_path_str = str(old_path_obj.with_name(new_filename))
+                    if os.path.exists(new_path_str) and os.path.normpath(new_path_str) != os.path.normpath(current_filepath):
+                        self.error.emit(f"Файл «{new_filename}» уже существует!")
+                        return
+                    os.rename(current_filepath, new_path_str)
+                    current_filepath = new_path_str
 
             self.finished.emit(current_filepath)
         except Exception as e:

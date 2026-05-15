@@ -1,5 +1,8 @@
 import json
+import logging
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 
 def _search_itunes_covers_static(artist, album):
@@ -25,10 +28,10 @@ def _search_itunes_covers_static(artist, album):
                 with urllib.request.urlopen(req_img, timeout=5) as resp_img:
                     img_data = resp_img.read()
                 results.append((label, img_data))
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.warning("iTunes cover image download failed: %s", e)
+    except Exception as e:
+        logger.warning("iTunes cover search failed: %s", e)
     return results
 
 
@@ -52,10 +55,10 @@ def _search_deezer_covers_static(artist, album):
                 with urllib.request.urlopen(req_img, timeout=5) as resp_img:
                     img_data = resp_img.read()
                 results.append((label, img_data))
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                logger.warning("Deezer cover image download failed: %s", e)
+    except Exception as e:
+        logger.warning("Deezer cover search failed: %s", e)
     return results
 
 
@@ -76,8 +79,8 @@ def _search_itunes_tracks_static(artist, title):
             item["trackId"] = item.get("trackId", hash(item.get("trackName", "")))
             item["source"] = "iTunes"
             results.append(item)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("iTunes track search failed: %s", e)
     return results
 
 
@@ -103,6 +106,6 @@ def _search_deezer_tracks_static(artist, title):
                 "source": "Deezer",
             }
             results.append(track_data)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Deezer track search failed: %s", e)
     return results

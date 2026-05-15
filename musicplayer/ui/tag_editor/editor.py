@@ -5,12 +5,10 @@ from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QFileDialog,
                               QMessageBox, QWidget, QScrollArea, QFrame)
-from PySide6.QtCore import Qt, QPoint, QByteArray
-from PySide6.QtGui import QPainter, QPaintEvent, QMouseEvent, QPixmap, QColor
-from PySide6.QtSvgWidgets import QSvgWidget
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 
 from musicplayer import config as cfg
-from musicplayer.ui.svg_icons import get_music_note_svg
 
 from mutagen import File as MutagenFile
 from mutagen.mp3 import MP3
@@ -19,57 +17,30 @@ from mutagen.flac import FLAC
 from .constants import ID3_GENRES
 from .cover import _generate_abstract_cover
 from .cover_thread import _CoverSearchThread
-from .threads import _TrackSearchThread, _SaveTagsThread
+from .threads import _TrackSearchThread, _SaveTagsThread, _CoverDownloadThread
 from .widgets import LoadingBar, CoverDisplayLabel
 from .dialogs import CoverSearchResultsDialog, TrackSearchResultsDialog
+from .base_dialog import BaseFramelessDialog
+from .track_mover import move_track_to_folder
 
 
-class TagEditorDialog(QDialog):
+class TagEditorDialog(BaseFramelessDialog):
     def __init__(self, file_path, parent=None, update_player: bool = False):
         super().__init__(parent)
         self.file_path = file_path
         self.cover_data = None
         self.genre_tags = []
-        self._update_player = update_player
         self._save_thread = None
         self.delete_confirmed = False
-
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(800, 500)
-        self.setModal(True)
-        self._drag_pos = QPoint()
 
         self._build_ui()
         self._load_tags()
 
-    def paintEvent(self, event: QPaintEvent):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        accent = cfg.get_accent_color()
-        color = QColor(accent)
-        color.setAlpha(26)
-        pen = painter.pen()
-        pen.setColor(color)
-        pen.setWidth(2)
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
-        rect = self.rect().adjusted(1, 1, -2, -2)
-        painter.drawRect(rect)
-
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(0)
+        inner = self._setup_ui()
 
-        container = QWidget()
-        container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: #000000; }")
-        inner = QVBoxLayout(container)
-        inner.setContentsMargins(0, 0, 0, 0)
-        inner.setSpacing(0)
-
-        title_bar = self._title_bar()
+        title_bar = self._build_title_bar("Редактирование тегов")
         inner.addWidget(title_bar)
 
         content = self._content_widget()
@@ -77,38 +48,6 @@ class TagEditorDialog(QDialog):
 
         self.loading_bar = LoadingBar()
         inner.addWidget(self.loading_bar)
-        layout.addWidget(container)
-
-    def _title_bar(self):
-        title_bar = QWidget()
-        title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
-        title_layout = QHBoxLayout(title_bar)
-        title_layout.setContentsMargins(15, 0, 10, 0)
-        title_layout.setSpacing(10)
-
-        title_icon = QSvgWidget()
-        title_icon.setFixedSize(20, 20)
-        svg_data = get_music_note_svg(60).encode('utf-8')
-        title_icon.renderer().load(QByteArray(svg_data))
-        title_layout.addWidget(title_icon)
-
-        title_label = QLabel("Редактирование тегов")
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
-        title_layout.addWidget(title_label)
-        title_layout.addStretch()
-
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(36, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        accent = cfg.get_accent_color()
-        close_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: {accent}; }}
-        """)
-        close_btn.clicked.connect(self.reject)
-        title_layout.addWidget(close_btn)
-        return title_bar
 
     def _content_widget(self):
         widget = QWidget()
@@ -242,6 +181,10 @@ class TagEditorDialog(QDialog):
         self.delete_btn = self._destructive_button("Удалить")
         self.delete_btn.clicked.connect(self._prompt_delete_track)
         btn_row.addWidget(self.delete_btn)
+
+        self.move_btn = self._action_button("Переместить в папку")
+        self.move_btn.clicked.connect(self._move_track)
+        btn_row.addWidget(self.move_btn)
         btn_row.addStretch()
 
         self.save_btn = self._primary_button("Сохранить")
@@ -254,16 +197,6 @@ class TagEditorDialog(QDialog):
 
         layout.addLayout(btn_row)
         return widget
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
 
     def _text_input(self):
         edit = QLineEdit()
@@ -343,6 +276,12 @@ class TagEditorDialog(QDialog):
     def _delete_and_close(self):
         self.delete_confirmed = True
         self.accept()
+
+    def _move_track(self):
+        new_filepath = move_track_to_folder(self.file_path, self)
+        if new_filepath:
+            self.file_path = new_filepath
+            self.accept()
 
     def _show_genre_menu(self):
         available = [g for g in ID3_GENRES if g not in self.genre_tags]
@@ -690,14 +629,10 @@ class TagEditorDialog(QDialog):
         art_url = track.get("artworkUrl100", "")
         if art_url:
             art_url = art_url.replace("100x100", "600x600")
-            import urllib.request
-            try:
-                req_img = urllib.request.Request(art_url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req_img, timeout=10) as resp_img:
-                    cover_data_from_search = resp_img.read()
-                self._apply_cover_data(cover_data_from_search, is_generated=False)
-            except Exception:
-                pass
+            self._cover_dl_thread = _CoverDownloadThread(art_url)
+            self._cover_dl_thread.finished_cover.connect(
+                lambda data: self._apply_cover_data(data, is_generated=False))
+            self._cover_dl_thread.start()
 
     def _save_tags(self):
         if self._save_thread and self._save_thread.isRunning():
