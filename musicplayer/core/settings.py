@@ -73,9 +73,30 @@ def set_prevent_sleep(value: bool):
     for instance in _app_settings_instances:
         instance._data["prevent_sleep"] = value
 
+def ensure_default_similarity_precision():
+    data = _read_settings_json()
+    if "similarity_precision" not in data:
+        data["similarity_precision"] = 10
+        _write_settings_json(data)
+
+def get_similarity_precision():
+    data = _read_settings_json()
+    return data.get("similarity_precision", 10)
+
+def set_similarity_precision(value: int):
+    value = max(0, min(20, int(value)))
+    data = _read_settings_json()
+    if data.get("similarity_precision") == value:
+        return
+    data["similarity_precision"] = value
+    _write_settings_json(data)
+    for instance in _app_settings_instances:
+        instance._data["similarity_precision"] = value
+
 # Ensure default on import
 ensure_default_playlist_sort_mode()
 ensure_default_prevent_sleep()
+ensure_default_similarity_precision()
 
 class AppSettings:
     """Manages persistent application settings."""
@@ -96,6 +117,7 @@ class AppSettings:
             "web_server_enabled": False,
             "web_server_port": 8080,
             "playlist_sort_mode": "artist",
+            "similarity_precision": 10,
         }
         self._load()
 
@@ -253,4 +275,13 @@ class AppSettings:
     @prevent_sleep.setter
     def prevent_sleep(self, value: bool):
         self._data["prevent_sleep"] = value
+        self._save()
+
+    @property
+    def similarity_precision(self) -> int:
+        return self._data.get("similarity_precision", 10)
+
+    @similarity_precision.setter
+    def similarity_precision(self, value: int):
+        self._data["similarity_precision"] = max(0, min(20, int(value)))
         self._save()
