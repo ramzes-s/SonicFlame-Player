@@ -115,7 +115,8 @@ class MiniPlayerWidget(QWidget):
         self._title_text = "No Track"
         self._is_playing = False
         self._accent_color = cfg.get_accent_color()
-        self._bg_alpha = 153  # % opaque
+        self._idle_alpha = 153
+        self._bg_alpha = self._idle_alpha
 
         self._build_ui()
         self._position_on_screen()
@@ -125,11 +126,11 @@ class MiniPlayerWidget(QWidget):
         """Setup fade in/out animations for background."""
         self.fade_in_anim = QPropertyAnimation(self, b"backgroundAlpha", self)
         self.fade_in_anim.setDuration(200)
-        self.fade_in_anim.setEndValue(255)  # Opaque
+        self.fade_in_anim.setEndValue(255)
 
         self.fade_out_anim = QPropertyAnimation(self, b"backgroundAlpha", self)
         self.fade_out_anim.setDuration(300)
-        self.fade_out_anim.setEndValue(153)  # % opaque
+        self.fade_out_anim.setEndValue(self._idle_alpha)
 
     @Property(int)
     def backgroundAlpha(self):
@@ -242,6 +243,14 @@ class MiniPlayerWidget(QWidget):
 
         self.artist_label.setText(artist_display)
         self.title_label.setText(title_display)
+
+    def set_opacity(self, value: int):
+        """Set background idle transparency (0 = opaque, 80 = max transparency)."""
+        alpha = int(255 * (1 - max(0, min(80, int(value))) / 100.0))
+        self._idle_alpha = alpha
+        self._bg_alpha = alpha
+        self.fade_out_anim.setEndValue(alpha)
+        self.update()
 
     def set_play_state(self, playing: bool):
         """Update play/pause button icon."""
