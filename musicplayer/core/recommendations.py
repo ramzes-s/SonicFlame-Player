@@ -6,6 +6,10 @@ Provides algorithms for finding similar tracks based on various criteria
 """
 
 import math
+import sys
+import json
+import functools
+from pathlib import Path
 from typing import List, Optional
 from musicplayer.core.db import TrackInfo
 from musicplayer import config as cfg
@@ -29,6 +33,9 @@ MAX_MOOD = cfg.MAX_MOOD
 # Other constants
 METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.04
 
+PARTIAL_GENRE_BOOST_FACTOR = 1.15
+MAX_GENRES_FOR_COMPARISON = 2
+
 
 def _normalize_metric(value: float, min_val: float, max_val: float) -> float:
     """Normalize a metric to a 0-1 range based on real min/max values."""
@@ -42,7 +49,35 @@ def _get_list_from_string(s: Optional[str]) -> List[str]:
     if not s:
         return []
     # Split by comma or semicolon, then strip whitespace and filter empty strings
-    return [item.strip() for item in s.replace(';', ',').split(',') if item.strip()]
+    items = [item.strip() for item in s.replace(';', ',').split(',') if item.strip()]
+    # Preserve order while removing duplicates
+    return list(dict.fromkeys(items))
+
+
+def _get_genre_path(filename: str) -> Path:
+    """Resolve path to a file in res/genres/ (works in dev and frozen builds)."""
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return Path(sys._MEIPASS) / "res" / "genres" / filename
+    return Path(__file__).resolve().parent.parent.parent / "res" / "genres" / filename
+
+
+@functools.lru_cache(maxsize=1)
+def _load_genre_groups() -> dict[str, int]:
+    """Load genre_groups.json and return a dict: canonical_genre -> group_index."""
+    path = _get_genre_path("genre_groups.json")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    result: dict[str, int] = {}
+    for idx, group in enumerate(data["groups"]):
+        for genre in group["genres"]:
+            result[genre] = idx
+    return result
+
+
+@functools.lru_cache(maxsize=1)
+def _load_genre_map() -> dict[str, str]:
+    """Load genre_map.json and return a dict: raw_name -> canonical_name."""
+    path = _get_genre_path("genre_map.json")
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def calculate_similarity(track1: TrackInfo, track2: TrackInfo) -> float:
@@ -61,15 +96,52 @@ def calculate_similarity(track1: TrackInfo, track2: TrackInfo) -> float:
     artist_penalty = 0.0
 
     # 1. Genre Similarity (Weighted: WEIGHT_GENRE)
-    genres1 = _get_list_from_string(track1.genre)
-    genres2 = _get_list_from_string(track2.genre)
+    raw1 = _get_list_from_string(track1.genre)[:MAX_GENRES_FOR_COMPARISON]
+    raw2 = _get_list_from_string(track2.genre)[:MAX_GENRES_FOR_COMPARISON]
 
-    if genres1 and genres2:
-        common_genres = set(genres1).intersection(set(genres2))
-        if common_genres:
-            genre_score = len(common_genres) / max(len(genres1), len(genres2))
-    elif not genres1 and not genres2: # Both have no genres - consider them similar in genre aspect
-        genre_score = 0.1 # Neutral score, not perfect match but not a mismatch
+    if raw1 and raw2:
+        genre_map = _load_genre_map()
+        groups = _load_genre_groups()
+
+        norm1 = [genre_map.get(g, g) for g in raw1]
+        norm2 = [genre_map.get(g, g) for g in raw2]
+
+        used1 = [False] * len(norm1)
+        used2 = [False] * len(norm2)
+        total = 0.0
+
+        # Phase 1: exact matches (weight 1.0)
+        for i, g1 in enumerate(norm1):
+            for j, g2 in enumerate(norm2):
+                if used2[j]:
+                    continue
+                if g1 == g2:
+                    total += 1.0
+                    used1[i] = True
+                    used2[j] = True
+                    break
+
+        # Phase 2: group matches for remaining genres (weight 0.9)
+        for i, g1 in enumerate(norm1):
+            if used1[i]:
+                continue
+            for j, g2 in enumerate(norm2):
+                if used2[j]:
+                    continue
+                g1_grp = groups.get(g1, -1)
+                g2_grp = groups.get(g2, -1)
+                if g1_grp != -1 and g1_grp == g2_grp:
+                    total += 0.9
+                    used1[i] = True
+                    used2[j] = True
+                    break
+
+        denom = max(len(norm1), len(norm2))
+        genre_score = total / denom if denom else 0.0
+        if 0 < genre_score < 1.0:
+            genre_score = min(1.0, genre_score * PARTIAL_GENRE_BOOST_FACTOR)
+    elif not raw1 and not raw2:
+        genre_score = 0.1
 
     # 2. Audio Features Similarity (Individual Scores)
     # Normalize tempo, energy, mood to 0-1 range using real min/max
