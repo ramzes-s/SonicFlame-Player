@@ -119,6 +119,10 @@ python main.py --library
 
 GNU General Public License v3.0 (GPL v3)
 
+**Author:** ramzes  
+**Website:** [smartoff.net](https://smartoff.net)  
+**E-mail:** [ramzes@smartoff.net](mailto:ramzes@smartoff.net)
+
 ---
 
 # SonicFlame Player
@@ -239,3 +243,7 @@ python main.py --library
 ## Лицензия
 
 GNU General Public License v3.0 (GPL v3)
+
+**Автор:** ramzes  
+**Сайт:** [smartoff.net](https://smartoff.net)  
+**E-mail:** [ramzes@smartoff.net](mailto:ramzes@smartoff.net)
