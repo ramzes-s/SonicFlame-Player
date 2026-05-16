@@ -12,15 +12,16 @@ import functools
 from pathlib import Path
 from typing import List, Optional
 from musicplayer.core.db import TrackInfo
+from musicplayer.core import settings as app_settings
 from musicplayer import config as cfg
 import random
 
 # --- Weights and thresholds ---
-WEIGHT_GENRE = 0.30
-WEIGHT_TEMPO = 0.23
+WEIGHT_GENRE = 0.36
+WEIGHT_TEMPO = 0.34
 WEIGHT_ENERGY = 0.24
-WEIGHT_MOOD = 0.23
-PENALTY_ARTIST = -0.05
+WEIGHT_MOOD = 0.14
+PENALTY_ARTIST = -0.1
 
 # Use ranges from config
 MIN_TEMPO = cfg.MIN_TEMPO
@@ -31,10 +32,16 @@ MIN_MOOD = cfg.MIN_MOOD
 MAX_MOOD = cfg.MAX_MOOD
 
 # Other constants
-METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.04
+METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.14
 
 PARTIAL_GENRE_BOOST_FACTOR = 1.15
 MAX_GENRES_FOR_COMPARISON = 2
+SIMILARITY_THRESHOLD_BASE = 0.65
+
+
+def get_similarity_threshold() -> float:
+    """Dynamic threshold from user settings: 0.60 + (precision / 100)."""
+    return SIMILARITY_THRESHOLD_BASE + (app_settings.get_similarity_precision() / 100.0)
 
 
 def _normalize_metric(value: float, min_val: float, max_val: float) -> float:
@@ -197,7 +204,7 @@ def find_similar_tracks(
     current_track: TrackInfo,
     all_tracks: List[TrackInfo],
     limit: int = 10,
-    min_similarity_threshold: float = 0.6 # Default threshold
+    min_similarity_threshold: Optional[float] = None
 ) -> List[TrackInfo]:
     """
     Finds tracks similar to the current_track from a list of all available tracks.
@@ -211,6 +218,11 @@ def find_similar_tracks(
     Returns:
         A sorted and shuffled list of similar TrackInfo objects.
     """
+    if min_similarity_threshold is None:
+        min_similarity_threshold = get_similarity_threshold()
+
+    print(f"[Recommendations] min_similarity_threshold = {min_similarity_threshold:.2f}")
+
     similarities = []
     for track in all_tracks:
         if track.filepath == current_track.filepath:
