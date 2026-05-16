@@ -114,6 +114,7 @@ class AppSettings:
             "repeat_mode": "none",  # none, all, one
             "volume": 0.5,
             "mini_widget_on_minimize": False,
+            "mini_widget_opacity": 40,
             "web_server_enabled": False,
             "web_server_port": 8080,
             "playlist_sort_mode": "artist",
@@ -229,6 +230,15 @@ class AppSettings:
     @mini_widget_on_minimize.setter
     def mini_widget_on_minimize(self, value: bool):
         self._data["mini_widget_on_minimize"] = value
+        self._save()
+
+    @property
+    def mini_widget_opacity(self) -> int:
+        return self._data.get("mini_widget_opacity", 40)
+
+    @mini_widget_opacity.setter
+    def mini_widget_opacity(self, value: int):
+        self._data["mini_widget_opacity"] = max(0, min(80, int(value)))
         self._save()
 
     @property
