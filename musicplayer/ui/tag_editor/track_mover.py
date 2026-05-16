@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 
 from PySide6.QtWidgets import QFileDialog, QMessageBox
+from musicplayer.core.db.connection import normalize_path
 
 
 def move_track_to_folder(file_path: str, parent=None) -> str | None:
@@ -63,4 +64,4 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
     if was_favorite:
         toggle_favorite(new_filepath)
 
-    return new_filepath
+    return normalize_path(new_filepath)
