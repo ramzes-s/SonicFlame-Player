@@ -244,6 +244,22 @@ def get_top_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     </svg>
     """
 
+def get_all_music_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
+    """All Music SVG — solid folder with a single note cut out."""
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <mask id="nm">
+                <rect width="24" height="24" fill="white"/>
+                <ellipse cx="11" cy="16" rx="2.5" ry="1.8" fill="black"/>
+                <path d="M11 16V9l4 1.5" stroke="black" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </mask>
+        </defs>
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" fill="{color}" stroke="{color}" stroke-width="0.5" mask="url(#nm)"/>
+    </svg>
+    """
+
+
 def get_similar_tracks_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     """Similar tracks search SVG icon (magnifying glass with a music note)."""
     return f"""
