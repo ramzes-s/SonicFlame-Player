@@ -107,7 +107,9 @@ python main.py --library
 - mutagen >= 1.47
 - Pillow >= 10.0
 - aiohttp >= 3.9
+- numpy >= 1.24
 - librosa (for audio analysis)
+- qrcode[pil] (for QR code generation)
 
 ## Color Scheme
 
@@ -232,7 +234,9 @@ python main.py --library
 - mutagen >= 1.47
 - Pillow >= 10.0
 - aiohttp >= 3.9
+- numpy >= 1.24
 - librosa (для анализа аудио)
+- qrcode[pil] (для генерации QR-кодов)
 
 ## Цветовая схема
 
