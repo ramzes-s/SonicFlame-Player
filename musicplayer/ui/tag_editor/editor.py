@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 from pathlib import Path
@@ -8,11 +9,14 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
+logger = logging.getLogger(__name__)
+
 from musicplayer import config as cfg
 
 from mutagen import File as MutagenFile
 from mutagen.mp3 import MP3
 from mutagen.flac import FLAC
+from mutagen.mp4 import MP4
 
 from .constants import ID3_GENRES
 from .cover import _generate_abstract_cover
@@ -387,20 +391,26 @@ class TagEditorDialog(BaseFramelessDialog):
                 self.size_lbl.setText(f"{size_bytes / (1024 * 1024):.1f}MB")
 
             if isinstance(audio, MP3):
-                self.title_edit.setText(str(audio.tags.get("TIT2", "")))
-                self.artist_edit.setText(str(audio.tags.get("TPE1", "")))
-                self.album_edit.setText(str(audio.tags.get("TALB", "")))
-                self.year_edit.setText(str(audio.tags.get("TDRC", "")))
-                self.track_edit.setText(str(audio.tags.get("TRCK", "")))
-                tcon = audio.tags.get("TCON")
-                if tcon:
-                    genre_str = str(tcon)
-                    genre_str = re.sub(r'\(\d+\)', '', genre_str).strip()
-                    self.genre_tags = [g.strip() for g in genre_str.split(';') if g.strip()]
-                for key in audio.tags.keys():
-                    if key.startswith("APIC:"):
-                        self.cover_data = audio.tags[key].data
-                        break
+                has_valid_tags = audio.tags is not None
+                if has_valid_tags:
+                    self.title_edit.setText(str(audio.tags.get("TIT2", "")))
+                    self.artist_edit.setText(str(audio.tags.get("TPE1", "")))
+                    self.album_edit.setText(str(audio.tags.get("TALB", "")))
+                    self.year_edit.setText(str(audio.tags.get("TDRC", "")))
+                    self.track_edit.setText(str(audio.tags.get("TRCK", "")))
+                    tcon = audio.tags.get("TCON")
+                    if tcon:
+                        genre_str = str(tcon)
+                        genre_str = re.sub(r'\(\d+\)', '', genre_str).strip()
+                        self.genre_tags = []
+                        for g in re.split(r'[;,]+', genre_str):
+                            g = g.strip()
+                            if g and g not in self.genre_tags:
+                                self.genre_tags.append(g)
+                    for key in audio.tags.keys():
+                        if key.startswith("APIC:"):
+                            self.cover_data = audio.tags[key].data
+                            break
 
             elif isinstance(audio, FLAC):
                 tags = audio.tags
@@ -410,12 +420,39 @@ class TagEditorDialog(BaseFramelessDialog):
                     self.album_edit.setText(tags.get("album", [""])[0])
                     self.year_edit.setText(tags.get("date", [""])[0])
                     self.track_edit.setText(tags.get("tracknumber", [""])[0])
-                    self.genre_tags = tags.get("genre", [])
+                    raw_genres = tags.get("genre", [])
+                    self.genre_tags = []
+                    for g in raw_genres:
+                        for part in re.split(r'[;,]+', g):
+                            part = part.strip()
+                            if part and part not in self.genre_tags:
+                                self.genre_tags.append(part)
                 if audio.pictures:
                     self.cover_data = audio.pictures[0].data
 
-        except Exception:
-            pass
+            elif isinstance(audio, MP4):
+                tags = audio.tags
+                if tags:
+                    self.title_edit.setText(tags.get("\xa9nam", [""])[0])
+                    self.artist_edit.setText(tags.get("\xa9ART", [""])[0])
+                    self.album_edit.setText(tags.get("\xa9alb", [""])[0])
+                    self.year_edit.setText(str(tags.get("\xa9day", [""])[0]))
+                    trkn = tags.get("trkn", None)
+                    if trkn:
+                        self.track_edit.setText(str(trkn[0][0]))
+                    raw_genres = tags.get("\xa9gen", [])
+                    self.genre_tags = []
+                    for g in raw_genres:
+                        for part in re.split(r'[;,]+', g):
+                            part = part.strip()
+                            if part and part not in self.genre_tags:
+                                self.genre_tags.append(part)
+                if "covr" in audio:
+                    cover_list = audio["covr"]
+                    if cover_list:
+                        self.cover_data = cover_list[0]
+        except Exception as e:
+            logger.warning("Failed to load tags for %s: %s", self.file_path, e)
 
         if self.cover_data:
             self._apply_cover_data(self.cover_data, is_generated=False)
@@ -653,7 +690,7 @@ class TagEditorDialog(BaseFramelessDialog):
             genres=self.genre_tags,
             cover_data=self.cover_data
         )
-        self._save_thread.finished.connect(self._on_save_finished)
+        self._save_thread.save_finished.connect(self._on_save_finished)
         self._save_thread.error.connect(self._on_save_error)
         self._save_thread.start()
 
@@ -666,11 +703,21 @@ class TagEditorDialog(BaseFramelessDialog):
         self.accept()
 
     def _on_save_error(self, message):
+        logger.error("Save error: %s", message)
         self.loading_bar.stop()
         self.save_btn.setEnabled(True)
         self.cancel_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
         QMessageBox.critical(self, "Ошибка", message)
+
+    def _cleanup_threads(self):
+        """Remove references to threads so they aren't kept alive by the dialog."""
+        for attr in ('_save_thread', '_cover_search_thread', '_cover_dl_thread', '_track_search_thread'):
+            setattr(self, attr, None)
+
+    def done(self, r):
+        self._cleanup_threads()
+        super().done(r)
 
     def _on_cover_double_clicked(self):
         if self.cover_data is None or self.cover_label._is_generated_cover:
