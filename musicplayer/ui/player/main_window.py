@@ -176,6 +176,7 @@ class MainWindow(QMainWindow):
             self._mini_widget.next_clicked.connect(self._on_mini_next)
             self._mini_widget.previous_clicked.connect(self._on_mini_previous)
             self._mini_widget.expand_requested.connect(self._restore_from_tray)
+        self._mini_widget.set_opacity(self.settings.mini_widget_opacity)
         current_fp = self._current_playing_filepath
         if current_fp:
             for t in self.playlist_widget.get_view_tracks():
@@ -298,6 +299,7 @@ class MainWindow(QMainWindow):
         self.controls_widget.similar_tracks_requested.connect(self._on_similar_tracks_requested)
 
         self.sidebar.folder_open_requested.connect(self._on_open_folder)
+        self.sidebar.all_music_requested.connect(self._on_all_music)
         self.sidebar.favorites_toggled.connect(self._on_favorites_toggled)
         self.sidebar.top_requested.connect(self._on_top_toggled)
         self.sidebar.playlist_type_changed.connect(self._on_playlist_type_changed)
@@ -325,6 +327,23 @@ class MainWindow(QMainWindow):
         self.settings.last_folder = folder
         self.settings.playlist_type = "Folder"
         self.title_bar.set_playlist_title(Path(folder).name)
+        self.title_bar.set_show_separator(True)
+        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status("Сканирование...", True)
+        self._blink_animation.start()
+        self._scanning.scan(folder)
+
+    def _on_all_music(self):
+        folder = self.settings.music_folder
+        if not folder or not os.path.isdir(folder):
+            return
+        self.sidebar._favorites_active = False
+        self.sidebar._top_active = False
+        self.sidebar.favorites_btn.set_active(False)
+        self.sidebar.top_btn.set_active(False)
+        self.settings.last_folder = folder
+        self.settings.playlist_type = "Folder"
+        self.title_bar.set_playlist_title("Вся музыка")
         self.title_bar.set_show_separator(True)
         self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self.title_bar.set_scanning_status("Сканирование...", True)
@@ -450,7 +469,10 @@ class MainWindow(QMainWindow):
         elif self.sidebar._favorites_active:
             text, show_sep = "Избранное", True
         elif self._current_folder_path:
-            text, show_sep = Path(self._current_folder_path).name, True
+            if self.settings.music_folder and os.path.normpath(self._current_folder_path) == os.path.normpath(self.settings.music_folder):
+                text, show_sep = "Вся музыка", True
+            else:
+                text, show_sep = Path(self._current_folder_path).name, True
         self.title_bar.set_playlist_title(text)
         self.title_bar.set_show_separator(show_sep)
 
