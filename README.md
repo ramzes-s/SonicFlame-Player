@@ -1,5 +1,128 @@
 # SonicFlame Player
 
+Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
+
+![SonicFlame Player](SonicFlamePlayer_vision.png)
+
+## Features
+
+[Technical documentation](TECHNICAL.md)
+
+### Playback
+- Supports MP3, FLAC, M4A/MP4 formats
+- Playback controls: Play/Pause, Next, Previous
+- Repeat mode, favorites, sorting
+- Seek bar and volume control
+- System media keys
+- Automatic switching to a new audio output device when connected (headphones, speakers, etc.)
+
+### Library & Organization
+- "Artists" view in the library with cover collages
+- Folder scanning with metadata extraction
+- SQLite database for track information storage
+- Favorites and Top (by play count)
+- Smart sync: detects folder changes, auto-updates the DB
+- Track mood analysis (tempo, energy, mood) via librosa (async, background thread)
+- Colored mood star overlay on album art
+- DB cleanup for tracks with missing files
+
+### Interface
+- Frameless window with custom title bar
+- Album art display with ambient blur effect
+- Playlist with auto-scroll to current track
+- Customizable accent color (14 presets) with optional dynamic color based on album art palette
+- System tray mini-widget
+- Dark theme with smooth transitions
+
+### Track Sorting
+- Sorting mechanism added to the playlist.
+- Sort modes: by artist, by title, by newest (mtime), shuffle.
+- Controls: dropdown in the right side of the title bar next to the minimize button.
+- Sort mode is persisted in config (`.cache/settings.json`, field `playlist_sort_mode`) and applies to all playlists.
+- "Newest" mode sorts by file modification time (mtime); falls back to current time if unavailable.
+- Changing the sort mode through the UI saves it to config and applies to subsequent folder loads.
+- Saved sort mode is automatically applied when loading a new folder (no reset).
+- Active track highlight is preserved after changing sort order.
+
+### Similar Tracks
+- Search for tracks similar to the currently playing one.
+- The algorithm considers genre, tempo, energy, and mood.
+- Individual weight coefficients for each parameter (genre, tempo, energy, mood).
+- Artist penalty applied for more diverse recommendations.
+- Results are shuffled for variety.
+- Display shows "Similar Tracks (Track Name)" and track count in the title bar.
+
+### Tag Editor
+- Edit: title, artist, album, genre, year
+- Rename file
+- Online track info search (iTunes, Deezer API)
+- Cover art search and download
+
+### Additional
+- Library as a separate process (subprocess)
+- IPC communication between player and library
+- Dynamic color (from album art)
+- System tray icon
+
+### Web Server for Remote Control
+- Built-in HTTP server (aiohttp) on port 8080 (configurable)
+- Responsive web interface (desktop + mobile)
+- Playback controls: Play/Pause, Next/Previous, Seek, Volume
+- Playlist loading: folders, Favorites, Top, Similar Tracks
+- Display: cover (base64), title, artist, album, playlist with auto-scroll
+- Real-time playback status (polling every 1000ms)
+- Folder selection from indexed list
+- Offline detection with "Player is offline" notification
+- REST API for external app control
+
+### Android App for Remote Control
+- Playback controls: Play/Pause, Next, Previous
+- Repeat, favorites toggle
+- Seek bar and volume control
+- Styled to match the main player: black theme with dynamic accent color
+- Playlists: folders, Top, Favorites, Full Library (5000+ tracks)
+- Connection via QR code or manually (IP:PORT)
+
+## Installation
+
+```bash
+pip install -r requirements.txt
+```
+
+## Running
+
+```bash
+python main.py
+```
+
+To open the library in a separate window:
+```bash
+python main.py --library
+```
+
+## Requirements
+
+- Python 3.9+
+- PySide6 >= 6.6
+- mutagen >= 1.47
+- Pillow >= 10.0
+- aiohttp >= 3.9
+- librosa (for audio analysis)
+
+## Color Scheme
+
+- Background: `#000000` (black)
+- Text: `#FFFFFF` (white)
+- Accent: `#ed6a02` (customizable)
+
+## License
+
+GNU General Public License v3.0 (GPL v3)
+
+---
+
+# SonicFlame Player
+
 Современный десктопный аудиоплеер с графическим интерфейсом на Python (PySide6/Qt6).
 
 ## Возможности
@@ -35,10 +158,10 @@
 ### Сортировка треков
 - Добавлен механизм сортировки треков в плейлисте.
 - Режимы сортировки: по исполнителю (artist), по названию (title), по новизне (newest), перемешать (shuffle).
-- Управление: выпадающий список сортировки расположен в правом краю титл-бара рядом с кнопкой сворачивания окна. Обводка убрана, цвет текста серый как название текущей папки.
+- Управление: выпадающий список сортировки расположен в правом краю титл-бара рядом с кнопкой сворачивания окна.
 - Значение режима сортировки хранится в конфиге (.cache/settings.json) в поле `playlist_sort_mode` и применяется ко всем плейлистам.
 - По новизне: сортировка по времени изменения файла (mtime). Если mtime недоступен, используется текущее время.
-- Сохранение настроек: изменение режима через UI сохраняется в конфиге и применяется к последующим загрузкам папок.
+- Изменение режима через UI сохраняется в конфиге и применяется к последующим загрузкам папок.
 - При загрузке новой папки сохранённый режим сортировки применяется автоматически (не сбрасывается).
 - Подсветка активного трека сохраняется на воспроизводимом треке после смены сортировки.
 
@@ -49,7 +172,6 @@
 - Применяется штраф за совпадение исполнителя для более разнообразных рекомендаций.
 - Результаты подборки перемешиваются.
 - Отображение "Похожие треки (Название трека)" и количество треков в титл-баре.
-
 
 ### Редактор тегов
 - Редактирование: title, artist, album, genre, year
@@ -76,12 +198,11 @@
 
 ### Android-приложение для удалённого управления
 - Управление воспроизведением: Play/Pause, Next, Previous
-- Повтор, добавление/удаление избранное, 
-- Seek bar и регулятор громкости,
-- стилизация под основной плеер, черный с динамическим акцентным цветом.
-- Плейлисты: загрузка папок, Топ прослушиваний, Избранного, Всей библиотеки (5000+),
-- подключение по QR-коду или вручную (IP:PORT)
-
+- Повтор, добавление/удаление избранное
+- Seek bar и регулятор громкости
+- Стилизация под основной плеер: чёрный с динамическим акцентным цветом
+- Плейлисты: загрузка папок, Топ прослушиваний, Избранного, Всей библиотеки (5000+)
+- Подключение по QR-коду или вручную (IP:PORT)
 
 ## Установка
 
