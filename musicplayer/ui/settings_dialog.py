@@ -15,8 +15,9 @@ from io import BytesIO
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                 QPushButton, QFileDialog, QWidget, QCheckBox,
-                                QLineEdit)
-from PySide6.QtCore import Qt, Signal, QPoint, QByteArray, QTimer, QThread
+                                QLineEdit, QSlider, QStyleOptionSlider)
+from PySide6.QtWidgets import QStyle
+from PySide6.QtCore import Qt, Signal, QByteArray, QTimer, QThread
 from PySide6.QtGui import QFont, QPainter, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtSvg import QSvgRenderer
@@ -124,6 +125,30 @@ class ColorCircleButton(QPushButton):
             self.setIcon(QIcon(self._pixmap))
 
 
+class ClickableSlider(QSlider):
+    """QSlider with click-to-seek support."""
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton:
+            opt = QStyleOptionSlider()
+            self.initStyleOption(opt)
+            style = self.style()
+            handle_rect = style.subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderHandle, self)
+            click_pos = event.position().toPoint()
+            if not handle_rect.contains(click_pos):
+                groove_rect = style.subControlRect(QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self)
+                slider_range = self.maximum() - self.minimum()
+                groove_width = groove_rect.width()
+                if groove_width > 0:
+                    x_in_groove = click_pos.x() - groove_rect.x()
+                    ratio = x_in_groove / groove_width
+                    new_val = self.minimum() + round(ratio * slider_range)
+                    self.setValue(new_val)
+                event.accept()
+                return
+        super().mousePressEvent(event)
+
+
 class SettingsDialog(QDialog):
     """Frameless dialog for application settings."""
 
@@ -142,8 +167,6 @@ class SettingsDialog(QDialog):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setMinimumSize(620, 420)
         self.setModal(True)
-
-        self._drag_pos = QPoint()
 
         self._build_ui()
         self._update_stats()
@@ -371,13 +394,62 @@ class SettingsDialog(QDialog):
         left_col.addLayout(port_layout)
         left_col.addSpacing(8)
 
-        # Right column - QR
+        # Right column - QR + similarity slider
         right_col = QVBoxLayout()
         right_col.setAlignment(Qt.AlignTop)
+        right_col.setSpacing(12)
+
+        def _right_row():
+            """Create a horizontal layout that pushes its content to the right edge."""
+            row = QHBoxLayout()
+            row.addStretch()
+            return row
+
+        qr_row = _right_row()
         self._qr_label = QLabel()
         self._qr_label.setFixedSize(100, 100)
         self._qr_label.setVisible(False)
-        right_col.addWidget(self._qr_label)
+        qr_row.addWidget(self._qr_label)
+        right_col.addLayout(qr_row)
+        right_col.addSpacing(20)
+
+        # Similarity precision slider
+        sim_label_row = _right_row()
+        sim_label = QLabel("Точность подбора похожих треков")
+        sim_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        sim_label_row.addWidget(sim_label)
+        right_col.addLayout(sim_label_row)
+
+        sim_slider_row = _right_row()
+        sim_slider_row.setSpacing(10)
+        self._sim_slider = ClickableSlider(Qt.Horizontal)
+        self._sim_slider.setRange(0, 20)
+        self._sim_slider.setValue(self.settings.similarity_precision)
+        self._sim_slider.setFixedWidth(210)
+        self._sim_slider.setCursor(Qt.PointingHandCursor)
+        self._sim_slider.valueChanged.connect(self._on_similarity_precision_changed)
+        self._sim_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: rgba(80, 80, 80, 0.5);
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                width: 14px; height: 14px;
+                margin: -5px 0;
+                background: {cfg.get_accent_color()};
+                border-radius: 7px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: #FFFFFF;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {cfg.get_accent_color()};
+                border-radius: 2px;
+            }}
+        """)
+        sim_slider_row.addWidget(self._sim_slider)
+        right_col.addLayout(sim_slider_row)
 
         left_col.addStretch()
 
@@ -566,6 +638,10 @@ class SettingsDialog(QDialog):
             except ValueError:
                 pass
 
+    def _on_similarity_precision_changed(self, value: int):
+        """Save similarity precision setting."""
+        self.settings.similarity_precision = value
+
     def _get_local_ip(self):
         """Get local IP address."""
         try:
@@ -655,7 +731,7 @@ class SettingsDialog(QDialog):
             self._cleanup_result_label.setText(f"Удалено треков: {removed}")
             self._cleanup_result_label.setVisible(True)
             self._cleanup_btn.setEnabled(True)
-            self._cleanup_btn.setText("Чистка мусора в DB")
+            self._cleanup_btn.setText("Чистка мусора")
             self._update_stats()
             QTimer.singleShot(3000, lambda: self._cleanup_result_label.setVisible(False))
 
@@ -692,6 +768,28 @@ class SettingsDialog(QDialog):
         # Checkbox
         self._update_checkbox_style()
 
+        # Similarity slider
+        self._sim_slider.setStyleSheet(f"""
+            QSlider::groove:horizontal {{
+                height: 4px;
+                background: rgba(80, 80, 80, 0.5);
+                border-radius: 2px;
+            }}
+            QSlider::handle:horizontal {{
+                width: 14px; height: 14px;
+                margin: -5px 0;
+                background: {color};
+                border-radius: 7px;
+            }}
+            QSlider::handle:horizontal:hover {{
+                background: #FFFFFF;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: {color};
+                border-radius: 2px;
+            }}
+        """)
+
         # Status bar labels
         self.library_count_label.setStyleSheet(f"color: {color}; font-size: 12px;")
         self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 12px;")
@@ -715,16 +813,6 @@ class SettingsDialog(QDialog):
             }}
         """)
 
-    # --- Window dragging ---
 
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
 
 
