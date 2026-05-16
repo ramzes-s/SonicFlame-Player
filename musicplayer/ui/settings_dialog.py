@@ -15,10 +15,10 @@ from io import BytesIO
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                 QPushButton, QFileDialog, QWidget, QCheckBox,
-                                QLineEdit, QSlider, QStyleOptionSlider)
+                                QLineEdit, QSlider, QStyleOptionSlider, QComboBox)
 from PySide6.QtWidgets import QStyle
 from PySide6.QtCore import Qt, Signal, QByteArray, QTimer, QThread
-from PySide6.QtGui import QFont, QPainter, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator
+from PySide6.QtGui import QFont, QPainter, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator, QValidator
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtSvg import QSvgRenderer
 
@@ -123,6 +123,30 @@ class ColorCircleButton(QPushButton):
             self.setIcon(QIcon(combined))
         else:
             self.setIcon(QIcon(self._pixmap))
+
+
+FORBIDDEN_PORTS = {21, 22, 80, 443}
+
+
+class PortValidator(QValidator):
+    """Validates port numbers: 1024-65535, excluding 21, 22, 80, 443."""
+
+    def validate(self, input_str: str, pos: int):
+        if not input_str:
+            return QValidator.Intermediate, input_str, pos
+        if not input_str.isdigit():
+            return QValidator.Invalid, input_str, pos
+        port = int(input_str)
+        if port > 65535:
+            return QValidator.Invalid, input_str, pos
+        if port < 1024:
+            return QValidator.Intermediate, input_str, pos
+        if port in FORBIDDEN_PORTS:
+            return QValidator.Intermediate, input_str, pos
+        return QValidator.Acceptable, input_str, pos
+
+    def fixup(self, input_str: str) -> str:
+        return "8080"
 
 
 class ClickableSlider(QSlider):
@@ -338,6 +362,46 @@ class SettingsDialog(QDialog):
         self.mini_widget_cb.toggled.connect(self._on_mini_widget_toggled)
         left_col.addWidget(self.mini_widget_cb)
 
+        # Mini widget opacity combo
+        opacity_row = QHBoxLayout()
+        opacity_row.setSpacing(10)
+        opacity_label = QLabel("Прозрачность мини-виджета")
+        opacity_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        opacity_row.addWidget(opacity_label)
+        self._opacity_combo = QComboBox()
+        self._opacity_combo.addItems([str(i) for i in range(0, 81, 10)])
+        self._opacity_combo.setCurrentText(str(self.settings.mini_widget_opacity))
+        self._opacity_combo.currentTextChanged.connect(self._on_opacity_changed)
+        self._opacity_combo.setEnabled(self.settings.mini_widget_on_minimize)
+        self._opacity_combo.setFixedWidth(70)
+        self._opacity_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #000000;
+                border: none;
+                border-bottom: 1px solid {cfg.get_accent_color()};
+                color: #FFFFFF;
+                font-size: 12px;
+                padding: 3px 6px 2px 6px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 20px;
+            }}
+            QComboBox::down-arrow {{
+                image: none;
+                border: none;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #000000;
+                border: 1px solid {cfg.get_accent_color()};
+                color: #FFFFFF;
+                selection-background-color: {cfg.get_accent_color()};
+            }}
+        """)
+        opacity_row.addWidget(self._opacity_combo)
+        opacity_row.addStretch()
+        left_col.addLayout(opacity_row)
+
         # Prevent sleep checkbox
         self.prevent_sleep_cb = QCheckBox("Блокировать сон при работающем плеере")
         self.prevent_sleep_cb.setChecked(self.settings.prevent_sleep)
@@ -360,31 +424,19 @@ class SettingsDialog(QDialog):
         port_layout = QHBoxLayout()
         port_layout.setSpacing(10)
         port_label = QLabel("Порт:")
-        port_label.setStyleSheet("color: #888888; font-size: 12px;")
+        port_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
         self.port_input = QLineEdit()
-        self.port_input.setText(str(self.settings.web_server_port))
+        initial_port = self.settings.web_server_port
+        if initial_port in FORBIDDEN_PORTS or not (1024 <= initial_port <= 65535):
+            initial_port = 8080
+            self.settings.web_server_port = 8080
+        self.port_input.setText(str(initial_port))
         self.port_input.setFixedWidth(80)
         self.port_input.setAlignment(Qt.AlignCenter)
         self.port_input.setEnabled(self.settings.web_server_enabled)
-        self.port_input.setValidator(QIntValidator(1024, 65535))
+        self.port_input.setValidator(PortValidator())
         self.port_input.textChanged.connect(self._on_port_changed)
-        self.port_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: #1a1a1a;
-                border: 1px solid rgba(80, 80, 80, 0.5);
-                color: #FFFFFF;
-                font-size: 12px;
-                padding: 4px;
-                border-radius: 4px;
-            }}
-            QLineEdit:disabled {{
-                background-color: #0a0a0a;
-                color: #555555;
-            }}
-            QLineEdit:focus {{
-                border-color: {cfg.get_accent_color()};
-            }}
-        """)
+        self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
         port_layout.addWidget(port_label)
         port_layout.addWidget(self.port_input)
         self._web_server_status = QLabel()
@@ -461,6 +513,7 @@ class SettingsDialog(QDialog):
 
         # Apply styles after both checkboxes are created
         self._update_checkbox_style()
+        self._update_combo_style()
 
         scroll.setWidget(content)
         inner.addWidget(scroll)
@@ -610,6 +663,14 @@ class SettingsDialog(QDialog):
     def _on_mini_widget_toggled(self, checked: bool):
         """Save mini widget on minimize setting."""
         self.settings.mini_widget_on_minimize = checked
+        self._opacity_combo.setEnabled(checked)
+
+    def _on_opacity_changed(self, text: str):
+        """Save mini widget opacity setting."""
+        try:
+            self.settings.mini_widget_opacity = int(text)
+        except ValueError:
+            pass
 
     def _on_prevent_sleep_toggled(self, checked: bool):
         """Save prevent sleep setting."""
@@ -628,11 +689,32 @@ class SettingsDialog(QDialog):
         self._update_web_server_status()
         self.web_server_toggled.emit(checked)
 
+    def _port_style(self, text_color: str) -> str:
+        return f"""
+            QLineEdit {{
+                background-color: #000000;
+                border: none;
+                border-bottom: 1px solid {cfg.get_accent_color()};
+                color: {text_color};
+                font-size: 12px;
+                padding: 3px 4px 2px 4px;
+            }}
+            QLineEdit:disabled {{
+                background-color: #000000;
+                color: #555555;
+                border-bottom: 1px solid #333333;
+            }}
+        """
+
     def _on_port_changed(self, text: str):
         """Save port setting when changed."""
         if text:
             try:
                 port = int(text)
+                if port in FORBIDDEN_PORTS:
+                    self.port_input.setStyleSheet(self._port_style("#ff4444"))
+                    return
+                self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
                 self.settings.web_server_port = port
                 self.web_server_port_changed.emit(port)
             except ValueError:
@@ -741,8 +823,33 @@ class SettingsDialog(QDialog):
             self._cleanup_worker.wait()
         event.accept()
 
+    def _update_combo_style(self):
+        """Update combo box style with current accent."""
+        accent = cfg.get_accent_color()
+        self._opacity_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #000000;
+                border: none;
+                border-bottom: 1px solid {accent};
+                color: #FFFFFF;
+                font-size: 12px;
+                padding: 3px 6px 2px 6px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                width: 20px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #000000;
+                border: 1px solid {accent};
+                color: #FFFFFF;
+                selection-background-color: {accent};
+            }}
+        """)
+
     def apply_accent_color(self, color: str):
         """Update accent color within this dialog."""
+        self._update_combo_style()
         # Close button hover
         self._close_btn.setStyleSheet(f"""
             QPushButton {{
@@ -794,24 +901,8 @@ class SettingsDialog(QDialog):
         self.library_count_label.setStyleSheet(f"color: {color}; font-size: 12px;")
         self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 12px;")
 
-        # Web server port input focus
-        self.port_input.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: #1a1a1a;
-                border: 1px solid rgba(80, 80, 80, 0.5);
-                color: #FFFFFF;
-                font-size: 12px;
-                padding: 4px;
-                border-radius: 4px;
-            }}
-            QLineEdit:disabled {{
-                background-color: #0a0a0a;
-                color: #555555;
-            }}
-            QLineEdit:focus {{
-                border-color: {color};
-            }}
-        """)
+        # Web server port input
+        self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
 
 
 
