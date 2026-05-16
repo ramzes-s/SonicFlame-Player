@@ -61,7 +61,9 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
                              f"Не удалось переместить файл: {e}")
         return None
 
+    new_filepath = normalize_path(new_filepath)
+
     if was_favorite:
         toggle_favorite(new_filepath)
 
-    return normalize_path(new_filepath)
+    return new_filepath
