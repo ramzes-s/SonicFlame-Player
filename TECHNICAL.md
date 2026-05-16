@@ -15,7 +15,11 @@ SonicFlame\
 ├── build.bat                           # Скрипт сборки
 ├── TECHNICAL.md                        # Этот файл
 ├── README.md                           # Документация пользователя
-├── res/                                # Ресурсы (фоновые изображения обложек)
+├── res/                                # Ресурсы
+│   ├── *.jpg                           # Фоновые изображения обложек
+│   └── genres/
+│       ├── genre_groups.json           # Группы жанров для фильтрации
+│       └── genre_map.json              # Маппинг жанров (ID3 → группы)
 ├── musicplayer/
 │   ├── __init__.py
 │   ├── config.py                       # Глобальные константы: ACCENT_COLOR, CACHE_DIR, пути кэша
