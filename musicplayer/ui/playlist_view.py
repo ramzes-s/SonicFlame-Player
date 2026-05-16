@@ -541,10 +541,23 @@ class PlaylistWidget(QWidget):
             self.delegate.tracks_ref = self._view_tracks
 
     def _display_tracks(self):
-        """Clear and redraw the current view."""
-        self.list_widget.clear()
-        for i, track in enumerate(self._view_tracks):
-            self._add_track_to_view(track, i)
+        """Reconcile the current view with _view_tracks without calling clear()."""
+        old_count = self.list_widget.count()
+        new_count = len(self._view_tracks)
+        # Update data on existing items
+        for i in range(min(old_count, new_count)):
+            item = self.list_widget.item(i)
+            track = self._view_tracks[i]
+            item.setData(Qt.UserRole, track.filepath)
+            item.setData(Qt.UserRole + 1, i)
+        # Remove surplus items from the end
+        while self.list_widget.count() > new_count:
+            self.list_widget.takeItem(self.list_widget.count() - 1)
+        # Append new items
+        for i in range(old_count, new_count):
+            track = self._view_tracks[i]
+            item = PlaylistItem(track, i)
+            self.list_widget.addItem(item)
         self._current_index = -1
         self.delegate.tracks_ref = self._view_tracks
 

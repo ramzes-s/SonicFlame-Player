@@ -1,3 +1,5 @@
+import gc
+import logging
 import os
 import urllib.request
 from pathlib import Path
@@ -8,6 +10,8 @@ from mutagen.mp3 import MP3
 from mutagen.id3 import ID3, TIT2, TPE1, TALB, TDRC, TCON, TRCK, APIC, ID3NoHeaderError
 from mutagen.mp4 import MP4, MP4Cover
 from .api import _search_itunes_tracks_static, _search_deezer_tracks_static
+
+logger = logging.getLogger(__name__)
 
 
 class _TrackSearchThread(QThread):
@@ -43,7 +47,7 @@ class _CoverDownloadThread(QThread):
 
 
 class _SaveTagsThread(QThread):
-    finished = Signal(str)
+    save_finished = Signal(str)
     error = Signal(str)
 
     def __init__(self, file_path, new_filename_stem, title, artist, album, year, track, genres, cover_data):
@@ -59,26 +63,33 @@ class _SaveTagsThread(QThread):
         self.cover_data = cover_data
 
     def run(self):
-        try:
-            current_filepath = self.file_path
-            old_path_obj = Path(current_filepath)
+        current_filepath = self.file_path
+        old_path_obj = Path(current_filepath)
 
+        try:
             audio = MutagenFile(current_filepath, easy=False)
             if audio is None:
                 raise ValueError("Не удалось загрузить файл для сохранения.")
 
             if isinstance(audio, MP3):
-                try:
-                    tags = audio.tags or ID3()
-                except ID3NoHeaderError:
-                    tags = ID3()
-
-                tags["TIT2"] = TIT2(text=self.title)
-                tags["TPE1"] = TPE1(text=self.artist)
-                tags["TALB"] = TALB(text=self.album)
-                tags["TDRC"] = TDRC(text=self.year)
-                tags["TRCK"] = TRCK(text=self.track)
-                tags["TCON"] = TCON(text=";".join(self.genres))
+                tags = audio.tags
+                if tags is None:
+                    try:
+                        tags = ID3()
+                    except ID3NoHeaderError:
+                        tags = ID3()
+                if self.title:
+                    tags["TIT2"] = TIT2(text=self.title)
+                if self.artist:
+                    tags["TPE1"] = TPE1(text=self.artist)
+                if self.album:
+                    tags["TALB"] = TALB(text=self.album)
+                if self.year:
+                    tags["TDRC"] = TDRC(text=self.year)
+                if self.track:
+                    tags["TRCK"] = TRCK(text=self.track)
+                if self.genres:
+                    tags["TCON"] = TCON(text=";".join(self.genres))
 
                 tags.delall("APIC")
                 if self.cover_data:
@@ -88,16 +99,22 @@ class _SaveTagsThread(QThread):
                     tags["APIC"] = APIC(encoding=3, mime=mime, type=3, desc="Cover", data=self.cover_data)
 
                 audio.tags = tags
-                audio.save(v2_version=3)
+                audio.save()
 
             elif isinstance(audio, FLAC):
                 audio.delete()
-                audio["title"] = self.title
-                audio["artist"] = self.artist
-                audio["album"] = self.album
-                audio["date"] = self.year
-                audio["tracknumber"] = self.track
-                audio["genre"] = self.genres
+                if self.title:
+                    audio["title"] = self.title
+                if self.artist:
+                    audio["artist"] = self.artist
+                if self.album:
+                    audio["album"] = self.album
+                if self.year:
+                    audio["date"] = self.year
+                if self.track:
+                    audio["tracknumber"] = self.track
+                if self.genres:
+                    audio["genre"] = self.genres
 
                 audio.clear_pictures()
                 if self.cover_data:
@@ -145,6 +162,9 @@ class _SaveTagsThread(QThread):
                 self.error.emit("Сохранение тегов для этого формата файла не поддерживается.")
                 return
 
+            del audio
+            gc.collect()
+
             if self.new_filename_stem:
                 new_filename = self.new_filename_stem + old_path_obj.suffix
                 if new_filename.lower() != old_path_obj.name.lower():
@@ -155,6 +175,7 @@ class _SaveTagsThread(QThread):
                     os.rename(current_filepath, new_path_str)
                     current_filepath = new_path_str
 
-            self.finished.emit(current_filepath)
+            self.save_finished.emit(current_filepath)
         except Exception as e:
+            logger.error("Save thread failed: %s", e, exc_info=True)
             self.error.emit(f"Не удалось сохранить теги:{e}")
