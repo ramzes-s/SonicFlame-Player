@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "0.9.75"
+APP_VERSION = "0.9.76"
 
 # Global accent color — change here to update the entire app
 ACCENT_COLOR = "#ed6a02"
