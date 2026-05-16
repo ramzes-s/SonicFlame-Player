@@ -88,7 +88,7 @@ SonicFlame\
 │   │       ├── threads.py             # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
 │   │       ├── widgets.py             # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
 │   │       ├── dialogs.py             # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
-│   │       ├── track_mover.py         # move_track_to_folder — перемещение трека с сохранением избранного
+│   │       ├── track_mover.py         # move_track_to_folder — перемещение трека в другую папку из редактора тегов
 │   │       └── editor.py              # TagEditorDialog (наследует BaseFramelessDialog)
 │   └── utils/
 │       ├── __init__.py
@@ -274,6 +274,7 @@ SonicFlame\
 | web_server_enabled | bool | Веб-сервер включён |
 | web_server_port | int | Порт веб-сервера (по умолчанию 8080) |
 | playlist_sort_mode | str | Режим сортировки плейлиста (artist/title/newest/shuffle) |
+| similarity_precision | int | Точность подбора похожих треков (0–20, по умолч. 10) |
 
 
 ### Модуль для подбора похожих треков на основе различных критериев.
@@ -291,16 +292,33 @@ SonicFlame\
 
 #### `core/recommendations.py` — Recommendations
 
+Алгоритм вычисляет взвешенную сумму схожести треков по четырём метрикам + штраф за общего исполнителя.
+
+**Веса метрик:**
+| Метрика | Вес |
+|---------|-----|
+| Жанр (`WEIGHT_GENRE`) | 0.35 |
+| Темп (`WEIGHT_TEMPO`) | 0.30 |
+| Энергия (`WEIGHT_ENERGY`) | 0.20 |
+| Настроение (`WEIGHT_MOOD`) | 0.15 |
+| Штраф за исполнителя (`PENALTY_ARTIST`) | −0.10 |
+
+**Жанр**: точное совпадение → 1.0, совпадение группы жанров → 0.9, частичное → boost 1.15.
+**Аудио-метрики**: нормализация в диапазон [0, 1], затем линейный спад `max(0, 1 - diff / threshold)` с порогом `METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.14`.
+
+**Динамический порог отбора**:
+Значение `min_similarity_threshold` вычисляется по формуле: `SIMILARITY_THRESHOLD_BASE + (similarity_precision / 100)`, где:
+- `SIMILARITY_THRESHOLD_BASE = 0.60` — базовая нижняя планка
+- `similarity_precision` — настройка пользователя (0–20, по умолч. 10)
+
+При `similarity_precision = 10` порог = 0.70; при `similarity_precision = 0` порог = 0.60; при `similarity_precision = 20` порог = 0.80.
+
 **Ключевые функции:**
-- `calculate_similarity(track1, track2)`: Рассчитывает балл сходства между двумя треками.
-    - Учитывает жанр, темп, энергию и настроение (mood).
-    - Использует индивидуальные весовые коэффициенты для каждой метрики.
-    - Применяет штраф за совпадение исполнителя (`PENALTY_ARTIST`).
-    - Использует нормализованные диапазоны метрик для точного сравнения.
-    - Если `mood_score` равен 0, то общий балл сходства также обнуляется.
-- `find_similar_tracks(current_track, all_tracks, limit, min_similarity_threshold)`: Находит список похожих треков.
-    - Возвращает до `limit` треков, чей балл сходства превышает `min_similarity_threshold`.
-    - Результаты перемешиваются перед возвратом.
+- `calculate_similarity(track1, track2) → float`: Балл сходства [0.0, 1.0].
+- `find_similar_tracks(current_track, all_tracks, limit=10, min_similarity_threshold=None) → List[TrackInfo]`:
+  - Если порог не передан, вычисляется динамически из настроек.
+  - Отбирает треки с score ≥ порога, сортирует по убыванию, берёт top `limit`, перемешивает.
+- `get_similarity_threshold() → float`: Вычисляет текущий порог из `settings.json`.
 
 #### `core/media_keys.py` — Media Keys Handler
 Обработчик глобальных медиа-клавиш (Play/Pause, Next, Previous) для Windows.
@@ -625,6 +643,7 @@ SonicFlame\
 - **Акцентный цвет** — 14 пресетов (кружки)
 - **Корневая папка** — кнопка с путём (или «Укажите корневую папку с музыкой»)
 - **Включать виджет при сворачивании** — QCheckBox с кастомным стилем
+- **Точность подбора похожих** — `ClickableSlider(QSlider)` с диапазоном 0–20, значение сохраняется в `settings.similarity_precision`. Имеет кастомный `mousePressEvent` для click-to-seek (прыжок в точку клика, а не пошаговое изменение).
 - **Статусбар** (внизу): треков в библиотеке (слева), кеш обложек, кнопка "Чистка мусора" — акцентный цвет
 - **Чистка мусора**: кнопка для удаления из БД записей с отсутствующими файлами
   - Выполняется в отдельном потоке (`CleanupWorker`)
