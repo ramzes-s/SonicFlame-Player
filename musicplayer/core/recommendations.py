@@ -17,10 +17,10 @@ from musicplayer import config as cfg
 import random
 
 # --- Weights and thresholds ---
-WEIGHT_GENRE = 0.36
-WEIGHT_TEMPO = 0.34
-WEIGHT_ENERGY = 0.24
-WEIGHT_MOOD = 0.14
+WEIGHT_GENRE = 0.35
+WEIGHT_TEMPO = 0.35
+WEIGHT_ENERGY = 0.28
+WEIGHT_MOOD = 0.20
 PENALTY_ARTIST = -0.1
 
 # Use ranges from config
@@ -36,7 +36,7 @@ METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.14
 
 PARTIAL_GENRE_BOOST_FACTOR = 1.15
 MAX_GENRES_FOR_COMPARISON = 2
-SIMILARITY_THRESHOLD_BASE = 0.65
+SIMILARITY_THRESHOLD_BASE = 0.75
 
 
 def get_similarity_threshold() -> float:
@@ -56,7 +56,8 @@ def _get_list_from_string(s: Optional[str]) -> List[str]:
     if not s:
         return []
     # Split by comma or semicolon, then strip whitespace and filter empty strings
-    items = [item.strip() for item in s.replace(';', ',').split(',') if item.strip()]
+    s = s.replace(';', ',').replace('/', ',')
+    items = [item.strip() for item in s.split(',') if item.strip()]
     # Preserve order while removing duplicates
     return list(dict.fromkeys(items))
 
