@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                 QLineEdit, QSlider, QStyleOptionSlider, QComboBox)
 from PySide6.QtWidgets import QStyle
 from PySide6.QtCore import Qt, Signal, QByteArray, QTimer, QThread
-from PySide6.QtGui import QFont, QPainter, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator, QValidator
+from PySide6.QtGui import QFont, QPainter, QPen, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator, QValidator
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtSvg import QSvgRenderer
 
@@ -72,6 +72,7 @@ ACCENT_PRESETS = [
     ("#ffc150", "Yellow"),
     ("#977c64", "Brown"),
     ("#84a2be", "Gray"),
+    ("#607884", "Slate"),
 ]
 
 
@@ -173,6 +174,41 @@ class ClickableSlider(QSlider):
         super().mousePressEvent(event)
 
 
+class SpinnerWidget(QWidget):
+    """Animated spinning circle loader."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._advance)
+        self.setFixedSize(16, 16)
+        self.hide()
+
+    def start(self):
+        self._angle = 0
+        self.show()
+        if not self._timer.isActive():
+            self._timer.start(50)
+
+    def stop(self):
+        self._timer.stop()
+        self.hide()
+
+    def _advance(self):
+        self._angle = (self._angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(cfg.get_accent_color()), 2.5)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        r = self.rect().adjusted(2, 2, -2, -2)
+        painter.drawArc(r, self._angle * 16, 270 * 16)
+
+
 class SettingsDialog(QDialog):
     """Frameless dialog for application settings."""
 
@@ -186,6 +222,11 @@ class SettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
+        self._pending_port = None
+        self._port_debounce_timer = QTimer(self)
+        self._port_debounce_timer.setSingleShot(True)
+        self._port_debounce_timer.timeout.connect(self._on_port_debounce_complete)
+        self._spinner = SpinnerWidget(self)
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
@@ -365,10 +406,9 @@ class SettingsDialog(QDialog):
         # Mini widget opacity combo
         opacity_row = QHBoxLayout()
         opacity_row.setSpacing(10)
+        self._opacity_combo = QComboBox()
         opacity_label = QLabel("Прозрачность мини-виджета")
         opacity_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
-        opacity_row.addWidget(opacity_label)
-        self._opacity_combo = QComboBox()
         self._opacity_combo.addItems([str(i) for i in range(0, 81, 10)])
         self._opacity_combo.setCurrentText(str(self.settings.mini_widget_opacity))
         self._opacity_combo.currentTextChanged.connect(self._on_opacity_changed)
@@ -399,6 +439,7 @@ class SettingsDialog(QDialog):
             }}
         """)
         opacity_row.addWidget(self._opacity_combo)
+        opacity_row.addWidget(opacity_label)
         opacity_row.addStretch()
         left_col.addLayout(opacity_row)
 
@@ -437,8 +478,9 @@ class SettingsDialog(QDialog):
         self.port_input.setValidator(PortValidator())
         self.port_input.textChanged.connect(self._on_port_changed)
         self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
-        port_layout.addWidget(port_label)
         port_layout.addWidget(self.port_input)
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self._spinner)
         self._web_server_status = QLabel()
         self._web_server_status.setStyleSheet("color: #888888; font-size: 11px;")
         port_layout.addWidget(self._web_server_status)
@@ -707,18 +749,45 @@ class SettingsDialog(QDialog):
         """
 
     def _on_port_changed(self, text: str):
-        """Save port setting when changed."""
-        if text:
-            try:
-                port = int(text)
-                if port in FORBIDDEN_PORTS:
-                    self.port_input.setStyleSheet(self._port_style("#ff4444"))
-                    return
-                self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
-                self.settings.web_server_port = port
-                self.web_server_port_changed.emit(port)
-            except ValueError:
-                pass
+        """Debounce port changes — restart server only after 2s of inactivity."""
+        if not text:
+            self._spinner.stop()
+            self._port_debounce_timer.stop()
+            self._pending_port = None
+            return
+
+        try:
+            port = int(text)
+        except ValueError:
+            self._spinner.stop()
+            self._port_debounce_timer.stop()
+            self._pending_port = None
+            return
+
+        self._pending_port = port
+
+        if port in FORBIDDEN_PORTS or not (1024 <= port <= 65535):
+            self.port_input.setStyleSheet(self._port_style("#ff4444"))
+        else:
+            self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
+
+        self._spinner.start()
+        self._port_debounce_timer.start(2000)
+
+    def _on_port_debounce_complete(self):
+        """Fire when 2s of inactivity + valid port — save & restart server."""
+        port = self._pending_port
+        if port is None:
+            self._spinner.stop()
+            return
+
+        if port in FORBIDDEN_PORTS or not (1024 <= port <= 65535):
+            return
+
+        self.settings.web_server_port = port
+        self._spinner.stop()
+        self.web_server_port_changed.emit(port)
+        self._update_web_server_status()
 
     def _on_similarity_precision_changed(self, value: int):
         """Save similarity precision setting."""
@@ -818,6 +887,8 @@ class SettingsDialog(QDialog):
             QTimer.singleShot(3000, lambda: self._cleanup_result_label.setVisible(False))
 
     def closeEvent(self, event):
+        self._port_debounce_timer.stop()
+        self._spinner.stop()
         if hasattr(self, '_cleanup_worker') and self._cleanup_worker.isRunning():
             self._cleanup_worker.quit()
             self._cleanup_worker.wait()
