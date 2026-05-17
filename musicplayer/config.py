@@ -18,7 +18,7 @@ TEXT_COLOR = "#FFFFFF"
 DIVIDER_COLOR = "rgba(80, 80, 80, 0.5)"
 
 # Audio feature normalization ranges (from recommendations.py)
-MIN_TEMPO = 50
+MIN_TEMPO = 40
 MAX_TEMPO = 200
 
 MIN_ENERGY = 0.01
