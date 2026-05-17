@@ -511,7 +511,7 @@ class MainWindow(QMainWindow):
             self.sidebar._top_active = True
             self.sidebar.favorites_btn.set_active(False)
             self.sidebar.top_btn.set_active(True)
-            top_tracks = get_top_tracks(50)
+            top_tracks = get_top_tracks(100)
             self.playlist.set_tracks(top_tracks)
             mode = get_playlist_sort_mode()
             self.playlist.set_sort_mode(mode)

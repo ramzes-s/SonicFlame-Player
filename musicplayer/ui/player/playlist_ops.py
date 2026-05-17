@@ -53,13 +53,13 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
 
     def load_top(self, enabled: bool):
-        self._mw.title_bar.set_playlist_title("Топ")
+        self._mw.title_bar.set_playlist_title("Топ прослушиваний")
         self._mw.title_bar.set_show_separator(True)
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self._mw._blink_animation.start()
 
-        top_tracks = get_top_tracks(50)
+        top_tracks = get_top_tracks(100)
         self._mw.playlist.clear()
         if top_tracks:
             self._mw.playlist.set_tracks(top_tracks)

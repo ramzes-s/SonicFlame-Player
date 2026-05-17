@@ -207,7 +207,7 @@ def get_all_folders() -> List[Tuple[str, int]]:
 # ---- Top tracks ----
 
 
-def get_top_tracks(limit: int = 50) -> List[TrackInfo]:
+def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
     """Get top tracks by play count (min 1 play, max `limit` tracks)."""
     with get_connection() as conn:
         cursor = conn.execute("""
@@ -246,11 +246,12 @@ def get_top_tracks(limit: int = 50) -> List[TrackInfo]:
                 cover_data=cover_data,
                 genre=row[6] or "",
                 is_lossless=bool(row[7]),
+                play_count=row[9] if len(row) > 9 else 0,
+                bitrate=row[10] if len(row) > 10 else 0,
+                tempo=row[11] if len(row) > 11 else 0.0,
+                energy=row[12] if len(row) > 12 else 0.0,
+                mood=row[13] if len(row) > 13 else 0.0,
             )
-            if len(row) > 9:
-                track.play_count = row[9]
-            if len(row) > 10:
-                track.bitrate = row[10]
 
             try:
                 if os.path.exists(filepath):
