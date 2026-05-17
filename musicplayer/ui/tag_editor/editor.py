@@ -403,7 +403,7 @@ class TagEditorDialog(BaseFramelessDialog):
                         genre_str = str(tcon)
                         genre_str = re.sub(r'\(\d+\)', '', genre_str).strip()
                         self.genre_tags = []
-                        for g in re.split(r'[;,]+', genre_str):
+                        for g in re.split(r'[;/,]+', genre_str):
                             g = g.strip()
                             if g and g not in self.genre_tags:
                                 self.genre_tags.append(g)
@@ -423,7 +423,7 @@ class TagEditorDialog(BaseFramelessDialog):
                     raw_genres = tags.get("genre", [])
                     self.genre_tags = []
                     for g in raw_genres:
-                        for part in re.split(r'[;,]+', g):
+                        for part in re.split(r'[;/,]+', g):
                             part = part.strip()
                             if part and part not in self.genre_tags:
                                 self.genre_tags.append(part)
@@ -443,7 +443,7 @@ class TagEditorDialog(BaseFramelessDialog):
                     raw_genres = tags.get("\xa9gen", [])
                     self.genre_tags = []
                     for g in raw_genres:
-                        for part in re.split(r'[;,]+', g):
+                        for part in re.split(r'[;/,]+', g):
                             part = part.strip()
                             if part and part not in self.genre_tags:
                                 self.genre_tags.append(part)
