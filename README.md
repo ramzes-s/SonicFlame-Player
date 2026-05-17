@@ -12,6 +12,8 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Supports MP3, FLAC, M4A/MP4 formats
 - Playback controls: Play/Pause, Next, Previous
 - Repeat mode, favorites, sorting
+- **Artist tracks** — load all tracks by the current artist from the controls bar
+- **Similar tracks** — find tracks similar to the currently playing one (genre, tempo, energy, mood)
 - Seek bar and volume control
 - System media keys
 - Automatic switching to a new audio output device when connected (headphones, speakers, etc.)
@@ -20,7 +22,7 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - "Artists" view in the library with cover collages
 - Folder scanning with metadata extraction
 - SQLite database for track information storage
-- Favorites and Top (by play count)
+- Favorites and **Top listened** (top 100 by play count)
 - Smart sync: detects folder changes, auto-updates the DB
 - Track mood analysis (tempo, energy, mood) via librosa (async, background thread)
 - Colored mood star overlay on album art
@@ -30,7 +32,7 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Frameless window with custom title bar
 - Album art display with ambient blur effect
 - Playlist with auto-scroll to current track
-- Customizable accent color (14 presets) with optional dynamic color based on album art palette
+- Customizable accent color (15 presets) with optional dynamic color based on album art palette
 - System tray mini-widget
 - Dark theme with smooth transitions
 
@@ -44,19 +46,12 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Saved sort mode is automatically applied when loading a new folder (no reset).
 - Active track highlight is preserved after changing sort order.
 
-### Similar Tracks
-- Search for tracks similar to the currently playing one.
-- The algorithm considers genre, tempo, energy, and mood.
-- Individual weight coefficients for each parameter (genre, tempo, energy, mood).
-- Artist penalty applied for more diverse recommendations.
-- Results are shuffled for variety.
-- Display shows "Similar Tracks (Track Name)" and track count in the title bar.
-
 ### Tag Editor
 - Edit: title, artist, album, genre, year
 - Rename file
 - Online track info search (iTunes, Deezer API)
 - Cover art search and download
+- Genre delimiters: `;`, `,`, `/`
 
 ### Additional
 - Library as a separate process (subprocess)
@@ -65,7 +60,7 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - System tray icon
 
 ### Web Server for Remote Control
-- Built-in HTTP server (aiohttp) on port 8080 (configurable)
+- Built-in HTTP server (aiohttp) on port 8080 (configurable, debounced restart)
 - Responsive web interface (desktop + mobile)
 - Playback controls: Play/Pause, Next/Previous, Seek, Volume
 - Playlist loading: folders, Favorites, Top, Similar Tracks
@@ -139,6 +134,8 @@ GNU General Public License v3.0 (GPL v3)
 - Поддержка форматов MP3, FLAC, M4A/MP4
 - Управление воспроизведением: Play/Pause, Next, Previous
 - Повтор, избранное, сортировка
+- **Все песни исполнителя** — загрузка всех треков текущего исполнителя из панели управления
+- **Похожие треки** — поиск треков по жанру, темпу, энергии и настроению
 - Seek bar и регулятор громкости
 - Системные медиа-клавиши
 - Автоматическое переключение на новое аудиоустройство вывода при его подключении (наушники, колонки и т.д.)
@@ -147,7 +144,7 @@ GNU General Public License v3.0 (GPL v3)
 - Представление "Исполнители" в библиотеке с коллажами из обложек
 - Сканирование папок с музыкой с извлечением метаданных
 - SQLite-база данных для хранения информации о треках
-- Избранное и Топ (по количеству воспроизведений)
+- Избранное и **Топ прослушиваний** (топ-100 по количеству воспроизведений)
 - Умный sync: отслеживание изменений в папке, автоматическое обновление БД
 - Анализ настроения трека (tempo, energy, mood) через librosa (асинхронный, в отдельном потоке)
 - Цветная звезда настроения на обложке
@@ -157,7 +154,7 @@ GNU General Public License v3.0 (GPL v3)
 - Безрамочное окно с кастомным title bar
 - Отображение обложек с эффектом ambient blur
 - Плейлист с автоскроллом до текущего трека
-- Настраиваемый акцентный цвет (14 пресетов) с возможностью включения динамической смены цвета в зависимости от палитры обложки трека
+- Настраиваемый акцентный цвет (15 пресетов, включая Slate) с возможностью включения динамической смены цвета в зависимости от палитры обложки трека
 - Мини-виджет для системного трея
 - Тёмная тема с плавными переходами
 
@@ -171,19 +168,12 @@ GNU General Public License v3.0 (GPL v3)
 - При загрузке новой папки сохранённый режим сортировки применяется автоматически (не сбрасывается).
 - Подсветка активного трека сохраняется на воспроизводимом треке после смены сортировки.
 
-### Подбор похожих треков
-- Функция поиска треков, похожих на текущий воспроизводимый.
-- Алгоритм учитывает жанр, темп, энергию и настроение (mood) трека.
-- Используются индивидуальные весовые коэффициенты для каждого параметра (жанр, темп, энергия, настроение).
-- Применяется штраф за совпадение исполнителя для более разнообразных рекомендаций.
-- Результаты подборки перемешиваются.
-- Отображение "Похожие треки (Название трека)" и количество треков в титл-баре.
-
 ### Редактор тегов
 - Редактирование: title, artist, album, genre, year
 - Переименование файла
 - Поиск информации о треке онлайн (iTunes, Deezer API)
 - Поиск и загрузка обложек
+- Разделитель жанров: `;`, `,`, `/`
 
 ### Дополнительно
 - Библиотека как отдельный процесс (субпроцесс)
@@ -192,7 +182,7 @@ GNU General Public License v3.0 (GPL v3)
 - Системный трей с иконкой
 
 ### Веб-сервер для удалённого управления
-- Встроенный HTTP-сервер (aiohttp) на порту 8080 (настраивается)
+- Встроенный HTTP-сервер (aiohttp) на порту 8080 (настраивается, debounce-перезапуск 2с)
 - Веб-интерфейс с адаптивной вёрсткой (desktop + mobile)
 - Управление воспроизведением: Play/Pause, Next/Previous, Seek, Volume
 - Загрузка плейлистов: папки, Избранное, Топ, Похожие треки

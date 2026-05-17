@@ -108,7 +108,7 @@ SonicFlame\
 
 | Пакет        | Версия   | Назначение                                    |
 |--------------|----------|-----------------------------------------------|
-| PySide6      | >=6.6    | GUI-фреймворк (Qt6 для Python)               |
+| PySide6      | >=6.6    | GUI-фреймворк (Qt6 для Python)                |
 | mutagen      | >=1.47   | Извлечение метаданных из аудиофайлов          |
 | Pillow       | >=10.0   | Конвертация обложек в WebP                    |
 | aiohttp      | >=3.9    | HTTP сервер для удалённого управления         |
@@ -226,7 +226,7 @@ SonicFlame\
 - `delete_folder_tracks(folder_path)` — очистка папки
 - `increment_play_count(filepath)` — инкремент счётчика
 - `is_favorite()` / `toggle_favorite()` / `get_favorite_tracks()` / `get_favorite_filepaths()`
-- `get_top_tracks(limit=50)` — топ по play_count
+- `get_top_tracks(limit=100)` — топ по play_count
 - `ensure_cover_for_track(filepath)` — гарантирует наличие обложки (извлекает если нет)
 - `upsert_folder(folder_path, track_count)` — запись папки в `folders` (путь нормализуется через `normalize_path`)
 - `get_all_folders()` — все папки с счётчиками треков
@@ -502,6 +502,12 @@ SonicFlame\
 - Загружает результаты в текущий плейлист (до 100 треков).
 - Обновляет тайтлбар, отображая "Похожие треки (Название трека)" и количество найденных треков.
 
+**Все песни исполнителя (UI)**:
+- Кнопка "Все песни исполнителя" в левом краю `ControlsWidget`.
+- При нажатии загружает все треки первого (основного) исполнителя текущего трека.
+- Использует `get_tracks_by_artist()` из БД.
+- Загружает результат в плейлист с заголовком — именем исполнителя.
+
 **Макет**:
 ```
 +--------------------------------------------------------+
@@ -627,7 +633,7 @@ SonicFlame\
 
 **Компоненты**:
 - Seek slider + time labels (0:00 / 3:45)
-- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Поиск похожих треков" (изначально неактивна)
+- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Все песни исполнителя" (левый край), кнопка "Поиск похожих треков"
 - Volume: icon (mute toggle) + slider
 - Heart button (избранное для текущего трека)
 
@@ -647,12 +653,12 @@ SonicFlame\
 
 #### `ui/settings_dialog.py` — SettingsDialog
 
-- **Акцентный цвет** — 14 пресетов (кружки)
+- **Акцентный цвет** — 15 пресетов (кружки), включая Slate (`#607884`)
 - **Корневая папка** — кнопка с путём (или «Укажите корневую папку с музыкой»)
 - **Включать виджет при сворачивании** — QCheckBox с кастомным стилем
 - **Прозрачность мини-виджета** — QComboBox со значениями 0–80 (десятками), управляет `_idle_alpha` в `MiniPlayerWidget`. При 0 — непрозрачный фон, при 80 — макс. прозрачность.
 - **Точность подбора похожих** — `ClickableSlider(QSlider)` с диапазоном 0–20, значение сохраняется в `settings.similarity_precision`. Имеет кастомный `mousePressEvent` для click-to-seek (прыжок в точку клика, а не пошаговое изменение).
-- **Порт веб-сервера** — `QLineEdit` с кастомным `PortValidator` (1024–65535, запрещены порты 21, 22, 80, 443). При вводе запрещённого порта текст окрашивается в красный.
+- **Порт веб-сервера** — `QLineEdit` с кастомным `PortValidator` (1024–65535, запрещены порты 21, 22, 80, 443). При вводе запрещённого порта текст окрашивается в красный. Debounce 2с: сервер перезапускается только после 2 секунд бездействия в поле ввода. Анимированный спиннер (`SpinnerWidget`) отображает ожидание.
 - **Статусбар** (внизу): треков в библиотеке (слева), кеш обложек, кнопка "Чистка мусора" — акцентный цвет
 - **Чистка мусора**: кнопка для удаления из БД записей с отсутствующими файлами
   - Выполняется в отдельном потоке (`CleanupWorker`)
@@ -767,9 +773,10 @@ SonicFlame\
 
 Все иконки — функции возвращающие SVG-строки:
 
-`get_play_svg`, `get_pause_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_all_music_svg`, `get_crown_svg`, `get_heart_svg`, `get_music_note_svg`, `get_similar_tracks_svg`
+`get_play_svg`, `get_pause_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_all_music_svg`, `get_crown_svg`, `get_heart_svg`, `get_music_note_svg`, `get_similar_tracks_svg`, `get_artist_svg`
 
 `get_all_music_svg` — иконка «Вся музыка»: залитая папка с прозрачной одиночной нотой внутри (SVG-маска).
+`get_artist_svg` — иконка «Исполнитель»: силуэт головы и плеч.
 
 #### `ui/mini_widget.py` — MiniPlayerWidget
 
