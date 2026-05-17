@@ -260,6 +260,16 @@ def get_all_music_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     """
 
 
+def get_artist_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
+    """Artist / musician SVG icon (head and shoulders silhouette)."""
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="8" r="4.5" stroke="{color}" stroke-width="1.5"/>
+        <path d="M4 22C4 17.5817 7.58172 14 12 14C16.4183 14 20 17.5817 20 22" stroke="{color}" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    """
+
+
 def get_similar_tracks_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     """Similar tracks search SVG icon (magnifying glass with a music note)."""
     return f"""

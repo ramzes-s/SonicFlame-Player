@@ -297,6 +297,7 @@ class MainWindow(QMainWindow):
         self.controls_widget.volume_changed.connect(self._on_volume_changed)
         self.controls_widget.favorite_toggled.connect(self._playlist.on_control_favorite_toggled)
         self.controls_widget.similar_tracks_requested.connect(self._on_similar_tracks_requested)
+        self.controls_widget.artist_tracks_requested.connect(self._on_artist_tracks_requested)
 
         self.sidebar.folder_open_requested.connect(self._on_open_folder)
         self.sidebar.all_music_requested.connect(self._on_all_music)
@@ -452,6 +453,17 @@ class MainWindow(QMainWindow):
 
     def _on_similar_tracks_requested(self):
         self._playlist.load_similar_tracks()
+
+    def _on_artist_tracks_requested(self):
+        fp = self._current_playing_filepath
+        if not fp:
+            return
+        for t in self.playlist_widget.get_view_tracks():
+            if t.filepath == fp:
+                artist = (t.artist or "").split(";")[0].split(",")[0].strip()
+                if artist and artist != "Unknown Artist":
+                    self._playlist.load_artist(artist)
+                break
 
     def _play_track_at_view_index(self, view_index: int):
         self.__playback.play_track_at_view_index(view_index)

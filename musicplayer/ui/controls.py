@@ -17,7 +17,7 @@ from musicplayer.ui.svg_icons import (
     get_play_svg, get_pause_svg, get_next_svg, get_previous_svg,
     get_shuffle_svg, get_repeat_svg,
     get_volume_high_svg, get_volume_mute_svg, get_heart_svg,
-    get_similar_tracks_svg # NEW import
+    get_similar_tracks_svg, get_artist_svg
 )
 
 
@@ -410,6 +410,7 @@ class ControlsWidget(QWidget):
     seek_clicked = Signal(int)  # milliseconds - emitted on click/release
     favorite_toggled = Signal()  # toggle favorite for current track
     similar_tracks_requested = Signal() # NEW: Request to find similar tracks
+    artist_tracks_requested = Signal()  # Request to load all tracks by current artist
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -461,13 +462,17 @@ class ControlsWidget(QWidget):
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(0)
 
-        # Left margin
-        controls_layout.addSpacing(80)
+        # Artist tracks button - load all tracks by current artist
+        self.artist_btn = ColorHoverButton(get_artist_svg, size=22, tooltip="Все песни исполнителя")
+        self.artist_btn.clicked.connect(self.artist_tracks_requested.emit)
+        controls_layout.addWidget(self.artist_btn)
 
-        # NEW: Similar Tracks Button (color hover effect on hover)
+        controls_layout.addSpacing(60)
+
+        # Similar Tracks Button (color hover effect on hover)
         self.similar_tracks_btn = ColorHoverButton(get_similar_tracks_svg, size=22, tooltip="Найти похожие треки")
-        self.similar_tracks_btn.setEnabled(True) # Make it clickable now
-        self.similar_tracks_btn.clicked.connect(self.similar_tracks_requested.emit) # Connect signal
+        self.similar_tracks_btn.setEnabled(True)
+        self.similar_tracks_btn.clicked.connect(self.similar_tracks_requested.emit)
         controls_layout.addWidget(self.similar_tracks_btn)
 
         controls_layout.addSpacing(48)

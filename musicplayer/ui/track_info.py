@@ -12,7 +12,6 @@ from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QImage, QP
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
 from PySide6.QtWidgets import QGraphicsBlurEffect
 from PySide6.QtSvgWidgets import QSvgWidget
-from PySide6.QtCore import QByteArray
 from musicplayer.core.db import TrackInfo
 from musicplayer.ui.svg_icons import get_music_note_svg
 from musicplayer.utils.helpers import get_color_from_features # ADDED
