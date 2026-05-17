@@ -272,6 +272,7 @@ SonicFlame\
 | repeat_mode | str | none / all / one |
 | volume | float | 0.0–1.0 |
 | mini_widget_on_minimize | bool | Сворачивать в трей с мини-виджетом |
+| mini_widget_opacity | int | Прозрачность фона мини-виджета (0–80, по умолч. 40) |
 | dynamic_color | bool | Динамический цвет обложки |
 | playlist_type | str | Тип плейлиста (Folder/Favorites/Top/Playlist) |
 | web_server_enabled | bool | Веб-сервер включён |
@@ -636,17 +637,22 @@ SonicFlame\
 
 Боковая панель (ширина ~60px):
 - 📁 Открыть папку
+- 🎵 Вся музыка — загружает корневую папку (`music_folder`) из конфига без диалога
 - ♡ Избранное (toggle)
 - ⭐ Топ (toggle)
 - ⚙ Настройки
 - 📚 Библиотека (субпроцесс)
+
+**Сигналы**: `folder_open_requested`, `all_music_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `settings_requested`, `library_requested`
 
 #### `ui/settings_dialog.py` — SettingsDialog
 
 - **Акцентный цвет** — 14 пресетов (кружки)
 - **Корневая папка** — кнопка с путём (или «Укажите корневую папку с музыкой»)
 - **Включать виджет при сворачивании** — QCheckBox с кастомным стилем
+- **Прозрачность мини-виджета** — QComboBox со значениями 0–80 (десятками), управляет `_idle_alpha` в `MiniPlayerWidget`. При 0 — непрозрачный фон, при 80 — макс. прозрачность.
 - **Точность подбора похожих** — `ClickableSlider(QSlider)` с диапазоном 0–20, значение сохраняется в `settings.similarity_precision`. Имеет кастомный `mousePressEvent` для click-to-seek (прыжок в точку клика, а не пошаговое изменение).
+- **Порт веб-сервера** — `QLineEdit` с кастомным `PortValidator` (1024–65535, запрещены порты 21, 22, 80, 443). При вводе запрещённого порта текст окрашивается в красный.
 - **Статусбар** (внизу): треков в библиотеке (слева), кеш обложек, кнопка "Чистка мусора" — акцентный цвет
 - **Чистка мусора**: кнопка для удаления из БД записей с отсутствующими файлами
   - Выполняется в отдельном потоке (`CleanupWorker`)
@@ -761,7 +767,9 @@ SonicFlame\
 
 Все иконки — функции возвращающие SVG-строки:
 
-`get_play_svg`, `get_pause_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_crown_svg`, `get_heart_svg`, `get_music_note_svg`, `get_similar_tracks_svg`
+`get_play_svg`, `get_pause_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_all_music_svg`, `get_crown_svg`, `get_heart_svg`, `get_music_note_svg`, `get_similar_tracks_svg`
+
+`get_all_music_svg` — иконка «Вся музыка»: залитая папка с прозрачной одиночной нотой внутри (SVG-маска).
 
 #### `ui/mini_widget.py` — MiniPlayerWidget
 
@@ -770,7 +778,9 @@ SonicFlame\
 - Перетаскиваемый (за область исполнителя/названия)
 - Кнопка разворачивания | Артист / Название | ⏮ ▶/⏸ ⏭
 - При наведении иконки меняют цвет на акцентный
+- Фон с настраиваемой прозрачностью: `_idle_alpha` (0–255) при уходе мыши, при наведении плавно анимируется до 255 (непрозрачный). Значение задаётся через настройки (`mini_widget_opacity` → 0–80, где 0 = 255, 80 = 51)
 - Автоматически обновляется при смене трека/состояния
+- Метод `set_opacity(value)` — обновляет `_idle_alpha`, `_bg_alpha` и конечное значение `fade_out_anim`
 
 ### Utils модули
 
