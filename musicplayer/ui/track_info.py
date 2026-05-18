@@ -323,7 +323,6 @@ class TrackInfoWidget(QWidget):
             "color: #AAAAAA; font-size: 14px;"
         )
         self.album_label.setAlignment(Qt.AlignCenter)
-        self.album_label.setWordWrap(True)
         self.album_label.setSizePolicy(text_policy)
         self.album_label.setMinimumWidth(0)
 

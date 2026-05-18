@@ -163,6 +163,7 @@ class PlaybackManager(PlayerManagerBase):
         self._mw._blink_animation.stop()
         self._mw.title_bar.hide_scanning_status()
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
         QMessageBox.warning(self._mw, "Scan Error", error_msg)
 
@@ -179,6 +180,7 @@ class PlaybackManager(PlayerManagerBase):
             self._mw.title_bar.set_scanning_status(f"{len(tracks)}", True)
         ))
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
 
         if self._mw.playlist.get_track_count() == 0 and tracks:

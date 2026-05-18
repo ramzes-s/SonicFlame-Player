@@ -664,6 +664,11 @@ class ControlsWidget(QWidget):
             self.heart_btn._update_icon(TEXT_COLOR)
             self.heart_btn.setToolTip("В избранное")
     
+    def set_action_buttons_enabled(self, enabled: bool):
+        """Enable/disable similar-tracks and artist-tracks buttons during loading."""
+        self.similar_tracks_btn.setEnabled(enabled)
+        self.artist_btn.setEnabled(enabled)
+
     def _update_time_labels(self, position: int, duration: int):
         """Update time display labels."""
         from musicplayer.utils.helpers import format_duration

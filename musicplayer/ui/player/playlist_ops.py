@@ -28,6 +28,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
+        self._mw.controls_widget.set_action_buttons_enabled(False)
 
         fav_tracks = get_favorite_tracks()
         self._mw.playlist.clear()
@@ -51,6 +52,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw._blink_animation.stop()
         self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
 
     def load_top(self, enabled: bool):
         self._mw.title_bar.set_playlist_title("Топ прослушиваний")
@@ -58,6 +60,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self._mw._blink_animation.start()
+        self._mw.controls_widget.set_action_buttons_enabled(False)
 
         top_tracks = get_top_tracks(100)
         self._mw.playlist.clear()
@@ -81,6 +84,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw._blink_animation.stop()
         self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
 
     def load_artist(self, artist_name: str):
         self._mw.title_bar.set_playlist_title(artist_name)
@@ -88,10 +92,12 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
+        self._mw.controls_widget.set_action_buttons_enabled(False)
 
         tracks = get_tracks_by_artist(artist_name)
         if not tracks:
             self._mw._blink_animation.stop()
+            self._mw.controls_widget.set_action_buttons_enabled(True)
             return
 
         self._mw.playlist.clear()
@@ -107,6 +113,7 @@ class PlaylistManager(PlayerManagerBase):
 
         QTimer.singleShot(200, self._bring_to_front)
         self._mw.title_bar.set_scanning_status(f"{track_count}", True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
 
         if track_count > 0:
             self._mw.settings.playlist_type = "Playlist"
@@ -133,6 +140,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_playlist_title(f"Похожие треки ({title_suffix})")
         self._mw.title_bar.set_show_separator(True)
         self._mw.sidebar.set_all_buttons_enabled(False, include_folder=False)
+        self._mw.controls_widget.set_action_buttons_enabled(False)
 
         all_tracks = get_all_library_tracks_light()
         search_pool = [t for t in all_tracks
@@ -146,6 +154,7 @@ class PlaylistManager(PlayerManagerBase):
                                    "Недостаточно треков в библиотеке с данными для анализа.")
             self._mw.title_bar.hide_scanning_status()
             self._mw.sidebar.set_all_buttons_enabled(True)
+            self._mw.controls_widget.set_action_buttons_enabled(True)
             return
 
         similar_tracks = find_similar_tracks(current_track, search_pool, limit=100)
@@ -155,6 +164,7 @@ class PlaylistManager(PlayerManagerBase):
                                    "Не удалось найти похожие треки.")
             self._mw.title_bar.hide_scanning_status()
             self._mw.sidebar.set_all_buttons_enabled(True)
+            self._mw.controls_widget.set_action_buttons_enabled(True)
             return
 
         self._mw.playlist.clear()
@@ -166,6 +176,7 @@ class PlaylistManager(PlayerManagerBase):
 
         self._mw.title_bar.set_scanning_status(f"{len(similar_tracks)}", True)
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
 
         if self._mw.playlist.get_track_count() > 0:
             if current_track in similar_tracks:
