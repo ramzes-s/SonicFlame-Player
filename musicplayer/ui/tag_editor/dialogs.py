@@ -186,8 +186,9 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
             bottom_row.addWidget(source_lbl)
         bottom_row.addStretch()
 
-        score_label_color = "#FFFFFF" if (original_artist and original_title and is_perfect_match) else "#666666"
-        score_label = QLabel(f"Совпадение: {score}")
+        pct = min(int(score * 100 / 270), 100)
+        score_label_color = cfg.get_accent_color() if pct == 100 else "#FFFFFF" if pct > 70 else "#444444" if pct < 40 else "#888888"
+        score_label = QLabel(f"Совпадение: {pct}%")
         score_label.setStyleSheet(f"color: {score_label_color}; font-size: 11px;")
         bottom_row.addWidget(score_label)
         info_layout.addLayout(bottom_row)

@@ -557,17 +557,33 @@ class TagEditorDialog(BaseFramelessDialog):
                 cover_data_from_file = f.read()
             self._apply_cover_data(cover_data_from_file, is_generated=False)
 
-    def _find_best_match(self, results, artist, title):
+    def _find_best_match(self, results, artist, title, duration=""):
         def normalize(s):
             return re.sub(r'[^\w\s]', '', s.lower().strip())
+
+        def strip_parens(s):
+            s = re.sub(r'\([^)]*\)', '', s)
+            s = re.sub(r'\[[^\]]*\]', '', s)
+            return s
+
         norm_artist = normalize(artist) if artist else ""
         norm_title = normalize(title) if title else ""
+        norm_title_stripped = normalize(strip_parens(title)) if title else ""
+
+        parsed_duration_ms = 0
+        if duration and ":" in duration:
+            parts = duration.split(":")
+            try:
+                parsed_duration_ms = int(parts[0]) * 60000 + int(parts[1]) * 1000
+            except ValueError:
+                parsed_duration_ms = 0
 
         scored = []
         for r in results:
             score = 0
             r_artist = normalize(r.get("artistName", ""))
             r_title = normalize(r.get("trackName", ""))
+            r_title_stripped = normalize(strip_parens(r.get("trackName", "")))
             has_artist_match = False
             has_title_match = False
 
@@ -587,11 +603,19 @@ class TagEditorDialog(BaseFramelessDialog):
                     score += 50
                     has_title_match = True
 
+            if not has_title_match and norm_title_stripped and r_title_stripped:
+                if norm_title_stripped == r_title_stripped:
+                    score += 80
+                    has_title_match = True
+
             if has_artist_match and has_title_match:
                 score += 20
 
-            if norm_artist and norm_title and not has_artist_match:
-                continue
+            if parsed_duration_ms:
+                api_duration = r.get("trackTimeMillis", 0)
+                if api_duration and abs(api_duration - parsed_duration_ms) <= 2000:
+                    score += 50
+
             if score > 0:
                 scored.append((score, r))
 
@@ -613,6 +637,8 @@ class TagEditorDialog(BaseFramelessDialog):
         self._fill_fields_from_filename()
         artist = self.artist_edit.text().strip()
         title = self.title_edit.text().strip()
+        title = re.sub(r'\s*\([^)]*\)', '', title)
+        title = re.sub(r'\s*\[[^\]]*\]', '', title).strip()
         if not artist and not title:
             QMessageBox.information(self, "Информация", "Заполните хотя бы одно поле: Артист или Название!")
             return
@@ -629,7 +655,7 @@ class TagEditorDialog(BaseFramelessDialog):
         artist = self.artist_edit.text().strip()
         title = self.title_edit.text().strip()
         duration = self.duration_lbl.text() if self.duration_lbl.text() != "—" else ""
-        matches = self._find_best_match(all_results, artist, title)
+        matches = self._find_best_match(all_results, artist, title, duration)
         if not matches:
             matches = [(0, r) for r in all_results[:6]]
         dialog = TrackSearchResultsDialog(matches, self, artist=artist, title=title, duration=duration)
