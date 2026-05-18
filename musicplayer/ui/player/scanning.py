@@ -44,6 +44,7 @@ class ScanningManager(PlayerManagerBase):
         self._mw.playlist_widget._view_tracks = self._mw.playlist_widget._full_tracks
         self._mw.playlist_widget.delegate.tracks_ref = self._mw.playlist_widget._view_tracks
         self._mw.sidebar.set_all_buttons_enabled(False)
+        self._mw.controls_widget.set_action_buttons_enabled(False)
         self._mw.title_bar.set_sort_enabled(False)
 
     def _on_track_scanned(self, track):
@@ -76,6 +77,7 @@ class ScanningManager(PlayerManagerBase):
             self._mw.title_bar.set_scanning_status(f"{track_count}", True)
         ))
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
 
         self._reset_sidebar_state()
@@ -126,6 +128,7 @@ class ScanningManager(PlayerManagerBase):
         self._mw._blink_animation.stop()
         self._mw.title_bar.hide_scanning_status()
         self._mw.sidebar.set_all_buttons_enabled(True)
+        self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
         from PySide6.QtWidgets import QMessageBox
         QMessageBox.warning(self._mw, "Scan Error", error_msg)
