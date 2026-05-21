@@ -17,10 +17,10 @@ from musicplayer import config as cfg
 import random
 
 # --- Weights and thresholds ---
-WEIGHT_GENRE = 0.38
+WEIGHT_GENRE = 0.40
 WEIGHT_TEMPO = 0.35
-WEIGHT_ENERGY = 0.27
-WEIGHT_MOOD = 0.20
+WEIGHT_ENERGY = 0.30
+WEIGHT_MOOD = 0.25
 PENALTY_ARTIST = -0.07
 
 # Use ranges from config
@@ -32,16 +32,20 @@ MIN_MOOD = cfg.MIN_MOOD
 MAX_MOOD = cfg.MAX_MOOD
 
 # Other constants
-METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.1
+METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.18
 
 PARTIAL_GENRE_BOOST_FACTOR = 1.15
 MAX_GENRES_FOR_COMPARISON = 2
-SIMILARITY_THRESHOLD_BASE = 0.75
+SIMILARITY_THRESHOLD_BASE = 0.80
 
 
 def get_similarity_threshold() -> float:
     """Dynamic threshold from user settings: 0.60 + (precision / 100)."""
     return SIMILARITY_THRESHOLD_BASE + (app_settings.get_similarity_precision() / 100.0)
+
+def get_metric_single_dim_threshold() -> float:
+    """Dynamic threshold from user settings: 0.60 + (precision / 100)."""
+    return METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE - (app_settings.get_similarity_precision() / 200.0)
 
 
 def _normalize_metric(value: float, min_val: float, max_val: float) -> float:
@@ -88,7 +92,7 @@ def _load_genre_map() -> dict[str, str]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def calculate_similarity(track1: TrackInfo, track2: TrackInfo) -> float:
+def calculate_similarity(track1: TrackInfo, track2: TrackInfo, metric_single_dim_threshold: float = 0.12) -> float:
     """
     Calculates a similarity score between two tracks based on genre and individual audio features,
     applying a penalty for matching artists.
@@ -164,15 +168,15 @@ def calculate_similarity(track1: TrackInfo, track2: TrackInfo) -> float:
     # Calculate individual similarity scores for each metric
     # Tempo score
     tempo_diff = abs(norm_tempo1 - norm_tempo2)
-    tempo_score = max(0.0, 1.0 - (tempo_diff / METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE))
+    tempo_score = max(0.0, 1.0 - (tempo_diff / metric_single_dim_threshold))
 
     # Energy score
     energy_diff = abs(norm_energy1 - norm_energy2)
-    energy_score = max(0.0, 1.0 - (energy_diff / METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE))
+    energy_score = max(0.0, 1.0 - (energy_diff / metric_single_dim_threshold))
 
     # Mood score
     mood_diff = abs(norm_mood1 - norm_mood2)
-    mood_score = max(0.0, 1.0 - (mood_diff / METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE))
+    mood_score = max(0.0, 1.0 - (mood_diff / metric_single_dim_threshold))
 
     # 3. Artist Penalty
     artists1 = _get_list_from_string(track1.artist)
@@ -222,14 +226,17 @@ def find_similar_tracks(
     if min_similarity_threshold is None:
         min_similarity_threshold = get_similarity_threshold()
 
-    print(f"[Recommendations] min_similarity_threshold = {min_similarity_threshold:.2f}")
+
+    metric_single_dim_threshold = get_metric_single_dim_threshold()
+
+    print(f"[Recommendations] min_similarity_threshold = {min_similarity_threshold:.2f} \n metric_single_dim_threshold = {metric_single_dim_threshold:.2f}")
 
     similarities = []
     for track in all_tracks:
         if track.filepath == current_track.filepath:
             continue # Don't compare a track to itself
 
-        similarity = calculate_similarity(current_track, track)
+        similarity = calculate_similarity(current_track, track, metric_single_dim_threshold)
         if similarity >= min_similarity_threshold:
             similarities.append((similarity, track))
 
