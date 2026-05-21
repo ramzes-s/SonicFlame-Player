@@ -32,11 +32,11 @@ MIN_MOOD = cfg.MIN_MOOD
 MAX_MOOD = cfg.MAX_MOOD
 
 # Other constants
-METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.18
+METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.2
 
 PARTIAL_GENRE_BOOST_FACTOR = 1.15
 MAX_GENRES_FOR_COMPARISON = 2
-SIMILARITY_THRESHOLD_BASE = 0.80
+SIMILARITY_THRESHOLD_BASE = 0.75
 
 
 def get_similarity_threshold() -> float:
@@ -99,12 +99,9 @@ def calculate_similarity(track1: TrackInfo, track2: TrackInfo, metric_single_dim
     Score is between 0.0 and 1.0, where 1.0 is identical.
     """
     if track1.filepath == track2.filepath: # A track is always 100% similar to itself
-        return 1.0
+        return 0.1
     
     genre_score = 0.0
-    tempo_score = 0.0
-    energy_score = 0.0
-    mood_score = 0.0
     artist_penalty = 0.0
 
     # 1. Genre Similarity (Weighted: WEIGHT_GENRE)
