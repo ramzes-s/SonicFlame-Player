@@ -55,8 +55,20 @@ class AnimatedSplash(QSplashScreen):
         self._fade_out.start()
 
 
+def _ensure_icon():
+    """Ensure Sonic-Flame.ico exists next to the executable (for frozen builds)."""
+    if getattr(sys, 'frozen', False):
+        dest = Path(sys.executable).parent / "Sonic-Flame.ico"
+        if not dest.exists():
+            src = Path(sys._MEIPASS) / "Sonic-Flame.ico"
+            if src.exists():
+                import shutil
+                shutil.copy2(str(src), str(dest))
+
 def main():
     """Application entry point."""
+    _ensure_icon()
+
     # Suppress mpg123 logs (may or may not work depending on Qt backend setup)
     os.environ['MPG123_QUIET'] = '1'
 

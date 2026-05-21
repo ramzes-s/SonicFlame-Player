@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('res', 'res'), ('SonicFlame.manifest', '.')],
+    datas=[('res', 'res'), ('SonicFlame.manifest', '.'), ('Sonic-Flame.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
