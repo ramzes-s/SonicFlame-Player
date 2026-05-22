@@ -6,6 +6,7 @@ Provides helper functions for filtering, sorting, and complex queries.
 
 import os
 import math
+import sqlite3
 from pathlib import Path
 from typing import List, Set, Tuple, Optional
 from musicplayer.core.db.connection import get_connection, normalize_path
@@ -95,9 +96,12 @@ def get_filtered_library_track_count(
 
 def get_analyzed_track_count() -> int:
     """Get total number of tracks that have been analyzed (tempo > 0.0)."""
-    with get_connection() as conn:
-        cursor = conn.execute("SELECT COUNT(*) FROM library WHERE tempo > 0.0")
-        return cursor.fetchone()[0]
+    try:
+        with get_connection() as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM library WHERE tempo > 0.0")
+            return cursor.fetchone()[0]
+    except sqlite3.OperationalError:
+        return 0
 
 
 def get_library_tracks_page(
