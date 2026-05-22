@@ -624,6 +624,7 @@ class ControlsWidget(QWidget):
             }
             QPushButton:pressed {
                 background-color: rgba(80, 80, 80, 0.5);
+            }
         """
     
     def _on_volume_changed(self, value: int):

@@ -63,6 +63,8 @@ class PlaybackManager(PlayerManagerBase):
         if not track.has_cover or not track.cover_data:
             track.cover_data = ensure_cover_for_track(track.filepath)
             track.has_cover = bool(track.cover_data)
+            # Re-update SMTC with the cover now available
+            self._mw.player._smtc.update_track_info(track)
 
         self._apply_dynamic_color(track)
         self._mw.track_info_widget.update_track_info(track)
@@ -90,7 +92,7 @@ class PlaybackManager(PlayerManagerBase):
         from musicplayer import config as cfg
         cfg.ACCENT_COLOR = new_color
         self._mw.settings._data["accent_color"] = new_color
-        apply_accent_to_main_window(self._mw)
+        apply_accent_to_main_window(self._mw, settings_dialog=getattr(self._mw, '_settings_dialog', None))
         if hasattr(self._mw.playlist_widget, 'list_widget'):
             self._mw.playlist_widget.list_widget.viewport().update()
         self._mw.ipc_server.send_accent_color(new_color)

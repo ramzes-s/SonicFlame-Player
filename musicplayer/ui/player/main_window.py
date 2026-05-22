@@ -98,6 +98,10 @@ class MainWindow(QMainWindow):
         self._media_keys_handler = None
         self._setup_media_keys()
 
+        # Wire SMTC next/previous to playback manager
+        self.player.smtc_next_requested.connect(self._playback.next)
+        self.player.smtc_previous_requested.connect(self._playback.previous)
+
         if self.settings.web_server_enabled:
             self._web_integration.start(self.settings.web_server_port)
 
@@ -223,6 +227,7 @@ class MainWindow(QMainWindow):
         if self.scanner and self.scanner.isRunning():
             self.scanner.cancel()
         self.player.stop()
+        self.player.close_smtc()
         self.ipc_server.stop()
         if hasattr(self, '_library_process') and self._library_process and self._library_process.poll() is None:
             self._library_process.terminate()
@@ -414,7 +419,8 @@ class MainWindow(QMainWindow):
     def _on_settings_requested(self):
         from musicplayer.ui.settings_dialog import SettingsDialog
         from musicplayer.ui.accent_style import apply_accent_to_main_window
-        dialog = SettingsDialog(self.settings, self)
+        self._settings_dialog = SettingsDialog(self.settings, self)
+        dialog = self._settings_dialog
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))
         dialog.dynamic_color_toggled.connect(self._playback.on_dynamic_color_toggled)
@@ -423,6 +429,7 @@ class MainWindow(QMainWindow):
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)
         dialog.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         dialog.exec()
+        self._settings_dialog = None
         apply_accent_to_main_window(self)
 
     def _on_prevent_sleep_toggled(self, enabled: bool):

@@ -9,6 +9,7 @@ from PySide6.QtCore import QObject, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
 from musicplayer.core.db import TrackInfo
 from musicplayer.core import settings
+from musicplayer.core.smtc_manager import SMTCManager
 
 
 class AudioPlayer(QObject):
@@ -25,6 +26,8 @@ class AudioPlayer(QObject):
     volume_changed = Signal(float)  # 0.0 to 1.0
     media_status_changed = Signal(QMediaPlayer.MediaStatus)
     error_occurred = Signal(str)
+    smtc_next_requested = Signal()
+    smtc_previous_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -60,6 +63,18 @@ class AudioPlayer(QObject):
         self._device_poll_timer.timeout.connect(self._check_audio_device)
         self._device_poll_timer.start(1000)
 
+        # SMTC integration
+        self._smtc = SMTCManager(self)
+        self._smtc.play_requested.connect(self.toggle_play_pause)
+        self._smtc.pause_requested.connect(self.toggle_play_pause)
+        self._smtc.next_requested.connect(self.smtc_next_requested.emit)
+        self._smtc.previous_requested.connect(self.smtc_previous_requested.emit)
+
+    def close_smtc(self):
+        """Shut down the SMTC manager."""
+        if hasattr(self, '_smtc'):
+            self._smtc.close()
+
     def set_prevent_sleep(self, enabled: bool):
         """Enable or disable the sleep blocker."""
         self._prevent_sleep_enabled = enabled
@@ -88,6 +103,12 @@ class AudioPlayer(QObject):
 
     def _on_state_changed(self, state: QMediaPlayer.PlaybackState):
         self.state_changed.emit(state)
+        if state == QMediaPlayer.PlayingState:
+            self._smtc.set_playback_status("playing")
+        elif state == QMediaPlayer.PausedState:
+            self._smtc.set_playback_status("paused")
+        elif state == QMediaPlayer.StoppedState:
+            self._smtc.set_playback_status("stopped")
 
     def _on_position_changed(self, position: int):
         self.position_changed.emit(position)
@@ -110,18 +131,22 @@ class AudioPlayer(QObject):
         self._current_track = track
         url = QUrl.fromLocalFile(track.filepath)
         self._player.setSource(url)
+        self._smtc.update_track_info(track)
 
     def play(self):
         """Start or resume playback."""
         self._player.play()
+        self._smtc.set_playback_status("playing")
 
     def pause(self):
         """Pause playback."""
         self._player.pause()
+        self._smtc.set_playback_status("paused")
 
     def stop(self):
         """Stop playback."""
         self._player.stop()
+        self._smtc.set_playback_status("stopped")
 
     def toggle_play_pause(self):
         """Toggle between play and pause."""
