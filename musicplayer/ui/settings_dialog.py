@@ -15,7 +15,8 @@ from io import BytesIO
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                                 QPushButton, QFileDialog, QWidget, QCheckBox,
-                                QLineEdit, QSlider, QStyleOptionSlider, QComboBox)
+                                QLineEdit, QSlider, QStyleOptionSlider, QComboBox,
+                                QStackedWidget)
 from PySide6.QtWidgets import QStyle
 from PySide6.QtCore import Qt, Signal, QByteArray, QTimer, QThread
 from PySide6.QtGui import QFont, QPainter, QPen, QIcon, QPixmap, QColor, QPaintEvent, QIntValidator, QValidator
@@ -259,14 +260,9 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(2, 2, 2, 2)
         layout.setSpacing(0)
 
-        # --- Container for content ---
         container = QWidget()
         container.setObjectName("container")
-        container.setStyleSheet("""
-            #container {
-                background-color: #000000;
-            }
-        """)
+        container.setStyleSheet("#container { background-color: #000000; }")
 
         inner = QVBoxLayout(container)
         inner.setContentsMargins(0, 0, 0, 0)
@@ -276,97 +272,184 @@ class SettingsDialog(QDialog):
         title_bar = QWidget()
         title_bar.setFixedHeight(40)
         title_bar.setStyleSheet("background-color: #000000;")
-
         title_layout = QHBoxLayout(title_bar)
         title_layout.setContentsMargins(15, 0, 10, 0)
         title_layout.setSpacing(10)
 
         title_icon = QSvgWidget()
         title_icon.setFixedSize(20, 20)
-        svg_data = get_music_note_svg(60).encode('utf-8')
-        title_icon.renderer().load(QByteArray(svg_data))
+        title_icon.renderer().load(QByteArray(get_music_note_svg(60).encode('utf-8')))
         title_layout.addWidget(title_icon)
-
         title_label = QLabel("Настройки")
         title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
         title_layout.addWidget(title_label)
 
-        from musicplayer import config as app_cfg
-        version_label = QLabel(f"code by ramzes    v{app_cfg.APP_VERSION}")
-        version_label.setStyleSheet(f"color: {cfg.get_accent_color()}; font-size: 14px;")
-
-        title_layout.addStretch()
-
+        accent = cfg.get_accent_color()
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(36, 30)
         close_btn.setCursor(Qt.PointingHandCursor)
-        accent = cfg.get_accent_color()
         close_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {accent};
-            }}
-            QPushButton:pressed {{
-                background-color: #555555;
-            }}
-        """)
-        close_btn.clicked.connect(self.accept)
-        title_layout.addWidget(close_btn)
-
-        version_label.setContentsMargins(0, 0, 8, 0)
-        title_layout.addWidget(version_label)
-
-        self._close_btn = close_btn
-        close_btn.setFixedSize(36, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
-        accent = cfg.get_accent_color()
-        close_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {accent};
-            }}
-            QPushButton:pressed {{
-                background-color: #555555;
-            }}
+            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF;
+                font-size: 14px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {accent}; }}
+            QPushButton:pressed {{ background-color: #555555; }}
         """)
         close_btn.clicked.connect(self.accept)
         title_layout.addWidget(close_btn)
         self._close_btn = close_btn
-
         inner.addWidget(title_bar)
 
-        # --- Scrollable content ---
-        from PySide6.QtWidgets import QScrollArea, QFrame
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("background-color: transparent; border: none;")
+        # --- Body: sidebar tabs + stacked content ---
+        body = QHBoxLayout()
+        body.setContentsMargins(0, 0, 0, 0)
+        body.setSpacing(0)
 
-        content = QWidget()
-        content.setStyleSheet("background-color: #000000;")
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(24, 16, 24, 20)
-        content_layout.setSpacing(0)
+        # Sidebar
+        self._tab_btns = []
+        sidebar = QWidget()
+        sidebar.setFixedWidth(140)
+        sidebar.setStyleSheet("background-color: #000000;")
+        sidebar_layout = QVBoxLayout(sidebar)
+        sidebar_layout.setContentsMargins(0, 8, 0, 8)
+        sidebar_layout.setSpacing(0)
+
+        tab_names = ["Основное", "Внешний вид", "Сервер и API", "Системные"]
+        for i, name in enumerate(tab_names):
+            btn = QPushButton(name)
+            btn.setFixedHeight(44)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setCheckable(True)
+            btn.setProperty("tab_index", i)
+            btn.clicked.connect(lambda checked=False, idx=i: self._switch_tab(idx))
+            self._tab_btns.append(btn)
+            sidebar_layout.addWidget(btn)
+            # Separator between tabs
+            if i < len(tab_names) - 1:
+                sep_tab = QWidget()
+                sep_tab.setFixedHeight(1)
+                sep_tab.setStyleSheet("background-color: rgba(80, 80, 80, 0.2);")
+                sidebar_layout.addWidget(sep_tab)
+        sidebar_layout.addStretch()
+        body.addWidget(sidebar)
+
+        # Separator
+        sep = QWidget()
+        sep.setFixedWidth(1)
+        sep.setStyleSheet("background-color: rgba(80,80,80,0.2);")
+        body.addWidget(sep)
+
+        # Stacked content
+        self._stack = QStackedWidget()
+        self._stack.setStyleSheet("background-color: #000000;")
+        self._pages = []
+        self._pages.append(self._build_page_main())
+        self._pages.append(self._build_page_appearance())
+        self._pages.append(self._build_page_webserver())
+        self._pages.append(self._build_page_system())
+        for page in self._pages:
+            self._stack.addWidget(page)
+        body.addWidget(self._stack, 1)
+        inner.addLayout(body)
+
+        self._update_checkbox_style()
+        self._update_combo_style()
+
+        # --- Status bar ---
+        status_bar = QWidget()
+        status_bar.setFixedHeight(32)
+        status_bar.setStyleSheet("background-color: #0a0a0a;")
+        status_layout = QHBoxLayout(status_bar)
+        status_layout.setContentsMargins(16, 0, 16, 0)
+
+        a = cfg.get_accent_color()
+        self.library_count_label = QLabel()
+        self.library_count_label.setStyleSheet(f"color: {a}; font-size: 13px;")
+        status_layout.addWidget(self.library_count_label)
+        status_layout.addStretch()
+        self.covers_size_label = QLabel()
+        self.covers_size_label.setStyleSheet(f"color: {a}; font-size: 13px;")
+        status_layout.addWidget(self.covers_size_label)
+        status_layout.addStretch()
+        self._cleanup_result_label = QLabel()
+        self._cleanup_result_label.setStyleSheet(f"color: {a}; font-size: 12px;")
+        self._cleanup_result_label.setVisible(False)
+        status_layout.addWidget(self._cleanup_result_label)
+        status_layout.addStretch()
+        from musicplayer import config as app_cfg
+        self.version_label = QLabel(f"code by ramzes  v{app_cfg.APP_VERSION}")
+        self.version_label.setStyleSheet(f"color: {cfg.get_accent_color()}; font-size: 13px;")
+        status_layout.addWidget(self.version_label)
+        status_layout.addSpacing(10)
+        inner.addWidget(status_bar)
+
+        layout.addWidget(container)
+        self._update_tab_style()
+        self._switch_tab(0)
+
+    def _switch_tab(self, idx: int):
+        for i, btn in enumerate(self._tab_btns):
+            btn.setChecked(i == idx)
+        self._stack.setCurrentIndex(idx)
+
+    def _update_tab_style(self):
+        accent = cfg.get_accent_color()
+        for btn in self._tab_btns:
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent; border: none; color: #888888;
+                    font-size: 15px; text-align: left;
+                    padding: 8px 16px 8px 16px;
+                }}
+                QPushButton:hover {{ color: {accent}; }}
+                QPushButton:checked {{ color: #FFFFFF; }}
+            """)
+
+    def _build_page_main(self):
+        w = QWidget()
+        lo = QVBoxLayout(w)
+        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setSpacing(16)
+
+        # Music folder
+        self.folder_btn = QPushButton()
+        self.folder_btn.setFixedHeight(36)
+        self.folder_btn.setCursor(Qt.PointingHandCursor)
+        self.folder_btn.clicked.connect(self._browse_folder)
+        self._update_folder_button_text()
+        lo.addWidget(self.folder_btn)
+
+        lo.addSpacing(8)
+
+        # Similarity precision
+        sim_row = QHBoxLayout()
+        sim_row.setSpacing(10)
+        sim_label = QLabel("Точность подбора похожих треков")
+        sim_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        sim_row.addWidget(sim_label)
+        sim_row.addStretch()
+        self._sim_slider = ClickableSlider(Qt.Horizontal)
+        self._sim_slider.setRange(0, 20)
+        self._sim_slider.setValue(self.settings.similarity_precision)
+        self._sim_slider.setFixedWidth(280)
+        self._sim_slider.setCursor(Qt.PointingHandCursor)
+        self._sim_slider.valueChanged.connect(self._on_similarity_precision_changed)
+        self._update_slider_style()
+        sim_row.addWidget(self._sim_slider)
+        lo.addLayout(sim_row)
+
+        lo.addStretch()
+        return w
+
+    def _build_page_appearance(self):
+        w = QWidget()
+        lo = QVBoxLayout(w)
+        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setSpacing(16)
 
         # Accent color
         accent_label = QLabel("Акцентный цвет")
         accent_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
-        content_layout.addWidget(accent_label)
-        content_layout.addSpacing(8)
-
+        lo.addWidget(accent_label)
         color_row = QHBoxLayout()
         color_row.setSpacing(8)
         self._color_buttons = {}
@@ -377,33 +460,21 @@ class SettingsDialog(QDialog):
             self._color_buttons[color_hex] = btn
             color_row.addWidget(btn)
         color_row.addStretch()
-        content_layout.addLayout(color_row)
-        content_layout.addSpacing(16)
+        lo.addLayout(color_row)
 
-        # Music folder button
-        self.folder_btn = QPushButton()
-        self.folder_btn.setFixedHeight(36)
-        self.folder_btn.setCursor(Qt.PointingHandCursor)
-        self.folder_btn.clicked.connect(self._browse_folder)
-        self._update_folder_button_text()
-        content_layout.addWidget(self.folder_btn)
-        content_layout.addSpacing(16)
+        # Dynamic color
+        self.dynamic_color_cb = QCheckBox("Динамический цвет (из обложки)")
+        self.dynamic_color_cb.setChecked(self.settings.dynamic_color)
+        self.dynamic_color_cb.toggled.connect(self._on_dynamic_color_toggled)
+        lo.addWidget(self.dynamic_color_cb)
 
-        # Split into two columns
-        columns_layout = QHBoxLayout()
-        columns_layout.setSpacing(20)
-
-        # Left column - settings (400px)
-        left_col = QVBoxLayout()
-        left_col.setSpacing(12)
-
-        # Mini widget checkbox
+        # Mini widget
         self.mini_widget_cb = QCheckBox("Включать виджет при сворачивании")
         self.mini_widget_cb.setChecked(self.settings.mini_widget_on_minimize)
         self.mini_widget_cb.toggled.connect(self._on_mini_widget_toggled)
-        left_col.addWidget(self.mini_widget_cb)
+        lo.addWidget(self.mini_widget_cb)
 
-        # Mini widget opacity combo
+        # Opacity
         opacity_row = QHBoxLayout()
         opacity_row.setSpacing(10)
         self._opacity_combo = QComboBox()
@@ -414,56 +485,37 @@ class SettingsDialog(QDialog):
         self._opacity_combo.currentTextChanged.connect(self._on_opacity_changed)
         self._opacity_combo.setEnabled(self.settings.mini_widget_on_minimize)
         self._opacity_combo.setFixedWidth(70)
-        self._opacity_combo.setStyleSheet(f"""
-            QComboBox {{
-                background-color: #000000;
-                border: none;
-                border-bottom: 1px solid {cfg.get_accent_color()};
-                color: #FFFFFF;
-                font-size: 12px;
-                padding: 3px 6px 2px 6px;
-            }}
-            QComboBox::drop-down {{
-                border: none;
-                width: 20px;
-            }}
-            QComboBox::down-arrow {{
-                image: none;
-                border: none;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: #000000;
-                border: 1px solid {cfg.get_accent_color()};
-                color: #FFFFFF;
-                selection-background-color: {cfg.get_accent_color()};
-            }}
-        """)
         opacity_row.addWidget(self._opacity_combo)
         opacity_row.addWidget(opacity_label)
         opacity_row.addStretch()
-        left_col.addLayout(opacity_row)
+        lo.addLayout(opacity_row)
 
-        # Prevent sleep checkbox
-        self.prevent_sleep_cb = QCheckBox("Блокировать сон при работающем плеере")
-        self.prevent_sleep_cb.setChecked(self.settings.prevent_sleep)
-        self.prevent_sleep_cb.toggled.connect(self._on_prevent_sleep_toggled)
-        left_col.addWidget(self.prevent_sleep_cb)
+        lo.addStretch()
+        return w
 
-        # Dynamic color checkbox
-        self.dynamic_color_cb = QCheckBox("Динамический цвет (из обложки)")
-        self.dynamic_color_cb.setChecked(self.settings.dynamic_color)
-        self.dynamic_color_cb.toggled.connect(self._on_dynamic_color_toggled)
-        left_col.addWidget(self.dynamic_color_cb)
+    def _build_page_webserver(self):
+        w = QWidget()
+        lo = QVBoxLayout(w)
+        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setSpacing(16)
+
+        # Horizontal: left (checkbox + port) | right (QR)
+        h_row = QHBoxLayout()
+        h_row.setSpacing(24)
+
+        # Left column
+        left = QVBoxLayout()
+        left.setSpacing(16)
 
         # Web server checkbox
         self.web_server_cb = QCheckBox("Веб-сервер (удалённое управление)")
         self.web_server_cb.setChecked(self.settings.web_server_enabled)
         self.web_server_cb.toggled.connect(self._on_web_server_toggled)
-        left_col.addWidget(self.web_server_cb)
+        left.addWidget(self.web_server_cb)
 
-        # Web server port
-        port_layout = QHBoxLayout()
-        port_layout.setSpacing(10)
+        # Port
+        port_row = QHBoxLayout()
+        port_row.setSpacing(10)
         port_label = QLabel("Порт:")
         port_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
         self.port_input = QLineEdit()
@@ -478,140 +530,75 @@ class SettingsDialog(QDialog):
         self.port_input.setValidator(PortValidator())
         self.port_input.textChanged.connect(self._on_port_changed)
         self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
-        port_layout.addWidget(self.port_input)
-        port_layout.addWidget(port_label)
-        port_layout.addWidget(self._spinner)
+        port_row.addWidget(self.port_input)
+        port_row.addWidget(port_label)
+        port_row.addWidget(self._spinner)
         self._web_server_status = QLabel()
         self._web_server_status.setStyleSheet("color: #888888; font-size: 11px;")
-        port_layout.addWidget(self._web_server_status)
-        port_layout.addStretch()
-        left_col.addLayout(port_layout)
-        left_col.addSpacing(8)
+        port_row.addWidget(self._web_server_status)
+        port_row.addStretch()
+        left.addLayout(port_row)
+        left.addStretch()
+        h_row.addLayout(left)
 
-        # Right column - QR + similarity slider
-        right_col = QVBoxLayout()
-        right_col.setAlignment(Qt.AlignTop)
-        right_col.setSpacing(12)
-
-        def _right_row():
-            """Create a horizontal layout that pushes its content to the right edge."""
-            row = QHBoxLayout()
-            row.addStretch()
-            return row
-
-        qr_row = _right_row()
+        # Right column: QR
         self._qr_label = QLabel()
-        self._qr_label.setFixedSize(100, 100)
+        self._qr_label.setFixedSize(150, 150)
+        self._qr_label.setScaledContents(True)
         self._qr_label.setVisible(False)
-        qr_row.addWidget(self._qr_label)
-        right_col.addLayout(qr_row)
-        right_col.addSpacing(20)
+        h_row.addWidget(self._qr_label, 0, Qt.AlignRight | Qt.AlignTop)
 
-        # Similarity precision slider
-        sim_label_row = _right_row()
-        sim_label = QLabel("Точность подбора похожих треков")
-        sim_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
-        sim_label_row.addWidget(sim_label)
-        right_col.addLayout(sim_label_row)
+        lo.addLayout(h_row)
 
-        sim_slider_row = _right_row()
-        sim_slider_row.setSpacing(10)
-        self._sim_slider = ClickableSlider(Qt.Horizontal)
-        self._sim_slider.setRange(0, 20)
-        self._sim_slider.setValue(self.settings.similarity_precision)
-        self._sim_slider.setFixedWidth(210)
-        self._sim_slider.setCursor(Qt.PointingHandCursor)
-        self._sim_slider.valueChanged.connect(self._on_similarity_precision_changed)
+        return w
+
+    def _build_page_system(self):
+        w = QWidget()
+        lo = QVBoxLayout(w)
+        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setSpacing(16)
+
+        # Prevent sleep
+        self.prevent_sleep_cb = QCheckBox("Блокировать сон при работающем плеере")
+        self.prevent_sleep_cb.setChecked(self.settings.prevent_sleep)
+        self.prevent_sleep_cb.toggled.connect(self._on_prevent_sleep_toggled)
+        lo.addWidget(self.prevent_sleep_cb)
+
+        lo.addStretch()
+
+        # DB Cleanup
+        self._cleanup_btn = QPushButton("Чистка мусора в БД")
+        self._cleanup_btn.setFixedHeight(36)
+        self._cleanup_btn.setCursor(Qt.PointingHandCursor)
+        self._cleanup_btn.clicked.connect(self._on_cleanup_clicked)
+        lo.addWidget(self._cleanup_btn)
+        self._update_cleanup_btn_style()
+
+        return w
+
+    def _update_slider_style(self):
+        accent = cfg.get_accent_color()
         self._sim_slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
-                height: 4px;
-                background: rgba(80, 80, 80, 0.5);
-                border-radius: 2px;
+                height: 4px; background: rgba(80,80,80,0.5); border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
-                width: 14px; height: 14px;
-                margin: -5px 0;
-                background: {cfg.get_accent_color()};
-                border-radius: 7px;
+                width: 14px; height: 14px; margin: -5px 0;
+                background: {accent}; border-radius: 7px;
             }}
-            QSlider::handle:horizontal:hover {{
-                background: #FFFFFF;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {cfg.get_accent_color()};
-                border-radius: 2px;
-            }}
+            QSlider::handle:horizontal:hover {{ background: #FFFFFF; }}
+            QSlider::sub-page:horizontal {{ background: {accent}; border-radius: 2px; }}
         """)
-        sim_slider_row.addWidget(self._sim_slider)
-        right_col.addLayout(sim_slider_row)
 
-        left_col.addStretch()
-
-        columns_layout.addLayout(left_col)
-        columns_layout.addLayout(right_col)
-        content_layout.addLayout(columns_layout)
-
-        content_layout.addStretch()
-
-        # Apply styles after both checkboxes are created
-        self._update_checkbox_style()
-        self._update_combo_style()
-
-        scroll.setWidget(content)
-        inner.addWidget(scroll)
-
-        # --- Status bar ---
-        status_bar = QWidget()
-        status_bar.setFixedHeight(32)
-        status_bar.setStyleSheet("background-color: #0a0a0a;")
-
-        status_layout = QHBoxLayout(status_bar)
-        status_layout.setContentsMargins(16, 0, 16, 0)
-
+    def _update_cleanup_btn_style(self):
         accent = cfg.get_accent_color()
-        self.library_count_label = QLabel()
-        self.library_count_label.setStyleSheet(f"color: {accent}; font-size: 13px;")
-        status_layout.addWidget(self.library_count_label)
-
-        status_layout.addStretch()
-
-        self.covers_size_label = QLabel()
-        self.covers_size_label.setStyleSheet(f"color: {accent}; font-size: 13px;")
-        status_layout.addWidget(self.covers_size_label)
-
-        status_layout.addStretch()
-
-        self._cleanup_btn = QPushButton("Чистка мусора")
-        self._cleanup_btn.setFixedHeight(24)
-        self._cleanup_btn.setCursor(Qt.PointingHandCursor)
         self._cleanup_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: #FFFFFF;
-                font-size: 11px;
-                padding: 0 10px;
+                background-color: transparent; border: 1px solid rgba(80,80,80,0.5);
+                color: #CCCCCC; font-size: 13px; text-align: center;
             }}
-            QPushButton:hover {{
-                color: {accent};
-            }}
-            QPushButton:disabled {{
-                color: #666666;
-            }}
+            QPushButton:hover {{ color: {accent}; }}
         """)
-        self._cleanup_btn.clicked.connect(self._on_cleanup_clicked)
-        status_layout.addWidget(self._cleanup_btn)
-
-        self._cleanup_result_label = QLabel()
-        self._cleanup_result_label.setStyleSheet(f"color: {accent}; font-size: 12px;")
-        self._cleanup_result_label.setVisible(False)
-        status_layout.addWidget(self._cleanup_result_label)
-
-        status_layout.addSpacing(10)
-
-        inner.addWidget(status_bar)
-
-        layout.addWidget(container)
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -821,7 +808,7 @@ class SettingsDialog(QDialog):
             url = f"http://{ip}:{self.settings.web_server_port}"
             self._web_server_status.setText(url)
 
-            qr = qrcode.QRCode(box_size=2, border=1)
+            qr = qrcode.QRCode(box_size=6, border=1)
             qr.add_data(url)
             qr.make(fit=True)
             img = qr.make_image(fill_color="white", back_color="black")
@@ -833,7 +820,7 @@ class SettingsDialog(QDialog):
             from PySide6.QtGui import QPixmap
             pixmap = QPixmap()
             pixmap.loadFromData(buffer.read())
-            self._qr_label.setPixmap(pixmap.scaled(100, 100, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self._qr_label.setPixmap(pixmap)
             self._qr_label.setVisible(True)
         else:
             self._web_server_status.setText("Остановлен")
@@ -864,9 +851,13 @@ class SettingsDialog(QDialog):
             }}
         """
         self.mini_widget_cb.setStyleSheet(checkbox_style)
+        self.mini_widget_cb.setCursor(Qt.PointingHandCursor)
         self.dynamic_color_cb.setStyleSheet(checkbox_style)
+        self.dynamic_color_cb.setCursor(Qt.PointingHandCursor)
         self.web_server_cb.setStyleSheet(checkbox_style)
+        self.web_server_cb.setCursor(Qt.PointingHandCursor)
         self.prevent_sleep_cb.setStyleSheet(checkbox_style)
+        self.prevent_sleep_cb.setCursor(Qt.PointingHandCursor)
 
     def _on_cleanup_clicked(self):
         """Run database cleanup in background thread and show result."""
@@ -919,61 +910,25 @@ class SettingsDialog(QDialog):
         """)
 
     def apply_accent_color(self, color: str):
-        """Update accent color within this dialog."""
         self._update_combo_style()
-        # Close button hover
+        self._update_tab_style()
         self._close_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: none;
-                color: #FFFFFF;
-                font-size: 14px;
-                font-weight: bold;
-            }}
-            QPushButton:hover {{
-                background-color: {color};
-            }}
-            QPushButton:pressed {{
-                background-color: #555555;
-            }}
+            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF;
+                font-size: 14px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {color}; }}
+            QPushButton:pressed {{ background-color: #555555; }}
         """)
-
-        # Folder button - preserve red border state
         folder = self.settings.music_folder
         has_folder = bool(folder and os.path.isdir(folder))
         self._update_folder_button_style(has_folder)
-
-        # Checkbox
         self._update_checkbox_style()
-
-        # Similarity slider
-        self._sim_slider.setStyleSheet(f"""
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: rgba(80, 80, 80, 0.5);
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                width: 14px; height: 14px;
-                margin: -5px 0;
-                background: {color};
-                border-radius: 7px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: #FFFFFF;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {color};
-                border-radius: 2px;
-            }}
-        """)
-
-        # Status bar labels
-        self.library_count_label.setStyleSheet(f"color: {color}; font-size: 12px;")
-        self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 12px;")
-
-        # Web server port input
+        self._update_slider_style()
+        self._update_cleanup_btn_style()
+        self.library_count_label.setStyleSheet(f"color: {color}; font-size: 13px;")
+        self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 13px;")
+        self.version_label.setStyleSheet(f"color: {color}; font-size: 14px;")
         self.port_input.setStyleSheet(self._port_style("#FFFFFF"))
+        self.update()
 
 
 
