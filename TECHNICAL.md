@@ -16,7 +16,8 @@ SonicFlame\
 ├── TECHNICAL.md                        # Этот файл
 ├── README.md                           # Документация пользователя
 ├── res/                                # Ресурсы
-│   ├── *.jpg                           # Фоновые изображения обложек
+│   ├── covers/                         # Фоновые изображения обложек
+│   │   └── *.jpg
 │   └── genres/
 │       ├── genre_groups.json           # Группы жанров для фильтрации
 │       └── genre_map.json              # Маппинг жанров (ID3 → группы)
@@ -36,15 +37,15 @@ SonicFlame\
 │   │   │   ├── cache.py                # Кэширование обложек
 │   │   │   ├── folders.py              # Операции с папками
 │   │   │   └── queries.py              # Фильтрация, сортировка, сложные запросы
-│   │   ├── db.py                        # Обратная совместимость (импорт из пакета db/)
+│   │   ├── db.py                       # Обратная совместимость (импорт из пакета db/)
 │   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
 │   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
 │   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
 │   │   ├── web_server.py               # HTTP сервер (aiohttp)
 │   │   ├── web_api.py                  # API обработчики с валидацией
 │   │   ├── web_template.py             # HTML шаблон веб-интерфейса
-│   │   ├── analysis_worker.py          # Анализ аудио (librosa)
 │   │   ├── recommendations.py          # Алгоритм подбора похожих треков
+│   │   ├── smtc_manager.py             # SMTC — интеграция с системным оверлеем Windows
 │   │   └── windows_sleep_blocker.py    # Предотвращение спящего режима во время воспроизведения
 │   ├── ui/
 │   │   ├── __init__.py
@@ -74,32 +75,43 @@ SonicFlame\
 │   │   ├── mini_widget.py              # Мини-плеер для системного трея
 │   │   ├── playlist_view.py            # Плейлист с кастомным делегатом
 │   │   ├── remove_track_dialog.py      # Диалог и функция удаления трека из библиотеки
-│   │   ├── settings_dialog.py          # Диалог настроек (акцент, папка, статистика)
+│   │   ├── settings/                   # Диалог настроек (пакет)
+│   │   │   ├── __init__.py             # Реэкспорт SettingsDialog
+│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, status bar)
+│   │   │   ├── constants.py            # ACCENT_PRESETS, FORBIDDEN_PORTS, format_size
+│   │   │   ├── widgets.py              # ColorCircleButton, ClickableSlider, SpinnerWidget, TabButton
+│   │   │   ├── page_main.py            # MainPage (папка + точность похожих)
+│   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
+│   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
+│   │   │   └── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
 │   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
-│   │   ├── svg_icons.py               # SVG-иконки как строки
-│   │   ├── track_info.py              # Виджет обложки с градиентной тенью
-│   │   └── tag_editor/                # Редактор тегов (разделённый на модули)
-│   │       ├── __init__.py            # Реэкспорт для обратной совместимости
-│   │       ├── base_dialog.py         # BaseFramelessDialog — базовый класс frameless-диалогов
-│   │       ├── constants.py           # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
-│   │       ├── api.py                 # iTunes/Deezer API функции (с логгированием)
-│   │       ├── cover.py               # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
-│   │       ├── cover_thread.py        # Поток поиска обложек (дедупликация через MD5)
-│   │       ├── threads.py             # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
-│   │       ├── widgets.py             # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
-│   │       ├── dialogs.py             # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
-│   │       ├── track_mover.py         # move_track_to_folder — перемещение трека в другую папку из редактора тегов
-│   │       └── editor.py              # TagEditorDialog (наследует BaseFramelessDialog)
+│   │   ├── svg_icons.py                # SVG-иконки как строки
+│   │   ├── accent_style.py             # Применение акцентного цвета к главному окну
+│   │   ├── track_info.py               # Виджет обложки с градиентной тенью
+│   │   └── tag_editor/                 # Редактор тегов (разделённый на модули)
+│   │       ├── __init__.py             # Реэкспорт для обратной совместимости
+│   │       ├── base_dialog.py          # BaseFramelessDialog — базовый класс frameless-диалогов
+│   │       ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
+│   │       ├── api.py                  # iTunes/Deezer API функции (с логгированием)
+│   │       ├── cover.py                # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
+│   │       ├── cover_thread.py         # Поток поиска обложек (дедупликация через MD5)
+│   │       ├── threads.py              # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
+│   │       ├── widgets.py              # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
+│   │       ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
+│   │       ├── track_mover.py          # move_track_to_folder — перемещение трека в другую папку из редактора тегов
+│   │       └── editor.py               # TagEditorDialog (наследует BaseFramelessDialog)
 │   └── utils/
 │       ├── __init__.py
-│       ├── audio_scanner.py          # QThread сканер папок (sync с БД)
-│       └── helpers.py               # Утилиты форматирования
-└── .cache/                          # Данные приложения
-    ├── musicplayer.db               # SQLite библиотека (WAL mode)
-    ├── covers/                      # Обложки в формате WebP
-    ├── artist_collages/             # Кеш коллажей Артистов для библиотеки
-    ├── settings.json                # Пользовательские настройки
-    └── library_col_widths.json     # Ширина колонок библиотеки
+│       ├── audio_scanner.py            # QThread сканер папок (sync с БД)
+│       ├── analysis_worker.py          # Анализ аудио (librosa)
+│       ├── color_extractor.py          # Извлечение доминантного цвета из обложки
+│       └── helpers.py                  # Утилиты форматирования
+└── .cache/                             # Данные приложения
+    ├── musicplayer.db                  # SQLite библиотека (WAL mode)
+    ├── covers/                         # Обложки в формате WebP
+    ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
+    ├── settings.json                   # Пользовательские настройки
+    └── library_col_widths.json         # Ширина колонок библиотеки
 ```
 
 ## Зависимости
@@ -115,6 +127,12 @@ SonicFlame\
 | numpy        | >=1.24   | Численные расчёты (анализ аудио, цвет)        |
 | librosa      | >=0.10.1 | Анализ аудио (BPM, energy, mood)              |
 | qrcode[pil]  | >=7.4.2  | Генерация QR-кодов для веб-управления         |
+| winrt-Windows.Media           | >=3.2.0  | SMTC — Media API                          |
+| winrt-Windows.Media.Playback | >=3.2.0  | SMTC — Playback API                      |
+| winrt-Windows.Storage.Streams | >=3.2.0  | SMTC — Streams API                       |
+| winrt-Windows.Storage        | >=3.2.0  | SMTC — Storage API                       |
+| winrt-Windows.Foundation     | >=3.2.0  | SMTC — Foundation API                    |
+| winrt-Windows.UI.Core        | >=3.2.0  | SMTC — UI Core API                       |
 | pyinstaller  | >=6.0    | Сборка в standalone .exe (опционально)        |
 
 ## Архитектура
@@ -153,8 +171,6 @@ SonicFlame\
 - `_apply_sort()` — сортировка `_tracks` по текущему `_sort_mode`, сохраняя текущий трек
 - `load_tracks_no_sort(tracks)` — загрузка без сортировки (для bulk-загрузки)
 - `force_sort(mode)` — принудительная сортировка игнорирует флаги
-
-
 
 #### `core/db/` — SQLite библиотека (рефакторинг пакета)
 
@@ -279,7 +295,8 @@ SonicFlame\
 | web_server_port | int | Порт веб-сервера (по умолчанию 8080) |
 | playlist_sort_mode | str | Режим сортировки плейлиста (artist/title/newest/shuffle) |
 | similarity_precision | int | Точность подбора похожих треков (0–20, по умолч. 10) |
-
+| allow_remote_shutdown | bool   | Разрешить удалённое закрытие программы |
+| prevent_sleep        | bool   | Блокировать спящий режим во время воспроизведения |
 
 ### Модуль для подбора похожих треков на основе различных критериев.
 #### `core/db_cleaner.py` — Database Cleaner
@@ -379,6 +396,7 @@ SonicFlame\
 | POST | `/api/play_track` | Воспроизвести трек по индексу (`{"index": int}`) |
 | POST | `/api/play_folder` | Воспроизвести папку (`{"path": str}`) |
 | POST | `/api/toggle_favorite` | Переключить статус "избранное" для текущего трека |
+| POST | `/api/shutdown` | Закрыть программу (если `allow_remote_shutdown: true`) |
 
 **Безопасность API**:
 - Валидация `volume`: ограничение 0.0-1.0
@@ -440,10 +458,11 @@ SonicFlame\
 - Sticky-плеер при скролле плейлиста
 
 **Интеграция**:
-- Включение/порт в настройках (`settings_dialog.py`)
+- Включение/порт в настройках (`ui/settings/page_webserver.py`)
 - Синхронизация состояния через `update_web_server_state()`
 - Qt-колбеки через сигналы
 - Новый сигнал `play_similar_requested` для загрузки похожих треков
+- Сигнал `shutdown_requested` для удалённого закрытия программы через `POST /api/shutdown`
 
 ### UI модули
 
@@ -470,6 +489,7 @@ SonicFlame\
 - `_on_play_folder()` — обработка воспроизведения папки
 - `_on_toggle_favorite()` — обработка избранного
 - `_on_toggle_repeat()` — обработка повтора
+- `_on_shutdown()` — обработка удалённого закрытия (`QApplication.quit()`)
 
 #### `ui/main_window.py` — MainWindow
 Главное окно приложения (координатор всех компонентов).
@@ -651,19 +671,40 @@ SonicFlame\
 
 **Сигналы**: `folder_open_requested`, `all_music_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `settings_requested`, `library_requested`
 
-#### `ui/settings_dialog.py` — SettingsDialog
+#### `ui/settings/` — Пакет настроек (рефакторинг)
 
+Диалог настроек разделён на пакет `ui/settings/` для лучшей организации:
+
+**`dialog.py`** — `SettingsDialog` (координатор):
+- Title bar (иконка, заголовок, кнопка закрытия)
+- Sidebar с `TabButton` (анимированное переключение: серый → акцентный, ховер → белый)
+- Status bar (статистика библиотеки, версия)
+- Создаёт 4 страницы-виджета и соединяет их сигналы
+
+**`widgets.py`** — переиспользуемые виджеты:
+- `ColorCircleButton` — кружок выбора акцентного цвета
+- `ClickableSlider` — QSlider с click-to-seek
+- `SpinnerWidget` — анимированный спиннер
+- `TabButton` — кнопка вкладки с QVariantAnimation (плавная смена цвета)
+
+**`page_main.py`** — MainPage:
+- **Корневая папка** — кнопка с путём (красная рамка если не задана)
+- **Точность подбора похожих** — `ClickableSlider` (0–20)
+
+**`page_appearance.py`** — AppearancePage:
 - **Акцентный цвет** — 15 пресетов (кружки), включая Slate (`#607884`)
-- **Корневая папка** — кнопка с путём (или «Укажите корневую папку с музыкой»)
-- **Включать виджет при сворачивании** — QCheckBox с кастомным стилем
-- **Прозрачность мини-виджета** — QComboBox со значениями 0–80 (десятками), управляет `_idle_alpha` в `MiniPlayerWidget`. При 0 — непрозрачный фон, при 80 — макс. прозрачность.
-- **Точность подбора похожих** — `ClickableSlider(QSlider)` с диапазоном 0–20, значение сохраняется в `settings.similarity_precision`. Имеет кастомный `mousePressEvent` для click-to-seek (прыжок в точку клика, а не пошаговое изменение).
-- **Порт веб-сервера** — `QLineEdit` с кастомным `PortValidator` (1024–65535, запрещены порты 21, 22, 80, 443). При вводе запрещённого порта текст окрашивается в красный. Debounce 2с: сервер перезапускается только после 2 секунд бездействия в поле ввода. Анимированный спиннер (`SpinnerWidget`) отображает ожидание.
-- **Статусбар** (внизу): треков в библиотеке (слева), кеш обложек, кнопка "Чистка мусора" — акцентный цвет
-- **Чистка мусора**: кнопка для удаления из БД записей с отсутствующими файлами
-  - Выполняется в отдельном потоке (`CleanupWorker`)
-  - Результат отображается на 3 секунды
-  - При закрытии окна во время чистки — поток корректно завершается
+- **Динамический цвет из обложки** — QCheckBox
+- **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80)
+
+**`page_webserver.py`** — WebServerPage + `PortValidator`:
+- **Веб-сервер** — QCheckBox включения
+- **Порт** — `QLineEdit` с `PortValidator` (1024–65535, запрещены 21/22/80/443). Debounce 2с, красный текст при ошибке, спиннер
+- **QR-код** — генерация через библиотеку `qrcode`
+- **Удалённое закрытие** — QCheckBox `allow_remote_shutdown`, отключён если сервер выключен
+
+**`page_system.py`** — SystemPage + `CleanupWorker`:
+- **Блокировать сон** — QCheckBox
+- **Чистка мусора в БД** — кнопка, запускает `CleanupWorker` в отдельном потоке
 
 #### `ui/library/` — Модули библиотеки
 
@@ -942,7 +983,6 @@ pip install -e .
 musicplayer          # или sonicflame
 ```
 
-
 ## В планах
 
 [x] **Анализатор настроения трека** — `Реализовано`
@@ -971,9 +1011,7 @@ musicplayer          # или sonicflame
    - Ввод адреса сервера текстом или сканирование QR из настроек плеера, 
    - Seek-бар (интервал обновления: 1 сек)  прогресса воспроизведения, Воспроизведение/Пауза, следующий, предыдущий, переключение режимов повтора (нет, все, один трек)
    - Добавление/удаление треков из избранного с визуальным отображением иконкой.
-   - Плейлист, воспроизведение любого трека из плейлиста,Загрузка плейлистов (Избранное, Топ, Папки)
-
-
+    - Плейлист, воспроизведение любого трека из плейлиста,Загрузка плейлистов (Избранное, Топ, Папки)
 
 ## Лицензия
 
