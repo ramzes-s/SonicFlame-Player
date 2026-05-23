@@ -27,6 +27,7 @@ SonicFlame\
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── normalize.py                # Нормализация метаданных (mutagen)
+│   │   ├── audio_device_manager.py     # Управление устройствами вывода + автофолбэк
 │   │   ├── player.py                   # Обёртка над QMediaPlayer
 │   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── db/                         # SQLite библиотека
@@ -145,14 +146,21 @@ SonicFlame\
 **Класс `AudioPlayer(QObject)`**:
 - `_player: QMediaPlayer` — базовый медиаплеер
 - `_audio_output: QAudioOutput` — аудиоустройство
+- `_device_manager: AudioDeviceManager` — менеджер вывода звука
 - **Сигналы**: `state_changed`, `position_changed`, `duration_changed`, `volume_changed`, `media_status_changed`, `error_occurred`
-- **Методы**: `load_source()`, `play()`, `pause()`, `stop()`, `toggle_play_pause()`, `set_position()`, `set_volume()`, `get_position()`, `get_duration()`, `get_volume()`, `get_state()`, `is_playing()`
+- **Методы**: `load_source()`, `play()`, `pause()`, `stop()`, `toggle_play_pause()`, `set_position()`, `set_volume()`, `get_position()`, `get_duration()`, `get_volume()`, `get_state()`, `is_playing()`, `set_audio_device()`, `get_audio_device_id()`
 
-**Мониторинг устройств вывода звука**:
-- При инициализации запускается таймер опроса `_device_poll_timer` (интервал 1000мс)
-- `_check_audio_device()` сравнивает `QMediaDevices.defaultAudioOutput().id()` с сохранённым `_current_device_id`
-- При смене устройства пересоздаётся `QAudioOutput` с новым устройством, громкость сохраняется
-- Используется polling вместо signal-based подхода, т.к. `audioOutputsChanged` в PySide6 работает нестабильно (спамит сигналами)
+#### `core/audio_device_manager.py` — AudioDeviceManager
+Управление выбором устройства вывода звука с автофолбэком.
+
+**Класс `AudioDeviceManager(QObject)`**:
+- `_requested_device_id: str | None` — выбранное пользователем устройство (не сбрасывается при отключении)
+- `_current_device_id: str` — фактически активное устройство
+- Таймер 1с: каждый тик проверяет доступность запрошенного устройства
+- Если устройство отключено — фолбэк на системное `defaultAudioOutput()`
+- При повторном подключении — автоматическое переключение обратно
+- **Сигналы**: `device_changed(str)` — новое ID устройства
+- **Методы**: `set_user_device(device_id)`, `get_user_device()`, `get_current_device_id()`, `create_audio_output(parent)`, `enumerate_devices()` (статический)
 
 #### `core/playlist.py` — Playlist
 
@@ -297,6 +305,7 @@ SonicFlame\
 | similarity_precision | int | Точность подбора похожих треков (0–20, по умолч. 10) |
 | allow_remote_shutdown | bool   | Разрешить удалённое закрытие программы |
 | prevent_sleep        | bool   | Блокировать спящий режим во время воспроизведения |
+| audio_output_device  | str    | ID выбранного устройства вывода (None = по умолчанию) |
 
 ### Модуль для подбора похожих треков на основе различных критериев.
 #### `core/db_cleaner.py` — Database Cleaner
@@ -691,10 +700,10 @@ SonicFlame\
 - **Корневая папка** — кнопка с путём (красная рамка если не задана)
 - **Точность подбора похожих** — `ClickableSlider` (0–20)
 
-**`page_appearance.py`** — AppearancePage:
+**`page_appearance.py`** — AppearancePage + `TallItemDelegate`:
 - **Акцентный цвет** — 15 пресетов (кружки), включая Slate (`#607884`)
 - **Динамический цвет из обложки** — QCheckBox
-- **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80)
+- **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80, `TallItemDelegate` для высоты + `QAbstractItemView::item:selected/hover` с акцентным цветом)
 
 **`page_webserver.py`** — WebServerPage + `PortValidator`:
 - **Веб-сервер** — QCheckBox включения
@@ -704,6 +713,7 @@ SonicFlame\
 
 **`page_system.py`** — SystemPage + `CleanupWorker`:
 - **Блокировать сон** — QCheckBox
+- **Устройство вывода звука** — QComboBox со списком доступных устройств + "По умолчанию". Стилизован через `QAbstractItemView::item:selected/hover` с акцентным цветом. Использует `TallItemDelegate` для высоты элементов.
 - **Чистка мусора в БД** — кнопка, запускает `CleanupWorker` в отдельном потоке
 
 #### `ui/library/` — Модули библиотеки
