@@ -417,7 +417,7 @@ class MainWindow(QMainWindow):
         self.settings.playlist_type = playlist_type
 
     def _on_settings_requested(self):
-        from musicplayer.ui.settings_dialog import SettingsDialog
+        from musicplayer.ui.settings import SettingsDialog
         from musicplayer.ui.accent_style import apply_accent_to_main_window
         self._settings_dialog = SettingsDialog(self.settings, self)
         dialog = self._settings_dialog

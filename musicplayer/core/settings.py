@@ -117,6 +117,7 @@ class AppSettings:
             "mini_widget_opacity": 40,
             "web_server_enabled": False,
             "web_server_port": 8080,
+            "allow_remote_shutdown": False,
             "playlist_sort_mode": "artist",
             "similarity_precision": 10,
         }
@@ -276,6 +277,15 @@ class AppSettings:
     @web_server_port.setter
     def web_server_port(self, value: int):
         self._data["web_server_port"] = value
+        self._save()
+
+    @property
+    def allow_remote_shutdown(self) -> bool:
+        return self._data.get("allow_remote_shutdown", False)
+
+    @allow_remote_shutdown.setter
+    def allow_remote_shutdown(self, value: bool):
+        self._data["allow_remote_shutdown"] = value
         self._save()
 
     @property

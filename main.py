@@ -223,7 +223,7 @@ def _run_player_mode(app: QApplication):
     if not window.settings.music_folder or not os.path.isdir(window.settings.music_folder):
         def deferred_settings():
             splash.hide()
-            from musicplayer.ui.settings_dialog import SettingsDialog
+            from musicplayer.ui.settings import SettingsDialog
             settings_dialog = SettingsDialog(window.settings, window)
             settings_dialog.music_folder_changed.connect(window.sidebar.set_music_folder_configured)
             if settings_dialog.exec():
