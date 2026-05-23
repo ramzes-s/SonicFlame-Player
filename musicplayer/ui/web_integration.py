@@ -6,6 +6,7 @@ Exports WebIntegration class that manages all web-related functionality.
 """
 
 from PySide6.QtCore import QObject, QTimer
+from PySide6.QtWidgets import QApplication
 import os
 
 from musicplayer.core.web_server import WebServer
@@ -41,6 +42,12 @@ class WebIntegration(QObject):
         ws.play_favorites_requested.connect(lambda: self._main_window._on_favorites_toggled(True))
         ws.play_top_requested.connect(lambda: self._main_window._on_top_toggled(True))
         ws.play_similar_requested.connect(self._main_window._on_similar_tracks_requested)
+        ws.shutdown_requested.connect(self._on_shutdown)
+
+    def _on_shutdown(self):
+        """Handle remote shutdown request."""
+        print("[WebIntegration] Remote shutdown requested")
+        QApplication.quit()
 
     def start(self, port: int = 8080):
         """Start the web server."""

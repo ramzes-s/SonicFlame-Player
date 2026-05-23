@@ -33,6 +33,7 @@ class WebServer(QObject):
     play_favorites_requested = Signal()
     play_top_requested = Signal()
     play_similar_requested = Signal()
+    shutdown_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -150,6 +151,7 @@ class WebServer(QObject):
         self._app.router.add_get('/api/play_top', api.handle_play_top)
         self._app.router.add_get('/api/play_similar', api.handle_play_similar)
         self._app.router.add_get('/api/check', api.handle_check)
+        self._app.router.add_post('/api/shutdown', api.handle_shutdown)
 
     def stop(self):
         """Stop the web server."""

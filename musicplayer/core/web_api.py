@@ -205,5 +205,13 @@ class APIHandlers:
         self._server.play_similar_requested.emit()
         return web.json_response({"ok": True})
 
+    async def handle_shutdown(self, request: web.Request) -> web.Response:
+        from musicplayer.core.settings import AppSettings
+        settings = AppSettings()
+        if not settings.allow_remote_shutdown:
+            return web.json_response({"ok": False, "error": "Remote shutdown is disabled"})
+        self._server.shutdown_requested.emit()
+        return web.json_response({"ok": True})
+
     async def handle_check(self, request: web.Request) -> web.Response:
         return web.json_response({"computer_name": socket.gethostname()})
