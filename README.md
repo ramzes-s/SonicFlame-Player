@@ -97,14 +97,7 @@ python main.py --library
 
 ## Requirements
 
-- Python 3.9+
-- PySide6 >= 6.6
-- mutagen >= 1.47
-- Pillow >= 10.0
-- aiohttp >= 3.9
-- numpy >= 1.24
-- librosa (for audio analysis)
-- qrcode[pil] (for QR code generation)
+In TECHNICAL.md
 
 ## Color Scheme
 
@@ -220,14 +213,7 @@ python main.py --library
 
 ## Требования
 
-- Python 3.9+
-- PySide6 >= 6.6
-- mutagen >= 1.47
-- Pillow >= 10.0
-- aiohttp >= 3.9
-- numpy >= 1.24
-- librosa (для анализа аудио)
-- qrcode[pil] (для генерации QR-кодов)
+В TECHNICAL.md
 
 ## Цветовая схема
 
