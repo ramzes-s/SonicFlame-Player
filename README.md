@@ -97,7 +97,7 @@ python main.py --library
 
 ## Requirements
 
-In TECHNICAL.md
+In [TECHNICAL.md](TECHNICAL.md#requirements)
 
 ## Color Scheme
 
@@ -215,7 +215,7 @@ python main.py --library
 
 ## Требования
 
-В TECHNICAL.md
+В [TECHNICAL.md](TECHNICAL.md#requirements)
 
 ## Цветовая схема
 
