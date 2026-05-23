@@ -5,11 +5,12 @@ Wrapper around QMediaPlayer providing playback functionality
 with signals for UI updates.
 """
 
-from PySide6.QtCore import QObject, Signal, QUrl, QTimer
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaDevices
+from PySide6.QtCore import QObject, Signal, QUrl
+from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from musicplayer.core.db import TrackInfo
 from musicplayer.core import settings
 from musicplayer.core.smtc_manager import SMTCManager
+from musicplayer.core.audio_device_manager import AudioDeviceManager
 
 
 class AudioPlayer(QObject):
@@ -33,12 +34,15 @@ class AudioPlayer(QObject):
         super().__init__(parent)
 
         self._current_track: TrackInfo | None = None
-        self._current_device_id = None
+
+        # Audio device manager (handles selection + fallback)
+        self._device_manager = AudioDeviceManager(self)
+        self._device_manager.device_changed.connect(self._on_device_changed)
 
         # Create audio output
-        self._audio_output = QAudioOutput()
+        self._audio_output = self._device_manager.create_audio_output(self)
         self._audio_output.setVolume(0.5)
-        
+
         # Windows sleep blocker – enabled based on settings
         from .windows_sleep_blocker import WindowsSleepBlocker
         self._sleep_blocker = WindowsSleepBlocker()
@@ -56,12 +60,6 @@ class AudioPlayer(QObject):
         self._player.durationChanged.connect(self._on_duration_changed)
         self._player.mediaStatusChanged.connect(self._on_media_status_changed)
         self._player.errorOccurred.connect(self._on_error)
-
-        # Poll for audio device changes
-        self._current_device_id = self._get_default_device_id()
-        self._device_poll_timer = QTimer(self)
-        self._device_poll_timer.timeout.connect(self._check_audio_device)
-        self._device_poll_timer.start(1000)
 
         # SMTC integration
         self._smtc = SMTCManager(self)
@@ -83,23 +81,20 @@ class AudioPlayer(QObject):
         else:
             self._sleep_blocker.disable()
 
-    def _get_default_device_id(self) -> str:
-        """Get unique identifier for current default audio output."""
-        device = QMediaDevices.defaultAudioOutput()
-        return str(device.id().toStdString())
+    def set_audio_device(self, device_id: str | None):
+        """Switch to a specific audio output device (None = system default)."""
+        self._device_manager.set_user_device(device_id)
 
-    def _check_audio_device(self):
-        """Poll for audio device changes."""
-        new_id = self._get_default_device_id()
-        if new_id != self._current_device_id:
-            self._current_device_id = new_id
-            device = QMediaDevices.defaultAudioOutput()
-            current_volume = self._audio_output.volume()
-            self._audio_output = QAudioOutput(device, self)
-            self._audio_output.setVolume(current_volume)
-            self._player.setAudioOutput(self._audio_output)
-            # Re‑connect the stateChanged signal after recreating the output
-    
+    def get_audio_device_id(self) -> str | None:
+        """Return the currently active device ID."""
+        return self._device_manager.get_current_device_id()
+
+    def _on_device_changed(self, new_device_id: str):
+        """Recreate QAudioOutput when the active device changes."""
+        current_volume = self._audio_output.volume()
+        self._audio_output = self._device_manager.create_audio_output(self)
+        self._audio_output.setVolume(current_volume)
+        self._player.setAudioOutput(self._audio_output)
 
     def _on_state_changed(self, state: QMediaPlayer.PlaybackState):
         self.state_changed.emit(state)

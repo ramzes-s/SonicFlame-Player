@@ -1,9 +1,10 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QCheckBox, QPushButton
-from PySide6.QtCore import Qt, Signal, QThread, QTimer
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QComboBox, QLabel, QStyledItemDelegate, QFrame
+from PySide6.QtCore import Qt, Signal, QThread, QTimer, QSize
 from PySide6.QtGui import QFont
 
 from musicplayer import config as cfg
 from musicplayer.core.db_cleaner import cleanup_missing_tracks
+from musicplayer.core.audio_device_manager import AudioDeviceManager
 
 
 class CleanupWorker(QThread):
@@ -15,9 +16,17 @@ class CleanupWorker(QThread):
         self.finished.emit(removed)
 
 
+class TallItemDelegate(QStyledItemDelegate):
+    def sizeHint(self, option, index):
+        sz = super().sizeHint(option, index)
+        sz.setHeight(max(sz.height(), 44))
+        return sz
+
+
 class SystemPage(QWidget):
     prevent_sleep_toggled = Signal(bool)
     cleanup_finished = Signal(int)
+    audio_device_changed = Signal(object)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -35,6 +44,21 @@ class SystemPage(QWidget):
         self.prevent_sleep_cb.toggled.connect(self._on_prevent_sleep_toggled)
         lo.addWidget(self.prevent_sleep_cb)
 
+        # Audio output device
+        device_row = QHBoxLayout()
+        device_row.setSpacing(10)
+        device_label = QLabel("Устройство вывода звука")
+        device_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        device_row.addWidget(device_label)
+        self._device_combo = QComboBox()
+        self._device_combo.setFixedWidth(300)
+        self._populate_device_list()
+        self._device_combo.currentIndexChanged.connect(self._on_device_changed)
+        self._apply_combo_style()
+        device_row.addWidget(self._device_combo)
+        device_row.addStretch()
+        lo.addLayout(device_row)
+
         lo.addStretch()
 
         # DB Cleanup
@@ -46,6 +70,71 @@ class SystemPage(QWidget):
         self._update_cleanup_btn_style()
 
         self._apply_checkbox_style()
+
+    def _populate_device_list(self):
+        self._device_combo.clear()
+        self._device_combo.setItemDelegate(TallItemDelegate(self._device_combo))
+        view = self._device_combo.view()
+        if view:
+            view.setFrameShape(QFrame.NoFrame)
+            view.setFrameShadow(QFrame.Plain)
+        self._device_combo.addItem("По умолчанию", None)
+        for desc, dev_id in AudioDeviceManager.enumerate_devices():
+            self._device_combo.addItem(desc, dev_id)
+        saved_id = self._settings.audio_output_device
+        for i in range(self._device_combo.count()):
+            if self._device_combo.itemData(i) == saved_id:
+                self._device_combo.setCurrentIndex(i)
+                break
+
+    def refresh_devices(self):
+        current_id = self._device_combo.currentData()
+        self._populate_device_list()
+        for i in range(self._device_combo.count()):
+            if self._device_combo.itemData(i) == current_id:
+                self._device_combo.setCurrentIndex(i)
+                break
+
+    def _on_device_changed(self, idx: int):
+        device_id = self._device_combo.itemData(idx)
+        self._settings.audio_output_device = device_id
+        self.audio_device_changed.emit(device_id)
+
+    def _apply_combo_style(self):
+        accent = cfg.get_accent_color()
+        self._device_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #000000;
+                border: none;
+                outline: none;
+                border-bottom: 1px solid {accent};
+                color: #FFFFFF;
+                font-size: 14px;
+                padding: 1px 8px 1px 8px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                outline: none;
+                width: 20px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #000000;
+                border: 1px solid {accent};
+                color: #FFFFFF;
+                outline: none;
+                margin: 0px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::viewport {{
+                background-color: #000000;
+                border: none;
+            }}
+        """)
 
     def _on_prevent_sleep_toggled(self, checked: bool):
         self._settings.prevent_sleep = checked
@@ -103,6 +192,7 @@ class SystemPage(QWidget):
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
         self._update_cleanup_btn_style()
+        self._apply_combo_style()
 
     def cleanup(self):
         if hasattr(self, '_cleanup_worker') and self._cleanup_worker.isRunning():

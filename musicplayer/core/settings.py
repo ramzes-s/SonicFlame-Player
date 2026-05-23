@@ -120,6 +120,7 @@ class AppSettings:
             "allow_remote_shutdown": False,
             "playlist_sort_mode": "artist",
             "similarity_precision": 10,
+            "audio_output_device": None,
         }
         self._load()
 
@@ -304,4 +305,13 @@ class AppSettings:
     @similarity_precision.setter
     def similarity_precision(self, value: int):
         self._data["similarity_precision"] = max(0, min(20, int(value)))
+        self._save()
+
+    @property
+    def audio_output_device(self) -> str | None:
+        return self._data.get("audio_output_device")
+
+    @audio_output_device.setter
+    def audio_output_device(self, value: str | None):
+        self._data["audio_output_device"] = value
         self._save()

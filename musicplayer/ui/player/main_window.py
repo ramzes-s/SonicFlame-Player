@@ -87,6 +87,7 @@ class MainWindow(QMainWindow):
         self.analysis_manager = AnalysisManager(self)
 
         self._apply_saved_accent_color()
+        self._restore_audio_device()
         self._setup_ui()
         self._connect_signals()
 
@@ -125,6 +126,11 @@ class MainWindow(QMainWindow):
         saved_color = self.settings._data.get("accent_color")
         if saved_color:
             cfg.ACCENT_COLOR = saved_color
+
+    def _restore_audio_device(self):
+        saved_id = self.settings.audio_output_device
+        if saved_id is not None:
+            self.player.set_audio_device(saved_id)
 
     def paintEvent(self, event: QPaintEvent):
         super().paintEvent(event)
@@ -428,6 +434,7 @@ class MainWindow(QMainWindow):
         dialog.web_server_port_changed.connect(self._web_integration.set_port)
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)
         dialog.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
+        dialog.audio_device_changed.connect(self.player.set_audio_device)
         dialog.exec()
         self._settings_dialog = None
         apply_accent_to_main_window(self)

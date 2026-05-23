@@ -28,6 +28,7 @@ class SettingsDialog(QDialog):
     web_server_port_changed = Signal(int)
     music_folder_changed = Signal(bool)
     prevent_sleep_toggled = Signal(bool)
+    audio_device_changed = Signal(object)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -188,6 +189,7 @@ class SettingsDialog(QDialog):
 
         system_page.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         system_page.cleanup_finished.connect(self._on_cleanup_finished)
+        system_page.audio_device_changed.connect(self.audio_device_changed.emit)
 
     def _build_status_bar(self, inner: QVBoxLayout):
         status_bar = QWidget()
