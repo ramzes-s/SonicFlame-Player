@@ -1,6 +1,13 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QComboBox
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QComboBox, QFrame, QStyledItemDelegate
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
+
+
+class TallItemDelegate(QStyledItemDelegate):
+    def sizeHint(self, option, index):
+        sz = super().sizeHint(option, index)
+        sz.setHeight(max(sz.height(), 36))
+        return sz
 
 from musicplayer import config as cfg
 from .constants import ACCENT_PRESETS
@@ -55,9 +62,11 @@ class AppearancePage(QWidget):
         opacity_row = QHBoxLayout()
         opacity_row.setSpacing(10)
         self._opacity_combo = QComboBox()
+        self._opacity_combo.setItemDelegate(TallItemDelegate(self._opacity_combo))
         opacity_label = QLabel("Прозрачность мини-виджета")
         opacity_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
-        self._opacity_combo.addItems([str(i) for i in range(0, 81, 10)])
+        for val in range(0, 81, 10):
+            self._opacity_combo.addItem(str(val), None)
         self._opacity_combo.setCurrentText(str(self._settings.mini_widget_opacity))
         self._opacity_combo.currentTextChanged.connect(self._on_opacity_combo_changed)
         self._opacity_combo.setEnabled(self._settings.mini_widget_on_minimize)
@@ -123,29 +132,50 @@ class AppearancePage(QWidget):
         self.mini_widget_cb.setStyleSheet(style)
         self.mini_widget_cb.setCursor(Qt.PointingHandCursor)
 
-    def _update_combo_style(self):
+    def _style_combo(self, combo: QComboBox):
+        """Apply full stylesheet to a combo box using descendant selectors."""
         accent = cfg.get_accent_color()
-        self._opacity_combo.setStyleSheet(f"""
+        combo.setStyleSheet(f"""
             QComboBox {{
                 background-color: #000000;
                 border: none;
+                outline: none;
                 border-bottom: 1px solid {accent};
                 color: #FFFFFF;
-                font-size: 12px;
-                padding: 3px 6px 2px 6px;
+                font-size: 14px;
+                padding: 1px 8px 1px 8px;
             }}
             QComboBox::drop-down {{
                 border: none;
+                outline: none;
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
                 background-color: #000000;
                 border: 1px solid {accent};
                 color: #FFFFFF;
-                selection-background-color: {accent};
+                outline: none;
+                margin: 0px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::viewport {{
+                background-color: #000000;
+                border: none;
             }}
         """)
+        view = combo.view()
+        if view:
+            view.setFrameShape(QFrame.NoFrame)
+            view.setFrameShadow(QFrame.Plain)
+
+    def _update_combo_style(self):
+        self._style_combo(self._opacity_combo)
 
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
-        self._update_combo_style()
+        self._style_combo(self._opacity_combo)
