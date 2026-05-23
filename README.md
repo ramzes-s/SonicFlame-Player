@@ -116,9 +116,10 @@ python main.py --library
 
 GNU General Public License v3.0 (GPL v3)
 
-**Author:** ramzes  
-**Website:** [smartoff.net](https://smartoff.net)  
-**E-mail:** [ramzes@smartoff.net](mailto:ramzes@smartoff.net)
+**Author:** ramzes ([smartoff.net](https://smartoff.net))  
+**GitHub:** [ramzes-s](https://github.com/ramzes-s)  
+**Website:** [sonicflame.pro](https:///sonicflame.pro)  
+**E-mail:** [ramzes@sonicflame.pro](mailto:ramzes@sonicflame.pro)
 
 ---
 
@@ -238,6 +239,7 @@ python main.py --library
 
 GNU General Public License v3.0 (GPL v3)
 
-**Автор:** ramzes  
-**Сайт:** [smartoff.net](https://smartoff.net)  
-**E-mail:** [ramzes@smartoff.net](mailto:ramzes@smartoff.net)
+**Автор:** ramzes ([smartoff.net](https://smartoff.net))  
+**GitHub:** [ramzes-s](https://github.com/ramzes-s)  
+**Сайт:** [sonicflame.pro](https:///sonicflame.pro)  
+**E-mail:** [ramzes@sonicflame.pro](mailto:ramzes@sonicflame.pro)
