@@ -109,7 +109,8 @@ In TECHNICAL.md
 
 GNU General Public License v3.0 (GPL v3)
 
-___
+## Contacts
+
 **Author:** ramzes ([smartoff.net](https://smartoff.net))  
 **GitHub:** [ramzes-s](https://github.com/ramzes-s)  
 **Website:** [sonicflame.pro](https:///sonicflame.pro)  
@@ -226,7 +227,8 @@ python main.py --library
 
 GNU General Public License v3.0 (GPL v3)
 
-___
+## Контакты
+
 **Автор:** ramzes ([smartoff.net](https://smartoff.net))  
 **GitHub:** [ramzes-s](https://github.com/ramzes-s)  
 **Сайт:** [sonicflame.pro](https:///sonicflame.pro)  
