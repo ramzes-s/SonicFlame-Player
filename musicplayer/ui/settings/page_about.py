@@ -17,22 +17,22 @@ class AboutPage(QWidget):
         accent = cfg.get_accent_color()
 
         lo = QVBoxLayout(self)
-        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setContentsMargins(12, 10, 12, 10)
         lo.setSpacing(0)
 
         lo.addStretch(1)
 
         # App title + version (accent color)
-        title = QLabel(f"SonicFlame Player  v{cfg.APP_VERSION}")
-        title.setStyleSheet(f"color: {accent}; font-size: 22px; font-weight: bold;")
-        title.setAlignment(Qt.AlignCenter)
-        lo.addWidget(title)
+        self._title_label = QLabel(f"SonicFlame Player  v{cfg.APP_VERSION}")
+        self._title_label.setStyleSheet(f"color: {accent}; font-size: 22px; font-weight: 600;")
+        self._title_label.setAlignment(Qt.AlignCenter)
+        lo.addWidget(self._title_label)
         lo.addSpacing(20)
 
         # Author note
         note = QLabel(
             "Музыкальный плеер, созданный с душой и вниманием к деталям.\n"
-            "Спасибо, что пользуетесь!\nАвтор: ramzes (ramzes@sonicflame.pro)."
+            "Спасибо, что пользуетесь!\nАвтор: ramzes (ramzes@sonicflame.pro)"
         )
         note.setStyleSheet("color: #AAAAAA; font-size: 13px;")
         note.setAlignment(Qt.AlignCenter)
@@ -41,18 +41,9 @@ class AboutPage(QWidget):
         lo.addSpacing(30)
 
         # Icon (transparent, 128x128)
-        icon_label = QLabel()
-        pixmap = QPixmap(128, 128)
-        pixmap.fill(Qt.transparent)
-        p = QPainter(pixmap)
-        p.setRenderHint(QPainter.Antialiasing)
-        note_svg = QSvgWidget()
-        note_svg.renderer().load(QByteArray(get_music_note_svg(128, accent).encode('utf-8')))
-        note_svg.renderer().render(p)
-        p.end()
-        icon_label.setPixmap(pixmap)
-        icon_label.setAlignment(Qt.AlignCenter)
-        lo.addWidget(icon_label)
+        self._icon_label = QLabel()
+        self._update_icon(accent)
+        lo.addWidget(self._icon_label)
 
         lo.addStretch(1)
 
@@ -105,5 +96,18 @@ class AboutPage(QWidget):
 
         lo.addSpacing(16)
 
+    def _update_icon(self, accent: str):
+        pixmap = QPixmap(128, 128)
+        pixmap.fill(Qt.transparent)
+        p = QPainter(pixmap)
+        p.setRenderHint(QPainter.Antialiasing)
+        note_svg = QSvgWidget()
+        note_svg.renderer().load(QByteArray(get_music_note_svg(128, accent).encode('utf-8')))
+        note_svg.renderer().render(p)
+        p.end()
+        self._icon_label.setPixmap(pixmap)
+        self._icon_label.setAlignment(Qt.AlignCenter)
+
     def apply_accent_color(self, color: str):
-        self._build_ui()
+        self._title_label.setStyleSheet(f"color: {color}; font-size: 22px; font-weight: bold;")
+        self._update_icon(color)
