@@ -150,7 +150,8 @@ class SystemPage(QWidget):
     def _on_cleanup_finished(self, removed: int):
         if self.isVisible():
             self._cleanup_btn.setEnabled(True)
-            self._cleanup_btn.setText("Чистка мусора")
+            self._cleanup_btn.setText(f"Удалено треков: {removed}")
+            QTimer.singleShot(3000, lambda: self._cleanup_btn.setText("Чистка мусора в БД"))
             self.cleanup_finished.emit(removed)
 
     def _update_cleanup_btn_style(self):

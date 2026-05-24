@@ -1,0 +1,109 @@
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
+from PySide6.QtCore import Qt, QByteArray
+from PySide6.QtGui import QPixmap, QPainter, QColor, QFont
+from PySide6.QtSvgWidgets import QSvgWidget
+
+from musicplayer import config as cfg
+from musicplayer.ui.svg_icons import get_music_note_svg
+
+
+class AboutPage(QWidget):
+    def __init__(self, settings, parent=None):
+        super().__init__(parent)
+        self._settings = settings
+        self._build_ui()
+
+    def _build_ui(self):
+        accent = cfg.get_accent_color()
+
+        lo = QVBoxLayout(self)
+        lo.setContentsMargins(24, 20, 24, 20)
+        lo.setSpacing(0)
+
+        lo.addStretch(1)
+
+        # App title + version (accent color)
+        title = QLabel(f"SonicFlame Player  v{cfg.APP_VERSION}")
+        title.setStyleSheet(f"color: {accent}; font-size: 22px; font-weight: bold;")
+        title.setAlignment(Qt.AlignCenter)
+        lo.addWidget(title)
+        lo.addSpacing(20)
+
+        # Author note
+        note = QLabel(
+            "Музыкальный плеер, созданный с душой и вниманием к деталям.\n"
+            "Спасибо, что пользуетесь!\nАвтор: ramzes (ramzes@sonicflame.pro)."
+        )
+        note.setStyleSheet("color: #AAAAAA; font-size: 13px;")
+        note.setAlignment(Qt.AlignCenter)
+        note.setWordWrap(True)
+        lo.addWidget(note)
+        lo.addSpacing(30)
+
+        # Icon (transparent, 128x128)
+        icon_label = QLabel()
+        pixmap = QPixmap(128, 128)
+        pixmap.fill(Qt.transparent)
+        p = QPainter(pixmap)
+        p.setRenderHint(QPainter.Antialiasing)
+        note_svg = QSvgWidget()
+        note_svg.renderer().load(QByteArray(get_music_note_svg(128, accent).encode('utf-8')))
+        note_svg.renderer().render(p)
+        p.end()
+        icon_label.setPixmap(pixmap)
+        icon_label.setAlignment(Qt.AlignCenter)
+        lo.addWidget(icon_label)
+
+        lo.addStretch(1)
+
+        # Links row at bottom: GitHub (white) + 100px + Site (orange)
+        links_row = QHBoxLayout()
+        links_row.addStretch()
+
+        gh_link = QLabel('<a href="https://github.com/ramzes-s/SonicFlame-Player" '
+                         'style="color: #000000; text-decoration: none; font-weight: bold; font-size: 14px;">GitHub</a>')
+        gh_link.setOpenExternalLinks(True)
+        gh_link.setCursor(Qt.PointingHandCursor)
+        gh_link.setAlignment(Qt.AlignCenter)
+        gh_link.setFixedSize(120, 36)
+
+        gh_frame = QWidget()
+        gh_lo = QHBoxLayout(gh_frame)
+        gh_lo.setContentsMargins(0, 0, 0, 0)
+        gh_lo.addWidget(gh_link)
+        gh_frame.setFixedSize(120, 36)
+        gh_frame.setStyleSheet("""
+            QWidget {
+                background-color: #FFFFFF;
+                border-radius: 6px;
+            }
+        """)
+        links_row.addWidget(gh_frame)
+        links_row.addSpacing(100)
+
+        site_link = QLabel('<a href="https://sonicflame.pro/" '
+                           'style="color: #FFFFFF; text-decoration: none; font-weight: bold; font-size: 14px;">Сайт проекта</a>')
+        site_link.setOpenExternalLinks(True)
+        site_link.setCursor(Qt.PointingHandCursor)
+        site_link.setAlignment(Qt.AlignCenter)
+        site_link.setFixedSize(120, 36)
+
+        site_frame = QWidget()
+        site_lo = QHBoxLayout(site_frame)
+        site_lo.setContentsMargins(0, 0, 0, 0)
+        site_lo.addWidget(site_link)
+        site_frame.setFixedSize(120, 36)
+        site_frame.setStyleSheet("""
+            QWidget {
+                background-color: #ed6a02;
+                border-radius: 6px;
+            }
+        """)
+        links_row.addWidget(site_frame)
+        links_row.addStretch()
+        lo.addLayout(links_row)
+
+        lo.addSpacing(16)
+
+    def apply_accent_color(self, color: str):
+        self._build_ui()

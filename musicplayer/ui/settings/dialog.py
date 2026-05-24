@@ -17,6 +17,7 @@ from .page_main import MainPage
 from .page_appearance import AppearancePage
 from .page_webserver import WebServerPage
 from .page_system import SystemPage
+from .page_about import AboutPage
 
 
 class SettingsDialog(QDialog):
@@ -131,8 +132,8 @@ class SettingsDialog(QDialog):
         sidebar_layout.setContentsMargins(0, 8, 0, 8)
         sidebar_layout.setSpacing(0)
 
-        tab_names = ["Основное", "Внешний вид", "Сервер и API", "Системные"]
-        page_classes = [MainPage, AppearancePage, WebServerPage, SystemPage]
+        tab_names = ["Основное", "Внешний вид", "Сервер и API", "Системные", "О программе"]
+        page_classes = [MainPage, AppearancePage, WebServerPage, SystemPage, AboutPage]
         self._pages = []
         for i, (name, page_cls) in enumerate(zip(tab_names, page_classes)):
             btn = TabButton(name, cfg.get_accent_color())
@@ -188,7 +189,6 @@ class SettingsDialog(QDialog):
         webserver_page.port_changed.connect(self._on_webserver_port_changed)
 
         system_page.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
-        system_page.cleanup_finished.connect(self._on_cleanup_finished)
         system_page.audio_device_changed.connect(self.audio_device_changed.emit)
 
     def _build_status_bar(self, inner: QVBoxLayout):
@@ -206,17 +206,6 @@ class SettingsDialog(QDialog):
         self.covers_size_label = QLabel()
         self.covers_size_label.setStyleSheet(f"color: {a}; font-size: 13px;")
         status_layout.addWidget(self.covers_size_label)
-        status_layout.addStretch()
-        self._cleanup_result_label = QLabel()
-        self._cleanup_result_label.setStyleSheet(f"color: {a}; font-size: 12px;")
-        self._cleanup_result_label.setVisible(False)
-        status_layout.addWidget(self._cleanup_result_label)
-        status_layout.addStretch()
-        from musicplayer import config as app_cfg
-        self.version_label = QLabel(f"code by ramzes  v{app_cfg.APP_VERSION}")
-        self.version_label.setStyleSheet(f"color: {cfg.get_accent_color()}; font-size: 13px;")
-        status_layout.addWidget(self.version_label)
-        status_layout.addSpacing(10)
         inner.addWidget(status_bar)
 
     def _switch_tab(self, idx: int):
@@ -284,13 +273,6 @@ class SettingsDialog(QDialog):
     def _on_similarity_precision_changed(self, value: int):
         self.settings.similarity_precision = value
 
-    def _on_cleanup_finished(self, removed: int):
-        if self.isVisible():
-            self._cleanup_result_label.setText(f"Удалено треков: {removed}")
-            self._cleanup_result_label.setVisible(True)
-            self._update_stats()
-            QTimer.singleShot(3000, lambda: self._cleanup_result_label.setVisible(False))
-
     def _update_stats(self):
         covers_size = get_covers_cache_size()
         self.covers_size_label.setText(f"Кеш обложек:  {format_size(covers_size)}")
@@ -312,7 +294,6 @@ class SettingsDialog(QDialog):
         """)
         self.library_count_label.setStyleSheet(f"color: {color}; font-size: 13px;")
         self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 13px;")
-        self.version_label.setStyleSheet(f"color: {color}; font-size: 14px;")
 
         for page in self._pages:
             page.apply_accent_color(color)
