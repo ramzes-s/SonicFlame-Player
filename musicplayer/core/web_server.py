@@ -6,6 +6,7 @@ Provides REST API and web interface.
 """
 
 import asyncio
+import ipaddress
 import sys
 import threading
 from pathlib import Path
@@ -229,9 +230,23 @@ class WebServer(QObject):
         return web.Response(text="Not Found", status=404)
 
 
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if IP is from local/private network."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return addr.is_loopback or addr.is_private or addr.is_link_local
+    except ValueError:
+        return False
+
+
 async def _security_middleware(app, handler):
-    """Add security headers to all responses."""
+    """Restrict to local network and add security headers."""
     async def middleware_handler(request):
+        peer_name = request.transport.get_extra_info('peername')
+        if peer_name:
+            ip = peer_name[0]
+            if not _is_private_ip(ip):
+                return web.Response(status=403, text='Forbidden: Access restricted to local network')
         response = await handler(request)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'DENY'

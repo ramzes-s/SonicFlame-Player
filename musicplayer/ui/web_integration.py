@@ -33,7 +33,7 @@ class WebIntegration(QObject):
         ws.pause_requested.connect(self._main_window.player.pause)
         ws.next_requested.connect(self._main_window._on_next)
         ws.previous_requested.connect(self._main_window._on_previous)
-        ws.volume_requested.connect(self._main_window.player.set_volume)
+        ws.volume_requested.connect(self._main_window._on_volume_changed)
         ws.seek_requested.connect(self._main_window.player.set_position)
         ws.play_track_requested.connect(lambda idx: self._main_window._play_track_at_view_index(idx))
         ws.play_folder_requested.connect(self._on_play_folder)
