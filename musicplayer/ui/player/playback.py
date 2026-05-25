@@ -303,7 +303,7 @@ class PlaybackManager(PlayerManagerBase):
             self._mw.player.player.setSource(QUrl())
 
         dialog = TagEditorDialog(track.filepath, self._mw, update_player=True)
-        result = dialog.exec()
+        dialog.exec()
 
         if dialog.delete_confirmed:
             remove_track_from_library(old_filepath, self._mw.playlist_widget, self._mw.playlist, self._mw)
@@ -313,40 +313,39 @@ class PlaybackManager(PlayerManagerBase):
                 StyledMessageBox.critical(self._mw, "Ошибка удаления файла", key=f"Не удалось удалить файл: {e}")
             return
 
-        if result == QDialog.DialogCode.Accepted:
+        if dialog.save_confirmed:
             new_filepath = dialog.file_path
-            if os.path.exists(new_filepath):
-                if os.path.normpath(new_filepath) != os.path.normpath(old_filepath):
-                    delete_track(old_filepath)
-                updated_track = extract_metadata(new_filepath)
-                if updated_track:
+            if os.path.normpath(new_filepath) != os.path.normpath(old_filepath):
+                delete_track(old_filepath)
+            updated_track = extract_metadata(new_filepath)
+            if updated_track:
+                try:
+                    upsert_track(updated_track, os.path.getmtime(new_filepath))
+                except Exception as e:
+                    logger.error("UPSERT CRASHED: %s", e, exc_info=True)
+                try:
+                    full_track = get_track(new_filepath) or updated_track
+                except Exception as e:
+                    logger.error("GET_TRACK CRASHED: %s", e, exc_info=True)
+                    full_track = updated_track
+                try:
+                    self._mw.playlist_widget.update_track_data(old_filepath, full_track)
+                except Exception as e:
+                    logger.error("UPDATE_TRACK_DATA CRASHED: %s", e, exc_info=True)
+                if self._mw._current_playing_filepath == old_filepath:
+                    self._mw._current_playing_filepath = new_filepath
+                if self._mw._current_playing_filepath:
                     try:
-                        upsert_track(updated_track, os.path.getmtime(new_filepath))
+                        self._mw.playlist_widget.set_playing_track(self._mw._current_playing_filepath)
                     except Exception as e:
-                        logger.error("UPSERT CRASHED: %s", e, exc_info=True)
+                        logger.error("SET_PLAYING_TRACK CRASHED: %s", e, exc_info=True)
+                if was_playing and full_track:
+                    self._mw.track_info_widget.update_track_info(full_track)
                     try:
-                        full_track = get_track(new_filepath) or updated_track
+                        self._mw.player.load_source(full_track)
                     except Exception as e:
-                        logger.error("GET_TRACK CRASHED: %s", e, exc_info=True)
-                        full_track = updated_track
-                    try:
-                        self._mw.playlist_widget.update_track_data(old_filepath, full_track)
-                    except Exception as e:
-                        logger.error("UPDATE_TRACK_DATA CRASHED: %s", e, exc_info=True)
-                    if self._mw._current_playing_filepath == old_filepath:
-                        self._mw._current_playing_filepath = new_filepath
-                    if self._mw._current_playing_filepath:
-                        try:
-                            self._mw.playlist_widget.set_playing_track(self._mw._current_playing_filepath)
-                        except Exception as e:
-                            logger.error("SET_PLAYING_TRACK CRASHED: %s", e, exc_info=True)
-                    if was_playing and full_track:
-                        self._mw.track_info_widget.update_track_info(full_track)
-                        try:
-                            self._mw.player.load_source(full_track)
-                        except Exception as e:
-                            logger.error("Failed to load source after tag edit: %s", e, exc_info=True)
-                        QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+                        logger.error("Failed to load source after tag edit: %s", e, exc_info=True)
+                    QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
         else:
             if was_playing:
                 old_track = next((t for t in view_tracks if t.filepath == old_filepath), None)

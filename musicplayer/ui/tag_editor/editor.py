@@ -37,6 +37,7 @@ class TagEditorDialog(BaseFramelessDialog):
         self.genre_tags = []
         self._save_thread = None
         self.delete_confirmed = False
+        self.save_confirmed = False
         self.setMinimumSize(800, 500)
 
         self._build_ui()
@@ -729,6 +730,7 @@ class TagEditorDialog(BaseFramelessDialog):
         self.cancel_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
         self.file_path = new_filepath
+        self.save_confirmed = True
         self.accept()
 
     def _on_save_error(self, message):

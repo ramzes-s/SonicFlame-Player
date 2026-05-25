@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Qt, QPoint, QByteArray
+from PySide6.QtCore import Qt, QPoint, QByteArray, QEvent
 from PySide6.QtGui import QPainter, QPaintEvent, QMouseEvent, QColor
 from PySide6.QtSvgWidgets import QSvgWidget
 from musicplayer import config as cfg
@@ -12,7 +12,23 @@ class BaseFramelessDialog(QDialog):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setModal(True)
         self._drag_pos = QPoint()
+        self._title_bar = None
         self.hide()
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.MouseButtonPress:
+            if event.button() == Qt.LeftButton:
+                self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+                return True
+        elif event.type() == QEvent.MouseMove:
+            if event.buttons() == Qt.LeftButton and not self._drag_pos.isNull():
+                self.move(event.globalPosition().toPoint() - self._drag_pos)
+                return True
+        elif event.type() == QEvent.MouseButtonRelease:
+            if event.button() == Qt.LeftButton:
+                self._drag_pos = QPoint()
+                return True
+        return super().eventFilter(obj, event)
 
     def _build_title_bar(self, title_text: str) -> QWidget:
         title_bar = QWidget()
@@ -43,6 +59,12 @@ class BaseFramelessDialog(QDialog):
         """ % accent)
         close_btn.clicked.connect(self.reject)
         title_layout.addWidget(close_btn)
+
+        self._title_bar = title_bar
+        title_bar.installEventFilter(self)
+        for child in title_bar.findChildren(QWidget):
+            if child is not close_btn:
+                child.installEventFilter(self)
 
         return title_bar
 
