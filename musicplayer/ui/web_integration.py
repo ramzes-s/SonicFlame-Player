@@ -42,6 +42,7 @@ class WebIntegration(QObject):
         ws.play_favorites_requested.connect(lambda: self._main_window._on_favorites_toggled(True))
         ws.play_top_requested.connect(lambda: self._main_window._on_top_toggled(True))
         ws.play_similar_requested.connect(self._main_window._on_similar_tracks_requested)
+        ws.play_artist_requested.connect(self._main_window._on_artist_tracks_requested)
         ws.shutdown_requested.connect(self._on_shutdown)
 
     def _on_shutdown(self):

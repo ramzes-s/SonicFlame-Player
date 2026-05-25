@@ -3,7 +3,7 @@ Playlist operations: favorites, top, artist, similar tracks.
 """
 
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QMessageBox
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 
 from musicplayer.core.db import (
     get_favorite_tracks,
@@ -86,7 +86,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
 
-    def load_artist(self, artist_name: str):
+    def load_artist(self, artist_name: str, bring_to_front: bool = True):
         self._mw.title_bar.set_playlist_title(artist_name)
         self._mw.title_bar.set_show_separator(True)
         self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
@@ -111,7 +111,8 @@ class PlaylistManager(PlayerManagerBase):
         self._mw._blink_animation.stop()
         self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
 
-        QTimer.singleShot(200, self._bring_to_front)
+        if bring_to_front:
+            QTimer.singleShot(200, self._bring_to_front)
         self._mw.title_bar.set_scanning_status(f"{track_count}", True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
 
@@ -128,8 +129,8 @@ class PlaylistManager(PlayerManagerBase):
                     current_track = t
                     break
         if not current_track:
-            QMessageBox.information(self._mw, "Поиск похожих треков",
-                                   "Нет текущего воспроизводимого трека для поиска похожих.")
+            StyledMessageBox.info(self._mw, "Поиск похожих треков",
+                                  text="Нет текущего воспроизводимого трека для поиска похожих.")
             return
 
         from musicplayer.core.db import increment_play_count
@@ -150,8 +151,8 @@ class PlaylistManager(PlayerManagerBase):
                       and t.mood is not None]
 
         if not search_pool:
-            QMessageBox.information(self._mw, "Поиск похожих треков",
-                                   "Недостаточно треков в библиотеке с данными для анализа.")
+            StyledMessageBox.info(self._mw, "Поиск похожих треков",
+                                  text="Недостаточно треков в библиотеке с данными для анализа.")
             self._mw.title_bar.hide_scanning_status()
             self._mw.sidebar.set_all_buttons_enabled(True)
             self._mw.controls_widget.set_action_buttons_enabled(True)
@@ -160,8 +161,8 @@ class PlaylistManager(PlayerManagerBase):
         similar_tracks = find_similar_tracks(current_track, search_pool, limit=100)
 
         if not similar_tracks:
-            QMessageBox.information(self._mw, "Поиск похожих треков",
-                                   "Не удалось найти похожие треки.")
+            StyledMessageBox.info(self._mw, "Поиск похожих треков",
+                                  text="Не удалось найти похожие треки.")
             self._mw.title_bar.hide_scanning_status()
             self._mw.sidebar.set_all_buttons_enabled(True)
             self._mw.controls_widget.set_action_buttons_enabled(True)

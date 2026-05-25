@@ -7,7 +7,8 @@ import os
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QMessageBox, QDialog
+from PySide6.QtWidgets import QDialog
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 
 from musicplayer.core.db import (
     ensure_cover_for_track,
@@ -18,7 +19,7 @@ from musicplayer.core.db import (
     delete_track,
     extract_metadata,
 )
-from musicplayer.ui.remove_track_dialog import MissingTrackDialog, remove_track_from_library
+from musicplayer.ui.remove_track_dialog import show_missing_track_dialog, remove_track_from_library
 from musicplayer.utils.audio_scanner import AudioScanner
 from musicplayer.ui.player.managers import PlayerManagerBase
 
@@ -38,8 +39,8 @@ class PlaybackManager(PlayerManagerBase):
 
         track = view_tracks[view_index]
         if not os.path.exists(track.filepath):
-            dialog = MissingTrackDialog(track.title, track.artist, track.filepath, self._mw)
-            if dialog.exec() == QMessageBox.Yes:
+            result = show_missing_track_dialog(track.title, track.artist, track.filepath, self._mw)
+            if result == 1:
                 QTimer.singleShot(0, lambda fp=track.filepath: self._handle_missing_track(fp))
             return
 
@@ -99,8 +100,8 @@ class PlaybackManager(PlayerManagerBase):
 
     def play_track_from_db(self, track):
         if not os.path.exists(track.filepath):
-            dialog = MissingTrackDialog(track.title, track.artist, track.filepath, self._mw)
-            if dialog.exec() == QMessageBox.Yes:
+            result = show_missing_track_dialog(track.title, track.artist, track.filepath, self._mw)
+            if result == 1:
                 QTimer.singleShot(0, lambda fp=track.filepath: self._handle_missing_track(fp))
             return
 
@@ -167,7 +168,7 @@ class PlaybackManager(PlayerManagerBase):
         self._mw.sidebar.set_all_buttons_enabled(True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
-        QMessageBox.warning(self._mw, "Scan Error", error_msg)
+        StyledMessageBox.critical(self._mw, "Scan Error", key=error_msg)
 
     def _on_scan_finished_and_play(self, tracks: list, target_filepath: str):
         self._mw._blink_animation.stop()
@@ -309,7 +310,7 @@ class PlaybackManager(PlayerManagerBase):
             try:
                 os.remove(old_filepath)
             except OSError as e:
-                QMessageBox.critical(self._mw, "Ошибка удаления файла", f"Не удалось удалить файл:{e}")
+                StyledMessageBox.critical(self._mw, "Ошибка удаления файла", key=f"Не удалось удалить файл: {e}")
             return
 
         if result == QDialog.DialogCode.Accepted:

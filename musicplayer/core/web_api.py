@@ -205,6 +205,10 @@ class APIHandlers:
         self._server.play_similar_requested.emit()
         return web.json_response({"ok": True})
 
+    async def handle_play_artist(self, request: web.Request) -> web.Response:
+        self._server.play_artist_requested.emit()
+        return web.json_response({"ok": True})
+
     async def handle_shutdown(self, request: web.Request) -> web.Response:
         from musicplayer.core.settings import AppSettings
         settings = AppSettings()
