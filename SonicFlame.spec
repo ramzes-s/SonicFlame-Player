@@ -37,4 +37,5 @@ exe = EXE(
     entitlements_file=None,
     icon=['Sonic-Flame.ico'],
     manifest='SonicFlame.manifest',
+    version='version_info.txt',
 )

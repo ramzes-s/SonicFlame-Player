@@ -1,0 +1,30 @@
+#UTF-8
+#
+# For more details about fixed file info 'ffi' see:
+# https://learn.microsoft.com/en-us/windows/win32/menurc/versioninfo-resource
+#
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(0, 9, 92, 0),
+    prodvers=(0, 9, 92, 0),
+    OS=0x40004,
+    fileType=0x1,
+    flags=0x0
+  ),
+  kids=[
+    StringFileInfo(
+      [StringTable(
+        u'040904B0',
+        [StringStruct(u'CompanyName', u'ramzes'),
+        StringStruct(u'FileDescription', u'SonicFlame Music Player'),
+        StringStruct(u'FileVersion', u'0.9.92.0'),
+        StringStruct(u'InternalName', u'SonicFlame Player'),
+        StringStruct(u'LegalCopyright', u'Copyright (C) 2026 ramzes. GPL v3'),
+        StringStruct(u'OriginalFilename', u'SonicFlame Player.exe'),
+        StringStruct(u'ProductName', u'SonicFlame Player'),
+        StringStruct(u'ProductVersion', u'0.9.92')]
+      )]
+    ),
+    VarFileInfo([VarStruct(u'Translation', [1049, 1200])])
+  ]
+)
