@@ -9,27 +9,32 @@
 ## Структура проекта
 
 ```
-SonicFlame\
+MusicPlayer2\
 ├── main.py                             # Точка входа (плеер + библиотека через --library)
 ├── requirements.txt                    # Зависимости
 ├── Sonic-Flame.ico                     # Иконка приложения
+├── SonicFlame.png                      # Изображение для splash screen
+├── SonicFlamePlayer_vision.png         # Концепт-арт приложения
+├── SonicFlame.manifest                 # Манифест Windows (DPI-aware, supportedOS)
 ├── SonicFlame.spec                     # Спецификация PyInstaller
 ├── build.bat                           # Скрипт сборки
 ├── TECHNICAL.md                        # Этот файл
 ├── README.md                           # Документация пользователя
+├── LICENSE.txt                         # GPL v3
+├── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
 ├── res/                                # Ресурсы
-│   ├── covers/                         # Фоновые изображения обложек
-│   │   └── *.jpg
+│   ├── covers/                         # Фоновые изображения обложек (1.jpg..14.jpg)
 │   └── genres/
 │       ├── genre_groups.json           # Группы жанров для фильтрации
 │       └── genre_map.json              # Маппинг жанров (ID3 → группы)
 ├── musicplayer/
 │   ├── __init__.py
-│   ├── config.py                       # Глобальные константы: ACCENT_COLOR, CACHE_DIR, пути кэша
+│   ├── config.py                       # Глобальные константы: APP_VERSION, ACCENT_COLOR, CACHE_DIR, пути кэша
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── normalize.py                # Нормализация метаданных (mutagen)
 │   │   ├── audio_device_manager.py     # Управление устройствами вывода + автофолбэк
+│   │   ├── media_keys.py               # Глобальные медиа-клавиши (RegisterHotKey)
 │   │   ├── player.py                   # Обёртка над QMediaPlayer
 │   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── db/                         # SQLite библиотека
@@ -92,25 +97,29 @@ SonicFlame\
 │   │   ├── svg_icons.py                # SVG-иконки как строки
 │   │   ├── accent_style.py             # Применение акцентного цвета к главному окну
 │   │   ├── track_info.py               # Виджет обложки с градиентной тенью
-│   │   └── tag_editor/                 # Редактор тегов (разделённый на модули)
-│   │       ├── __init__.py             # Реэкспорт для обратной совместимости
-│   │       ├── base_dialog.py          # BaseFramelessDialog — базовый класс frameless-диалогов
-│   │       ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
-│   │       ├── api.py                  # iTunes/Deezer API функции (с логгированием)
-│   │       ├── cover.py                # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
-│   │       ├── cover_thread.py         # Поток поиска обложек (дедупликация через MD5)
-│   │       ├── threads.py              # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
-│   │       ├── widgets.py              # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
-│   │       ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
-│   │       ├── track_mover.py          # move_track_to_folder — перемещение трека в другую папку из редактора тегов
-│   │       └── editor.py               # TagEditorDialog (наследует BaseFramelessDialog)
+│   │   ├── tag_editor/                 # Редактор тегов (разделённый на модули)
+│   │   │   ├── __init__.py             # Реэкспорт для обратной совместимости
+│   │   │   ├── base_dialog.py          # BaseFramelessDialog — базовый класс frameless-диалогов
+│   │   │   ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
+│   │   │   ├── api.py                  # iTunes/Deezer API функции (с логгированием)
+│   │   │   ├── cover.py                # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
+│   │   │   ├── cover_thread.py         # Поток поиска обложек (дедупликация через MD5)
+│   │   │   ├── threads.py              # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
+│   │   │   ├── widgets.py              # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
+│   │   │   ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
+│   │   │   ├── track_mover.py          # move_track_to_folder — перемещение трека в другую папку из редактора тегов
+│   │   │   └── editor.py               # TagEditorDialog (наследует BaseFramelessDialog)
+│   │   └── widgets/                    # Переиспользуемые виджеты
+│   │       ├── __init__.py
+│   │       ├── frameless_dialog.py     # FramelessDialog — базовый frameless-диалог с перетаскиванием
+│   │       └── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
 │   └── utils/
 │       ├── __init__.py
 │       ├── audio_scanner.py            # QThread сканер папок (sync с БД)
 │       ├── analysis_worker.py          # Анализ аудио (librosa)
 │       ├── color_extractor.py          # Извлечение доминантного цвета из обложки
 │       └── helpers.py                  # Утилиты форматирования
-└── .cache/                             # Данные приложения
+└── .cache/                             # Данные приложения (создаются при первом запуске)
     ├── musicplayer.db                  # SQLite библиотека (WAL mode)
     ├── covers/                         # Обложки в формате WebP
     ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
@@ -401,6 +410,7 @@ SonicFlame\
 | GET | `/api/play_favorites` | Загрузить плейлист "Избранное" |
 | GET | `/api/play_top` | Загрузить плейлист "Топ" |
 | GET | `/api/play_similar` | Загрузить плейлист похожих треков для текущего трека |
+| GET | `/api/play_artist` | Загрузить все треки исполнителя текущего трека |
 | GET | `/api/toggle_repeat` | Переключить режим повтора (none → all → one → none) |
 | POST | `/api/play` | Воспроизведение |
 | POST | `/api/pause` | Пауза |
@@ -837,10 +847,12 @@ SonicFlame\
 
 Все иконки — функции возвращающие SVG-строки:
 
-`get_play_svg`, `get_pause_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_all_music_svg`, `get_crown_svg`, `get_heart_svg`, `get_music_note_svg`, `get_similar_tracks_svg`, `get_artist_svg`
+`get_play_svg`, `get_pause_svg`, `get_play_small_svg`, `get_pause_small_svg`, `get_next_svg`, `get_previous_svg`, `get_shuffle_svg`, `get_repeat_svg`, `get_repeat_one_svg`, `get_volume_high_svg`, `get_volume_mute_svg`, `get_folder_svg`, `get_all_music_svg`, `get_crown_svg`, `get_heart_svg`, `get_settings_svg`, `get_library_svg`, `get_top_svg`, `get_music_note_svg`, `get_similar_tracks_svg`, `get_artist_svg`, `get_info_svg`, `get_warning_svg`, `get_error_svg`, `get_question_svg`
 
 `get_all_music_svg` — иконка «Вся музыка»: залитая папка с прозрачной одиночной нотой внутри (SVG-маска).
 `get_artist_svg` — иконка «Исполнитель»: силуэт головы и плеч.
+`get_info_svg`, `get_warning_svg`, `get_error_svg`, `get_question_svg` — иконки для `StyledMessageBox`.
+`get_settings_svg`, `get_library_svg`, `get_top_svg` — иконки боковой панели.
 
 #### `ui/mini_widget.py` — MiniPlayerWidget
 
@@ -852,6 +864,22 @@ SonicFlame\
 - Фон с настраиваемой прозрачностью: `_idle_alpha` (0–255) при уходе мыши, при наведении плавно анимируется до 255 (непрозрачный). Значение задаётся через настройки (`mini_widget_opacity` → 0–80, где 0 = 255, 80 = 51)
 - Автоматически обновляется при смене трека/состояния
 - Метод `set_opacity(value)` — обновляет `_idle_alpha`, `_bg_alpha` и конечное значение `fade_out_anim`
+
+#### `ui/widgets/` — Переиспользуемые виджеты
+
+Пакет общих виджетов, используемых в различных диалогах приложения.
+
+**`frameless_dialog.py`** — `FramelessDialog(QDialog)`:
+- Базовый frameless-диалог с `Qt.FramelessWindowHint | Qt.Dialog` и `WA_TranslucentBackground`
+- Акцентная рамка через `paintEvent()` (цвет `get_accent_color()` с alpha=26, ширина 2px)
+- Перетаскивание окна через `mousePressEvent`/`mouseMoveEvent`
+
+**`styled_message_box.py`** — `StyledMessageBox(FramelessDialog)`:
+- Кастомный MessageBox с иконками: `info`, `warning`, `error`, `question`
+- Иконки — SVG из `ui/svg_icons.py` (`get_info_svg`, `get_warning_svg`, `get_error_svg`, `get_question_svg`)
+- Поддержка до 3 кнопок с кастомными названиями и результатами
+- Авто-закрытие по таймеру (`auto_close`, секунды)
+- Автоматический подсчёт высоты под текст
 
 ### Utils модули
 
@@ -903,7 +931,10 @@ QThread для сканирования папок. Для максимальн�
 
 | Константа           | Значение        | Файл                   |
 |---------------------|-----------------|------------------------|
+| APP_VERSION         | `0.9.93`        | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`       | `musicplayer/config.py`|
+| TEXT_COLOR          | `#FFFFFF`       | `musicplayer/config.py`|
+| DIVIDER_COLOR       | `rgba(80,80,80,0.5)` | `musicplayer/config.py`|
 | PROJECT_DIR         | корень проекта  | `musicplayer/config.py`|
 | CACHE_DIR           | `.cache/`       | `musicplayer/config.py`|
 | DB_PATH             | `.cache/musicplayer.db` | `musicplayer/config.py`|
@@ -911,6 +942,9 @@ QThread для сканирования папок. Для максимальн�
 | ARTIST_COLLAGES_DIR | `.cache/artist_collages/` | `musicplayer/config.py`|
 | SETTINGS_FILE       | `.cache/settings.json` | `musicplayer/config.py`|
 | COL_WIDTHS_FILE     | `.cache/library_col_widths.json` | `musicplayer/config.py`|
+| MIN_TEMPO / MAX_TEMPO | 40 / 200     | `musicplayer/config.py`|
+| MIN_ENERGY / MAX_ENERGY | 0.01 / 1.0 | `musicplayer/config.py`|
+| MIN_MOOD / MAX_MOOD | 0.01 / 1.0      | `musicplayer/config.py`|
 | Мин. размер окна    | 1100×600        | `ui/main_window.py`    |
 
 Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.
