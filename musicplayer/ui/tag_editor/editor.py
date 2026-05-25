@@ -6,6 +6,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QFileDialog,
                               QMessageBox, QWidget, QScrollArea, QFrame)
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
@@ -40,6 +41,13 @@ class TagEditorDialog(BaseFramelessDialog):
 
         self._build_ui()
         self._load_tags()
+
+    def exec(self):
+        if self.parent():
+            self.center_on_parent(-30)
+        else:
+            self.center_on_screen()
+        super().exec()
 
     def _build_ui(self):
         inner = self._setup_ui()
@@ -259,22 +267,17 @@ class TagEditorDialog(BaseFramelessDialog):
         return btn
 
     def _prompt_delete_track(self):
-        msg_box = QMessageBox(self)
-        msg_box.setWindowTitle("Подтверждение удаления")
-        msg_box.setIcon(QMessageBox.Warning)
         artist = self.artist_edit.text()
         title = self.title_edit.text()
-        msg_box.setText(
-            f"Вы уверены, что хотите удалить этот трек?<br><br>"
-            f"<b>{artist} - {title}</b><br>"
-            f"<span style='color: #888888; font-size: 11px;'>{self.file_path}</span><br><br>"
-            f"Это действие <b>безвозвратно удалит</b> файл с диска."
-        )
-        msg_box.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg_box.setDefaultButton(QMessageBox.No)
-        yes_button = msg_box.button(QMessageBox.Yes)
-        yes_button.setText("Удалить")
-        if msg_box.exec() == QMessageBox.Yes:
+        result = StyledMessageBox(
+            self, "Подтверждение удаления",
+            text="Вы уверены, что хотите удалить этот трек?\nЭто действие безвозвратно удалит файл с диска.",
+            key=f"{artist} - {title}\n{self.file_path}",
+            icon="warning",
+            buttons=["Нет", "Удалить"],
+            default_button=0
+        ).exec()
+        if result == 1:
             self._delete_and_close()
 
     def _delete_and_close(self):

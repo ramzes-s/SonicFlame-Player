@@ -2,7 +2,8 @@ import os
 import shutil
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 from musicplayer.core.db.connection import normalize_path
 
 
@@ -27,7 +28,7 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
 
     music_folder = AppSettings().music_folder
     if not music_folder or not os.path.isdir(music_folder):
-        QMessageBox.warning(parent, "Ошибка", "Корневая папка музыки не настроена.")
+        StyledMessageBox.critical(parent, "Ошибка", text="Корневая папка музыки не настроена.")
         return None
 
     dest_dir = QFileDialog.getExistingDirectory(
@@ -36,20 +37,20 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
         return None
 
     if os.path.normpath(dest_dir) == os.path.normpath(current_dir):
-        QMessageBox.information(parent, "Информация", "Файл уже находится в этой папке.")
+        StyledMessageBox.info(parent, "Информация", text="Файл уже находится в этой папке.")
         return None
 
     abs_dest = os.path.normpath(dest_dir)
     abs_music = os.path.normpath(music_folder)
     if not abs_dest.startswith(abs_music + os.sep) and abs_dest != abs_music:
-        QMessageBox.warning(parent, "Ошибка",
-                            "Папка должна находиться внутри корневой папки музыки.")
+        StyledMessageBox.critical(parent, "Ошибка",
+                                   text="Папка должна находиться внутри корневой папки музыки.")
         return None
 
     new_filepath = os.path.join(dest_dir, old_path.name)
     if os.path.exists(new_filepath):
-        QMessageBox.warning(parent, "Ошибка",
-                            f"Файл «{old_path.name}» уже существует в целевой папке.")
+        StyledMessageBox.critical(parent, "Ошибка",
+                                   key=f"Файл «{old_path.name}» уже существует в целевой папке.")
         return None
 
     was_favorite = is_favorite(file_path)
@@ -57,8 +58,8 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
     try:
         shutil.move(file_path, new_filepath)
     except Exception as e:
-        QMessageBox.critical(parent, "Ошибка",
-                             f"Не удалось переместить файл: {e}")
+        StyledMessageBox.critical(parent, "Ошибка",
+                                   key=f"Не удалось переместить файл: {e}")
         return None
 
     new_filepath = normalize_path(new_filepath)

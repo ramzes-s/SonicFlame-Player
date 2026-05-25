@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                                QFileDialog, QMessageBox, QGraphicsDropShadowEffect)
+                                QFileDialog, QGraphicsDropShadowEffect)
 from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon
 
@@ -21,11 +21,11 @@ from musicplayer.ui.track_info import TrackInfoWidget
 from musicplayer.ui.playlist_view import PlaylistWidget
 from musicplayer.ui.controls import ControlsWidget
 from musicplayer.ui.sidebar import SideBarWidget
-from musicplayer.ui.remove_track_dialog import MissingTrackDialog
 from musicplayer.ui.player.title_bar import TitleBarWidget
 from musicplayer.core.media_keys import create_media_keys_handler
 
 from musicplayer import config as cfg
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 
 from musicplayer.ui.player.animation import BlinkAnimation
 from musicplayer.ui.player.tray import TrayManager
@@ -331,9 +331,10 @@ class MainWindow(QMainWindow):
             folder_norm = os.path.normpath(folder)
             music_norm = os.path.normpath(music_folder)
             if not folder_norm.startswith(music_norm + os.sep) and folder_norm != music_norm:
-                QMessageBox.information(
+                StyledMessageBox.warning(
                     self, "Папка вне музыкальной директории",
-                    f"Выбранная папка должна находиться внутри основной папки с музыкой:\n{music_folder}"
+                    text="Выбранная папка должна находиться внутри основной папки с музыкой:",
+                    key=music_folder
                 )
                 return
         self.settings.last_folder = folder
@@ -411,7 +412,7 @@ class MainWindow(QMainWindow):
         self._web_integration.update_state()
 
     def _on_player_error(self, error_msg: str):
-        QMessageBox.critical(self, "Player Error", error_msg)
+        StyledMessageBox.critical(self, "Player Error", key=error_msg)
 
     def _on_favorites_toggled(self, enabled: bool):
         self._playlist.load_favorites(enabled)
@@ -476,7 +477,7 @@ class MainWindow(QMainWindow):
             if t.filepath == fp:
                 artist = (t.artist or "").split(";")[0].split(",")[0].strip()
                 if artist and artist != "Unknown Artist":
-                    self._playlist.load_artist(artist)
+                    self._playlist.load_artist(artist, bring_to_front=False)
                 break
 
     def _play_track_at_view_index(self, view_index: int):

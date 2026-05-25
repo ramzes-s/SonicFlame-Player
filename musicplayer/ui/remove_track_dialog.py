@@ -1,49 +1,30 @@
 """
-Dialogs Module
+Missing Track Dialog
 
-Common dialog classes for the music player.
+Shown when a track file is missing.
+Asks user whether to remove the track from the library.
 """
 
 from pathlib import Path
-from PySide6.QtWidgets import QMessageBox
+from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 
 
-class MissingTrackDialog(QMessageBox):
+def show_missing_track_dialog(track_title: str, track_artist: str, filepath: str, parent=None) -> int:
     """
-    Dialog shown when a track file is missing.
-    Asks user whether to remove the track from the library.
+    Show dialog asking whether to remove a missing track from the library.
+    Returns 1 for Yes (remove), 0 for No.
     """
-
-    def __init__(self, track_title: str, track_artist: str, filepath: str, parent=None):
-        super().__init__(parent)
-
-        self.setWindowTitle("Трек не найден")
-        self.setIcon(QMessageBox.Warning)
-
-        file_name = Path(filepath).name
-        self.setText(
-            f"<b>Файл не найден:</b><br><br>"
-            f"<i>{track_title}</i> — {track_artist}<br>"
-            f"<span style='color: #888888; font-size: 11px;'>{file_name}</span><br><br>"
-            f"Удалить запись из библиотеки?"
-        )
-
-        self.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        self.setDefaultButton(QMessageBox.No)
+    file_name = Path(filepath).name
+    return StyledMessageBox.question(
+        parent, "Трек не найден",
+        text="Файл не найден:",
+        key=f"{track_title} — {track_artist}\n{file_name}\n\nУдалить запись из библиотеки?"
+    )
 
 
 def remove_track_from_library(filepath: str, playlist_widget=None, playlist=None, main_window=None) -> bool:
     """
     Remove a track from the library database and cache.
-
-    Args:
-        filepath: Path to the track file
-        playlist_widget: Optional PlaylistWidget reference to remove from view
-        playlist: Optional Playlist object to update current index
-        main_window: Optional MainWindow reference to clear playing state
-
-    Returns:
-        True if track was successfully removed
     """
     from musicplayer.core.db import delete_track
 

@@ -130,5 +130,5 @@ class ScanningManager(PlayerManagerBase):
         self._mw.sidebar.set_all_buttons_enabled(True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
-        from PySide6.QtWidgets import QMessageBox
-        QMessageBox.warning(self._mw, "Scan Error", error_msg)
+        from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+        StyledMessageBox.critical(self._mw, "Scan Error", key=error_msg)

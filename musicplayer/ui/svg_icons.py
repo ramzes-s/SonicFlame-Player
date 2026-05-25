@@ -244,6 +244,50 @@ def get_top_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     </svg>
     """
 
+def get_info_svg(size: int = 32, color: str = "#FFFFFF") -> str:
+    """Info icon - lowercase 'i' in a circle."""
+    r = size / 2
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke="{color}" stroke-width="2"/>
+        <text x="12" y="16" text-anchor="middle" fill="{color}" font-size="12" font-weight="bold" font-family="sans-serif">i</text>
+    </svg>
+    """
+
+
+def get_warning_svg(size: int = 32, color: str = "#FFFFFF") -> str:
+    """Warning icon - triangle with exclamation mark."""
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 20h20L12 2z" stroke="{color}" stroke-width="2" stroke-linejoin="round"/>
+        <line x1="12" y1="9" x2="12" y2="14" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="17" r="1" fill="{color}"/>
+    </svg>
+    """
+
+
+def get_error_svg(size: int = 32, color: str = "#FFFFFF") -> str:
+    """Error icon - X in a circle."""
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke="{color}" stroke-width="2"/>
+        <line x1="8" y1="8" x2="16" y2="16" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+        <line x1="16" y1="8" x2="8" y2="16" stroke="{color}" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    """
+
+
+def get_question_svg(size: int = 32, color: str = "#FFFFFF") -> str:
+    """Question icon - question mark in a circle."""
+    return f"""
+    <svg width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke="{color}" stroke-width="2"/>
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" stroke="{color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="12" cy="17" r="1" fill="{color}"/>
+    </svg>
+    """
+
+
 def get_all_music_svg(size: int = ICON_SIZE, color: str = "#FFFFFF") -> str:
     """All Music SVG — solid folder with a single note cut out."""
     return f"""
