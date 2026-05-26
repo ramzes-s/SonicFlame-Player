@@ -56,6 +56,13 @@ def _track_count_str(n: int) -> str:
         return f"{n} \u0442\u0440\u0435\u043a\u0430"
     return f"{n} \u0442\u0440\u0435\u043a\u043e\u0432"
 
+def _folder_count_str(n: int) -> str:
+    if n % 10 == 1 and n % 100 != 11:
+        return f"{n} \u043f\u0430\u043f\u043a\u0430"
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return f"{n} \u043f\u0430\u043f\u043a\u0438"
+    return f"{n} \u043f\u0430\u043f\u043e\u043a"
+
 
 _SCROLLBAR_STYLE = """
     QScrollBar:vertical {
@@ -753,15 +760,25 @@ class FolderBrowseDialog(FramelessDialog):
 
     def _update_breadcrumb(self, path: str):
         try:
-            count = self._get_track_count(path)
+            track_count = self._get_track_count(path)
+            folder_count = self._get_subfolder_count(path)
             self._breadcrumb_label.setText(f'<span style="color:#FFFFFF;">{path}</span>')
-            if count:
-                self._breadcrumb_count.setText(f'<span style="color:#666666;">{_track_count_str(count)}</span>')
-            else:
-                self._breadcrumb_count.clear()
+            parts = []
+            if folder_count:
+                parts.append(f'<span style="color:#888888; font-size: 13px;">{_folder_count_str(folder_count)}  и </span>')
+            if track_count:
+                parts.append(f'<span style="color:#888888; font-size: 13px;">{_track_count_str(track_count)}</span>')
+            self._breadcrumb_count.setText(" ".join(parts) if parts else '<span style="color:#666666; font-size: 13px;">Папка пуста</span>')
         except Exception:
             self._breadcrumb_label.setText(path)
             self._breadcrumb_count.clear()
+
+    @staticmethod
+    def _get_subfolder_count(folder_path: str) -> int:
+        try:
+            return sum(1 for e in os.scandir(folder_path) if e.is_dir())
+        except (PermissionError, OSError):
+            return 0
 
     @staticmethod
     def _get_track_count(folder_path: str) -> int:
@@ -770,7 +787,7 @@ class FolderBrowseDialog(FramelessDialog):
         if count is not None:
             return count
         count = 0
-        for ext in ('.mp3', '.flac', '.m4a', '.mp4', '.wav', '.ogg', '.wma'):
+        for ext in ('.mp3', '.flac', '.m4a', '.mp4'):
             try:
                 count += len(list(Path(folder_path).glob(f'*{ext}')))
             except (PermissionError, OSError):
