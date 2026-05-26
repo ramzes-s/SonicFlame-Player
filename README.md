@@ -10,73 +10,96 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 
 ### Playback
 - Supports MP3, FLAC, M4A/MP4 formats
-- Playback controls: Play/Pause, Next, Previous
-- Repeat mode, favorites, sorting
-- **Artist tracks** — load all tracks by the current artist from the controls bar
-- **Similar tracks** — find tracks similar to the currently playing one (genre, tempo, energy, mood)
-- Seek bar and volume control
-- System media keys
-- Automatic switching to a new audio output device when connected (headphones, speakers, etc.)
-
-### Library & Organization
-- "Artists" view in the library with cover collages
-- Folder scanning with metadata extraction
-- SQLite database for track information storage
-- Favorites and **Top listened** (top 100 by play count)
-- Smart sync: detects folder changes, auto-updates the DB
-- Track mood analysis (tempo, energy, mood) via librosa (async, background thread)
-- Colored mood star overlay on album art
-- DB cleanup for tracks with missing files
+- Play/Pause, Next, Previous
+- Repeat modes: none, all, one
+- Seek bar with time labels
+- Volume control with mute toggle
+- System media keys (play/pause, next, prev)
+- Auto-switch audio output device when connected
+- Load all tracks by current artist
+- Find similar tracks (genre, tempo, energy, mood)
+- Favorites toggle (heart button)
+- Top listened (top 100 by play count)
+- Windows SMTC integration (media overlay)
+- Prevent sleep during playback
+- Manual audio output device selection
 
 ### Interface
 - Frameless window with custom title bar
-- Album art display with ambient blur effect
-- Playlist with auto-scroll to current track
-- Customizable accent color (15 presets) with optional dynamic color based on album art palette
-- System tray mini-widget
 - Dark theme with smooth transitions
+- Customizable accent color (15 presets)
+- Dynamic accent color from album art palette
+- Album art with ambient blur effect
+- Mood star overlay (tempo, energy, mood colors)
+- Playlist with auto-scroll to current track
+- Playlist sort modes: artist, title, newest, shuffle
+- Sort mode persisted in config, applies to all playlists
+- Active track highlight preserved after sort change
+- Sidebar: open folder, all music, favorites, top, settings, library
+- System tray icon with context menu
+- Minimize to tray with mini-player widget
+- Mini-widget opacity setting
+- Custom frameless dialogs with accent border
+- Custom folder picker with tree view, quick filter, key folders sidebar
+- Styled message boxes (info, warning, error, question)
+- Scanning animation with blinking status label
 
-### Track Sorting
-- Sorting mechanism added to the playlist.
-- Sort modes: by artist, by title, by newest (mtime), shuffle.
-- Controls: dropdown in the right side of the title bar next to the minimize button.
-- Sort mode is persisted in config (`.cache/settings.json`, field `playlist_sort_mode`) and applies to all playlists.
-- "Newest" mode sorts by file modification time (mtime); falls back to current time if unavailable.
-- Changing the sort mode through the UI saves it to config and applies to subsequent folder loads.
-- Saved sort mode is automatically applied when loading a new folder (no reset).
-- Active track highlight is preserved after changing sort order.
+### Library & Organization
+- SQLite database (WAL mode) for track storage
+- Folder scanning with metadata extraction
+- Smart sync — detects file changes, auto-updates DB
+- Track mood analysis (tempo, energy, mood) via librosa (async)
+- Artists view with cover collages (2x2 grid)
+- Artist card with hover animation
+- Artist cache for fast loading
+- Favorites management
+- Top listened tracking (play count per track)
+- Folder-based browsing with track counting
+- Paginated library view (250 items per page)
+- Filter by folder, genre, or search query
+- DB cleanup for tracks with missing files
+- Force refresh library cache
+- Library as a separate subprocess
+- IPC communication between player and library (QLocalSocket)
+
+### Settings Dialog (5 pages)
+- **Main page**: root music folder, similarity precision slider
+- **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity
+- **Web Server page**: enable toggle, port with validator (1024-65535), QR code, remote shutdown toggle
+- **System page**: sleep blocker, audio output device combobox, DB cleanup button
+- **About page**: app name & version, author info, GitHub & website links
 
 ### Tag Editor
-- Edit: title, artist, album, genre, year
-- Rename file
+- Edit: title, artist, album, genre, year, track number
 - Online track info search (iTunes, Deezer API)
-- Cover art search and download
+- Online cover art search and download
+- Abstract cover generation from background images
+- Rename file from tags
+- Move track to another folder
 - Genre delimiters: `;`, `,`, `/`
-
-### Additional
-- Library as a separate process (subprocess)
-- IPC communication between player and library
-- Dynamic color (from album art)
-- System tray icon
+- Async saving with loading spinner
 
 ### Web Server for Remote Control
-- Built-in HTTP server (aiohttp) on port 8080 (configurable, debounced restart)
+- Built-in HTTP server (aiohttp) on configurable port
 - Responsive web interface (desktop + mobile)
+- REST API for external control
+- Real-time playback status polling (1000ms)
 - Playback controls: Play/Pause, Next/Previous, Seek, Volume
 - Playlist loading: folders, Favorites, Top, Similar Tracks
-- Display: cover (base64), title, artist, album, playlist with auto-scroll
-- Real-time playback status (polling every 1000ms)
+- Cover display (base64), title, artist, album
 - Folder selection from indexed list
-- Offline detection with "Player is offline" notification
-- REST API for external app control
+- QR code for easy connection
+- Offline detection with notification overlay
+- IP filtering (local/private addresses only)
+- Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
 
 ### Android App for Remote Control
 - Playback controls: Play/Pause, Next, Previous
-- Repeat, favorites toggle
+- Repeat mode toggle, favorites toggle
 - Seek bar and volume control
-- Styled to match the main player: black theme with dynamic accent color
+- Dark theme with dynamic accent color
 - Playlists: folders, Top, Favorites, Full Library (5000+ tracks)
-- Connection via QR code or manually (IP:PORT)
+- Connection via QR code scan or manual IP:PORT
 
 ## Installation
 
@@ -128,72 +151,95 @@ GNU General Public License v3.0 (GPL v3)
 
 ### Воспроизведение
 - Поддержка форматов MP3, FLAC, M4A/MP4
-- Управление воспроизведением: Play/Pause, Next, Previous
-- Повтор, избранное, сортировка
-- **Все песни исполнителя** — загрузка всех треков текущего исполнителя из панели управления
-- **Похожие треки** — поиск треков по жанру, темпу, энергии и настроению
-- Seek bar и регулятор громкости
-- Системные медиа-клавиши
-- Автоматическое переключение на новое аудиоустройство вывода при его подключении (наушники, колонки и т.д.)
-
-### Библиотека и организация
-- Представление "Исполнители" в библиотеке с коллажами из обложек
-- Сканирование папок с музыкой с извлечением метаданных
-- SQLite-база данных для хранения информации о треках
-- Избранное и **Топ прослушиваний** (топ-100 по количеству воспроизведений)
-- Умный sync: отслеживание изменений в папке, автоматическое обновление БД
-- Анализ настроения трека (tempo, energy, mood) через librosa (асинхронный, в отдельном потоке)
-- Цветная звезда настроения на обложке
-- Очистка БД от треков с отсутствующими файлами
+- Play/Pause, Next, Previous
+- Режимы повтора: none, all, one
+- Seek bar с временными метками
+- Регулятор громкости с mute
+- Системные медиа-клавиши (play/pause, next, prev)
+- Автопереключение аудиоустройства при подключении
+- Все треки текущего исполнителя
+- Похожие треки (жанр, темп, энергия, настроение)
+- Избранное (кнопка сердца)
+- Топ прослушиваний (топ-100 по счётчику)
+- Интеграция SMTC Windows (медиа-оверлей)
+- Блокировка сна во время воспроизведения
+- Выбор устройства вывода звука
 
 ### Интерфейс
 - Безрамочное окно с кастомным title bar
-- Отображение обложек с эффектом ambient blur
-- Плейлист с автоскроллом до текущего трека
-- Настраиваемый акцентный цвет (15 пресетов, включая Slate) с возможностью включения динамической смены цвета в зависимости от палитры обложки трека
-- Мини-виджет для системного трея
 - Тёмная тема с плавными переходами
+- Настраиваемый акцентный цвет (15 пресетов)
+- Динамический цвет из палитры обложки
+- Обложка с эффектом ambient blur
+- Звезда настроения (tempo, energy, mood)
+- Плейлист с автоскроллом к текущему треку
+- Сортировка плейлиста: исполнитель, название, новизна, перемешать
+- Режим сортировки сохраняется в конфиге
+- Подсветка активного трека после смены сортировки
+- Боковая панель: открыть папку, вся музыка, избранное, топ, настройки, библиотека
+- Иконка в системном трее с контекстным меню
+- Сворачивание в трей с мини-плеером
+- Настройка прозрачности мини-плеера
+- Кастомные frameless-диалоги с акцентной рамкой
+- Кастомный выбор папки с деревом, фильтром, списком ключевых папок
+- Стилизованные message box (info, warning, error, question)
+- Анимация сканирования с мигающим статусом
 
-### Сортировка треков
-- Добавлен механизм сортировки треков в плейлисте.
-- Режимы сортировки: по исполнителю (artist), по названию (title), по новизне (newest), перемешать (shuffle).
-- Управление: выпадающий список сортировки расположен в правом краю титл-бара рядом с кнопкой сворачивания окна.
-- Значение режима сортировки хранится в конфиге (.cache/settings.json) в поле `playlist_sort_mode` и применяется ко всем плейлистам.
-- По новизне: сортировка по времени изменения файла (mtime). Если mtime недоступен, используется текущее время.
-- Изменение режима через UI сохраняется в конфиге и применяется к последующим загрузкам папок.
-- При загрузке новой папки сохранённый режим сортировки применяется автоматически (не сбрасывается).
-- Подсветка активного трека сохраняется на воспроизводимом треке после смены сортировки.
+### Библиотека и организация
+- SQLite база данных (WAL mode)
+- Сканирование папок с извлечением метаданных
+- Умный sync — отслеживание изменений, автообновление БД
+- Анализ настроения трека (tempo, energy, mood) через librosa (асинхронно)
+- Представление "Исполнители" с коллажами обложек (2x2)
+- Карточка исполнителя с анимацией при наведении
+- Кеш исполнителей для быстрой загрузки
+- Управление избранным
+- Топ прослушиваний (счётчик на трек)
+- Навигация по папкам со счётчиком треков
+- Пагинация в библиотеке (250 элементов)
+- Фильтр по папке, жанру или поиску
+- Очистка БД от отсутствующих файлов
+- Принудительное обновление кеша библиотеки
+- Библиотека как отдельный субпроцесс
+- IPC связь между плеером и библиотекой (QLocalSocket)
+
+### Диалог настроек (5 страниц)
+- **Главная**: корневая папка, точность похожих треков
+- **Внешний вид**: 15 пресетов акцента, динамический цвет, мини-плеер и прозрачность
+- **Веб-сервер**: вкл/выкл, порт с валидатором (1024-65535), QR-код, удалённое закрытие
+- **Система**: блокировка сна, устройство вывода, очистка БД
+- **О программе**: название, версия, автор, ссылки GitHub и сайт
 
 ### Редактор тегов
-- Редактирование: title, artist, album, genre, year
-- Переименование файла
-- Поиск информации о треке онлайн (iTunes, Deezer API)
-- Поиск и загрузка обложек
-- Разделитель жанров: `;`, `,`, `/`
-
-### Дополнительно
-- Библиотека как отдельный процесс (субпроцесс)
-- IPC связь между плеером и библиотекой
-- Динамический цвет (по обложке трека)
-- Системный трей с иконкой
+- Редактирование: title, artist, album, genre, year, номер трека
+- Поиск информации онлайн (iTunes, Deezer API)
+- Поиск и загрузка обложек онлайн
+- Генерация абстрактной обложки из фоновых изображений
+- Переименование файла из тегов
+- Перемещение трека в другую папку
+- Разделители жанров: `;`, `,`, `/`
+- Асинхронное сохранение с индикатором загрузки
 
 ### Веб-сервер для удалённого управления
-- Встроенный HTTP-сервер (aiohttp) на порту 8080 (настраивается, debounce-перезапуск 2с)
-- Веб-интерфейс с адаптивной вёрсткой (desktop + mobile)
-- Управление воспроизведением: Play/Pause, Next/Previous, Seek, Volume
-- Загрузка плейлистов: папки, Избранное, Топ, Похожие треки
-- Отображение: обложка (base64), название, артист, альбом, плейлист с автоскроллом
-- Индикация состояния воспроизведения в реальном времени (polling 1000мс)
-- Выбор папки из списка индексированных
-- Offline detection с уведомлением "Плеер выключен"
-- Поддержка управления через внешние приложения (REST API)
+- Встроенный HTTP-сервер (aiohttp) на настраиваемом порту
+- Адаптивный веб-интерфейс (desktop + mobile)
+- REST API для внешнего управления
+- Статус воспроизведения в реальном времени (polling 1000мс)
+- Управление: Play/Pause, Next/Previous, Seek, Volume
+- Загрузка плейлистов: папки, Избранное, Топ, Похожие
+- Обложка (base64), название, артист, альбом
+- Выбор папки из списка
+- QR-код для быстрого подключения
+- Offline detection с уведомлением
+- IP-фильтрация (только локальные/приватные адреса)
+- Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
 
 ### Android-приложение для удалённого управления
-- Управление воспроизведением: Play/Pause, Next, Previous
-- Повтор, добавление/удаление избранное
-- Seek bar и регулятор громкости
-- Стилизация под основной плеер: чёрный с динамическим акцентным цветом
-- Плейлисты: загрузка папок, Топ прослушиваний, Избранного, Всей библиотеки (5000+)
+- Управление: Play/Pause, Next, Previous
+- Повтор, избранное
+- Seek bar и громкость
+- Тёмная тема с динамическим акцентным цветом
+- Плейлисты: папки, Топ, Избранное, Вся библиотека (5000+)
 - Подключение по QR-коду или вручную (IP:PORT)
 
 ## Установка
