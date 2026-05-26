@@ -95,7 +95,7 @@ MusicPlayer2\
 │   │   │   └── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
 │   │   ├── svg_icons.py                # SVG-иконки как строки
-│   │   ├── accent_style.py             # Применение акцентного цвета к главному окну
+│   │   ├── accent_style.py             # Применение акцентного цвета к главному окну (findChildren)
 │   │   ├── track_info.py               # Виджет обложки с градиентной тенью
 │   │   ├── tag_editor/                 # Редактор тегов (разделённый на модули)
 │   │   │   ├── __init__.py             # Реэкспорт для обратной совместимости
@@ -112,6 +112,7 @@ MusicPlayer2\
 │   │   └── widgets/                    # Переиспользуемые виджеты
 │   │       ├── __init__.py
 │   │       ├── frameless_dialog.py     # FramelessDialog — базовый frameless-диалог с перетаскиванием
+│   │       ├── folder_browse_dialog.py # FolderBrowseDialog — кастомный выбор папок (tree, quick filter, key folders)
 │   │       └── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
 │   └── utils/
 │       ├── __init__.py
@@ -639,6 +640,19 @@ MusicPlayer2\
 - Очищает обложку из кеша
 - Сбрасывает состояние воспроизведения в main_window
 
+#### `ui/accent_style.py` — Accent Style Applier
+
+**`apply_accent_to_main_window(window, settings_dialog=None)`** — обновляет акцентный цвет во всех виджетах главного окна без перезагрузки UI.
+
+**Механизм обновления**:
+- Прямые ссылки: `window.controls_widget`, `window.sidebar`, `window.playlist_widget`, `window.track_info_widget` — вызывают `apply_accent_color(accent)` на каждом
+- `findChild(QWidget, "main_container")` — обновление QSS-границы контейнера (border с alpha=0.1)
+- `findChildren(FolderBrowseDialog)` — обновление открытого `FolderBrowseDialog` (если есть): вызывает `dlg.apply_accent_color()` → `super().apply_accent_color()` (обновляет close button + перерисовывает акцентную рамку) → обновление всех внутренних виджетов диалога
+- Slider'ы: пересоздание QSS через `_get_style()`
+- Title bar close button: обновление стиля
+- Перерисовка playlist viewport
+- `settings_dialog.apply_accent_color(accent)` — если диалог открыт
+
 #### `ui/track_info.py` — TrackInfoWidget + AlbumArtWidget
 **`AlbumArtWidget`**:
 - Размер: 375x375–525x525px
@@ -873,11 +887,28 @@ MusicPlayer2\
 - Базовый frameless-диалог с `Qt.FramelessWindowHint | Qt.Dialog` и `WA_TranslucentBackground`
 - Акцентная рамка через `paintEvent()` (цвет `get_accent_color()` с alpha=26, ширина 2px)
 - Перетаскивание окна через `mousePressEvent`/`mouseMoveEvent`
+- Close button (`self._close_btn`): обновляется динамически через `_apply_close_btn_accent()` и публичный `apply_accent_color()` (вызывает `update()` для перерисовки рамки)
+
+**`folder_browse_dialog.py`** — `FolderBrowseDialog(FramelessDialog)`:
+- Кастомный диалог выбора папки с тёмной темой, заменяющий `QFileDialog`
+- Используется в: `settings/dialog.py` (выбор корневой папки), `tag_editor/track_mover.py` (перемещение трека), `player/main_window.py`
+- **`_build_ui(title_text)`**: собирает layout из title bar (через `FramelessDialog._build_title_bar`), левой панели (ключевые папки), правой панели (фильтр + tree), нижней панели (breadcrumb + кнопка "Выбрать")
+- **Левая панель** (`_key_list: QListWidget`): топ-10 папок по количеству треков из БД (`get_all_folders()`), фильтр по `root_path` если задан
+- **Правая панель**:
+  - `_filter_input: QLineEdit` — быстрый поиск с debounce-фильтрацией видимых элементов
+  - `_sort_combo: QComboBox` — сортировка: по названию / дате / размеру
+  - `_root_header: QLabel` — кликабельный заголовок корневой папки (если `root_path` задан)
+  - `_tree: QTreeWidget` — файловое дерево с ленивой подгрузкой (`_populate_subdirs`), иконки папок через `QSvgRenderer`
+- **Нижняя панель**: breadcrumb + track count + кнопка "Выбрать" (акцентный цвет, disabled без выбора)
+- **`apply_accent_color()`**: вызывает `super().apply_accent_color()` (обновляет close button + рамку), затем переписывает QSS для: `_key_list` (selected), `_sort_combo` (border + dropdown), `_filter_input` (focus), `_root_header` (text), `_tree` (selected), `_select_btn` (background + hover)
+- **Навигация**: `_navigate_to(path)` — иерархический поиск/подгрузка пути, `_expand_parents` — разворачивание предков
+- **Ограничение root**: `_norm_root` + `_is_inside_root()` — фильтрация дочерних элементов
 
 **`styled_message_box.py`** — `StyledMessageBox(FramelessDialog)`:
 - Кастомный MessageBox с иконками: `info`, `warning`, `error`, `question`
 - Иконки — SVG из `ui/svg_icons.py` (`get_info_svg`, `get_warning_svg`, `get_error_svg`, `get_question_svg`)
 - Поддержка до 3 кнопок с кастомными названиями и результатами
+- Последняя кнопка — акцентный цвет (primary action)
 - Авто-закрытие по таймеру (`auto_close`, секунды)
 - Автоматический подсчёт высоты под текст
 
