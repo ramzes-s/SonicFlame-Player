@@ -16,7 +16,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from musicplayer import config as cfg
 from musicplayer.ui.widgets.frameless_dialog import FramelessDialog
-from musicplayer.ui.svg_icons import get_folder_svg
+from musicplayer.ui.svg_icons import get_folder_svg, get_all_music_svg
 from musicplayer.core.db.queries import get_all_folders
 
 
@@ -79,7 +79,13 @@ _SCROLLBAR_STYLE = """
     }
 """
 
-_FOLDER_ICON = _make_folder_icon(20, "#FFFFFF")
+_FOLDER_ICON = None
+
+def _get_folder_icon():
+    global _FOLDER_ICON
+    if _FOLDER_ICON is None:
+        _FOLDER_ICON = _make_folder_icon(20, "#FFFFFF")
+    return _FOLDER_ICON
 
 
 # ── main dialog ────────────────────────────────────────────────
@@ -201,22 +207,6 @@ class FolderBrowseDialog(FramelessDialog):
 
         layout.addWidget(bar_widget)
 
-        # ── clickable root header ──────────────────────────────
-        self._root_header = QLabel()
-        self._root_header.setFixedHeight(36)
-        self._root_header.setCursor(Qt.PointingHandCursor)
-        self._root_header.setVisible(False)
-        self._root_header.setStyleSheet("""
-            QLabel {
-                background-color: #000000; color: #FFFFFF;
-                padding: 0 12px; font-size: 13px; font-weight: bold;
-                border-bottom: 1px solid rgba(80,80,80,0.2);
-            }
-            QLabel:hover { background-color: rgba(80,80,80,0.15); }
-        """)
-        self._root_header.mousePressEvent = lambda e: self._on_root_header_clicked()
-        layout.addWidget(self._root_header)
-
         # ── tree ───────────────────────────────────────────────
         self._tree = QTreeWidget()
         self._tree.setHeaderHidden(True)
@@ -336,15 +326,6 @@ class FolderBrowseDialog(FramelessDialog):
             QLineEdit:focus {{ border: none; border-bottom: 1px solid {accent}; }}
         """)
 
-        self._root_header.setStyleSheet(f"""
-            QLabel {{
-                background-color: #000000; color: {accent};
-                padding: 0 12px; font-size: 13px; font-weight: bold;
-                border-bottom: 1px solid rgba(80,80,80,0.2);
-            }}
-            QLabel:hover {{ background-color: rgba(80,80,80,0.15); }}
-        """)
-
         self._tree.setStyleSheet(f"""
             QTreeWidget {{
                 background-color: #000000; color: #CCCCCC; border: none;
@@ -370,6 +351,7 @@ class FolderBrowseDialog(FramelessDialog):
             QPushButton:disabled {{ background-color: rgba(80,80,80,0.3); color: #666666; }}
         """)
 
+        self._update_root_item_accent(accent)
         self.update()
 
     # ── key folders ────────────────────────────────────────────
@@ -392,7 +374,7 @@ class FolderBrowseDialog(FramelessDialog):
             hl.setSpacing(6)
 
             icon_lbl = QLabel()
-            icon_lbl.setPixmap(_FOLDER_ICON.pixmap(16, 16))
+            icon_lbl.setPixmap(_get_folder_icon().pixmap(16, 16))
             hl.addWidget(icon_lbl)
 
             name_lbl = QLabel(name)
@@ -409,6 +391,75 @@ class FolderBrowseDialog(FramelessDialog):
             item.setToolTip(folder_path)
             self._key_list.addItem(item)
             self._key_list.setItemWidget(item, widget)
+
+    def _prepend_root_to_key_list(self, root_name: str):
+        accent = cfg.get_accent_color()
+        root_path = os.path.normpath(self._norm_root)
+        widget = QWidget()
+        widget.setStyleSheet("background: transparent;")
+        widget.setFixedHeight(28)
+        hl = QHBoxLayout(widget)
+        hl.setContentsMargins(2, 0, 4, 0)
+        hl.setSpacing(2)
+
+        icon_lbl = QLabel()
+        svg = get_all_music_svg(22, accent)
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        pixmap = QPixmap(22, 22)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter, QRectF(0, 0, 22, 22))
+        painter.end()
+        icon_lbl.setPixmap(pixmap)
+        icon_lbl.setStyleSheet("margin-bottom: 12px; margin-left: 4px;")
+        hl.addWidget(icon_lbl)
+
+        name_lbl = QLabel(root_name)
+        name_lbl.setObjectName("root_name")
+        name_lbl.setStyleSheet(f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
+        hl.addWidget(name_lbl, 1)
+
+        cnt = self._get_track_count(root_path)
+        cnt_lbl = QLabel(str(cnt) if cnt else "")
+        cnt_lbl.setObjectName("root_count")
+        cnt_lbl.setStyleSheet(f"color: #666666; font-size: 11px; margin-bottom: 12px;")
+        hl.addWidget(cnt_lbl)
+
+        item = QListWidgetItem()
+        item.setData(Qt.UserRole, root_path)
+        item.setData(Qt.UserRole + 1, True)  # mark as root item
+        item.setToolTip(root_path)
+        self._key_list.insertItem(0, item)
+        self._key_list.setItemWidget(item, widget)
+
+    def _update_root_item_accent(self, accent: str):
+        for i in range(self._key_list.count()):
+            item = self._key_list.item(i)
+            if item and item.data(Qt.UserRole + 1):
+                is_selected = self._key_list.currentItem() is item
+                widget = self._key_list.itemWidget(item)
+                if widget is None:
+                    return
+                icon_color = "#000000" if is_selected else accent
+                icon_lbl = widget.findChild(QLabel)
+                if icon_lbl:
+                    svg = get_all_music_svg(22, icon_color)
+                    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+                    pixmap = QPixmap(22, 22)
+                    pixmap.fill(Qt.transparent)
+                    painter = QPainter(pixmap)
+                    renderer.render(painter, QRectF(0, 0, 22, 22))
+                    painter.end()
+                    icon_lbl.setPixmap(pixmap)
+                root_lbl = widget.findChild(QLabel, "root_name")
+                if root_lbl:
+                    root_color = "#000000" if is_selected else accent
+                    root_lbl.setStyleSheet(f"color: {root_color}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
+                cnt_lbl = widget.findChild(QLabel, "root_count")
+                if cnt_lbl:
+                    cnt_color = "#000000" if is_selected else "#666666"
+                    cnt_lbl.setStyleSheet(f"color: {cnt_color}; font-size: 11px; margin-bottom: 12px;")
+                return
 
     # ── tree population ────────────────────────────────────────
 
@@ -432,7 +483,8 @@ class FolderBrowseDialog(FramelessDialog):
             if not os.path.isdir(drive):
                 continue
             item = QTreeWidgetItem()
-            item.setIcon(0, _FOLDER_ICON)
+            item.setIcon(0, _get_folder_icon())
+
             item.setText(0, " " + drive)
             item.setToolTip(0, drive)
             item.setData(0, Qt.UserRole, drive)
@@ -449,14 +501,12 @@ class FolderBrowseDialog(FramelessDialog):
 
         if self._norm_root and os.path.isdir(self._norm_root):
             root_name = os.path.basename(self._norm_root) or self._norm_root
-            self._root_header.setText(f"\U0001F4C1  {root_name}")
-            self._root_header.setVisible(True)
             self._selected_path = os.path.normpath(self._norm_root)
             self._select_btn.setEnabled(True)
             self._update_breadcrumb(os.path.normpath(self._norm_root))
             self._add_dir_children(self._tree, self._norm_root)
+            self._prepend_root_to_key_list(root_name)
         else:
-            self._root_header.setVisible(False)
             self._populate_drives()
 
         if self._start_path and os.path.isdir(self._start_path):
@@ -475,7 +525,7 @@ class FolderBrowseDialog(FramelessDialog):
             if not self._is_inside_root(child_path):
                 continue
             item = QTreeWidgetItem()
-            item.setIcon(0, _FOLDER_ICON)
+            item.setIcon(0, _get_folder_icon())
             item.setText(0, " " + entry.name)
             item.setToolTip(0, child_path)
             item.setData(0, Qt.UserRole, child_path)
@@ -626,9 +676,16 @@ class FolderBrowseDialog(FramelessDialog):
     def _on_key_folder_clicked(self, item: QListWidgetItem):
         self._tree.clearSelection()
         path = item.data(Qt.UserRole)
-        if path and os.path.isdir(path):
+        if not path or not os.path.isdir(path):
+            return
+        if item.data(Qt.UserRole + 1):
             self._filter_input.clear()
-            self._navigate_to(path)
+            self._selected_path = path
+            self._select_btn.setEnabled(True)
+            self._update_breadcrumb(path)
+            return
+        self._filter_input.clear()
+        self._navigate_to(path)
 
     def _on_key_folder_selection_changed(self, current, previous):
         accent = cfg.get_accent_color()
@@ -638,27 +695,43 @@ class FolderBrowseDialog(FramelessDialog):
             widget = self._key_list.itemWidget(item)
             if widget is None:
                 continue
-            name_lbl = widget.findChild(QLabel, "key_name")
-            if name_lbl:
-                name_lbl.setStyleSheet(
-                    f"color: #000000; font-size: 12px;" if is_selected
-                    else "color: #CCCCCC; font-size: 12px;"
-                )
-
-    def _on_root_header_clicked(self):
-        if self._norm_root and os.path.isdir(self._norm_root):
-            self._filter_input.clear()
-            display = os.path.normpath(self._norm_root)
-            self._selected_path = display
-            self._select_btn.setEnabled(True)
-            self._update_breadcrumb(display)
-            self._tree.clearSelection()
-            root = self._tree.invisibleRootItem()
-            for i in range(root.childCount()):
-                root.child(i).setSelected(False)
+            if item.data(Qt.UserRole + 1):
+                # Root music folder item
+                icon_lbl = widget.findChild(QLabel)
+                if icon_lbl:
+                    icon_color = "#000000" if is_selected else accent
+                    svg = get_all_music_svg(22, icon_color)
+                    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+                    pixmap = QPixmap(22, 22)
+                    pixmap.fill(Qt.transparent)
+                    painter = QPainter(pixmap)
+                    renderer.render(painter, QRectF(0, 0, 22, 22))
+                    painter.end()
+                    icon_lbl.setPixmap(pixmap)
+                root_lbl = widget.findChild(QLabel, "root_name")
+                if root_lbl:
+                    root_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 12px;" if is_selected
+                        else f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;"
+                    )
+                cnt_lbl = widget.findChild(QLabel, "root_count")
+                if cnt_lbl:
+                    cnt_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 11px; margin-bottom: 12px;" if is_selected
+                        else f"color: #666666; font-size: 11px; margin-bottom: 12px;"
+                    )
+            else:
+                # Regular key folder item
+                name_lbl = widget.findChild(QLabel, "key_name")
+                if name_lbl:
+                    name_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 12px;" if is_selected
+                        else "color: #CCCCCC; font-size: 12px;"
+                    )
 
     def _on_tree_item_clicked(self, item: QTreeWidgetItem, column: int):
         self._key_list.clearSelection()
+        self._key_list.setCurrentItem(None)
         path = item.data(0, Qt.UserRole)
         if path and os.path.isdir(path):
             self._selected_path = path
