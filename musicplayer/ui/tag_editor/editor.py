@@ -289,6 +289,7 @@ class TagEditorDialog(BaseFramelessDialog):
         new_filepath = move_track_to_folder(self.file_path, self)
         if new_filepath:
             self.file_path = new_filepath
+            self.save_confirmed = True
             self.accept()
 
     def _show_genre_menu(self):

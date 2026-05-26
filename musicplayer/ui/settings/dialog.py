@@ -1,7 +1,7 @@
 import os
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
-                                QPushButton, QFileDialog, QWidget, QStackedWidget)
+                                QPushButton, QWidget, QStackedWidget)
 from PySide6.QtCore import Qt, QByteArray, QTimer, Signal
 from PySide6.QtGui import QPainter, QColor, QPaintEvent
 
@@ -241,14 +241,15 @@ class SettingsDialog(QDialog):
         self.accent_color_changed.emit(color_hex)
 
     def _browse_folder(self):
-        current = self.settings.music_folder or ""
-        folder = QFileDialog.getExistingDirectory(
-            self,
-            "Выберите корневую папку с музыкой",
-            current,
-            QFileDialog.ShowDirsOnly | QFileDialog.DontResolveSymlinks
+        from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+        dlg = FolderBrowseDialog(
+            parent=self,
+            title="Выберите корневую папку с музыкой",
+            start_path=self.settings.music_folder or "",
+            root_path=None
         )
-        if folder:
+        if dlg.exec() == 1:
+            folder = dlg.selected_path
             self.settings.music_folder = folder
             self._pages[0].set_folder_path(folder)
             self.music_folder_changed.emit(True)

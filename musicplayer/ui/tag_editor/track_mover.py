@@ -2,7 +2,6 @@ import os
 import shutil
 from pathlib import Path
 
-from PySide6.QtWidgets import QFileDialog
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 from musicplayer.core.db.connection import normalize_path
 
@@ -31,20 +30,19 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
         StyledMessageBox.critical(parent, "Ошибка", text="Корневая папка музыки не настроена.")
         return None
 
-    dest_dir = QFileDialog.getExistingDirectory(
-        parent, "Выберите папку для перемещения", current_dir)
-    if not dest_dir:
+    from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+    dlg = FolderBrowseDialog(
+        parent=parent,
+        title="Выберите папку для перемещения",
+        start_path=current_dir,
+        root_path=music_folder
+    )
+    if dlg.exec() != 1:
         return None
+    dest_dir = dlg.selected_path
 
     if os.path.normpath(dest_dir) == os.path.normpath(current_dir):
         StyledMessageBox.info(parent, "Информация", text="Файл уже находится в этой папке.")
-        return None
-
-    abs_dest = os.path.normpath(dest_dir)
-    abs_music = os.path.normpath(music_folder)
-    if not abs_dest.startswith(abs_music + os.sep) and abs_dest != abs_music:
-        StyledMessageBox.critical(parent, "Ошибка",
-                                   text="Папка должна находиться внутри корневой папки музыки.")
         return None
 
     new_filepath = os.path.join(dest_dir, old_path.name)

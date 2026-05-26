@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                                QFileDialog, QGraphicsDropShadowEffect)
+                                QGraphicsDropShadowEffect)
 from PySide6.QtCore import Qt, QPoint, QTimer
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon
 
@@ -322,21 +322,17 @@ class MainWindow(QMainWindow):
         self._web_integration.update_state()
 
     def _on_open_folder(self):
+        from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
         start_dir = self._current_folder_path or self.settings.last_folder or self.settings.music_folder or ""
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку с музыкой", start_dir)
-        if not folder:
+        dlg = FolderBrowseDialog(
+            parent=self,
+            title="Выберите папку с музыкой",
+            start_path=start_dir,
+            root_path=self.settings.music_folder
+        )
+        if dlg.exec() != 1:
             return
-        music_folder = self.settings.music_folder
-        if music_folder and os.path.isdir(music_folder):
-            folder_norm = os.path.normpath(folder)
-            music_norm = os.path.normpath(music_folder)
-            if not folder_norm.startswith(music_norm + os.sep) and folder_norm != music_norm:
-                StyledMessageBox.warning(
-                    self, "Папка вне музыкальной директории",
-                    text="Выбранная папка должна находиться внутри основной папки с музыкой:",
-                    key=music_folder
-                )
-                return
+        folder = dlg.selected_path
         self.settings.last_folder = folder
         self.settings.playlist_type = "Folder"
         self.title_bar.set_playlist_title(Path(folder).name)
@@ -412,7 +408,7 @@ class MainWindow(QMainWindow):
         self._web_integration.update_state()
 
     def _on_player_error(self, error_msg: str):
-        StyledMessageBox.critical(self, "Player Error", key=error_msg)
+        StyledMessageBox.critical(self, "Player Error", text=error_msg)
 
     def _on_favorites_toggled(self, enabled: bool):
         self._playlist.load_favorites(enabled)

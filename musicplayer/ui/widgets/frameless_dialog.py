@@ -57,18 +57,25 @@ class FramelessDialog(QDialog):
         title_layout.addWidget(title_label)
         title_layout.addStretch()
 
-        close_btn = QPushButton("✕")
-        close_btn.setFixedSize(36, 30)
-        close_btn.setCursor(Qt.PointingHandCursor)
+        self._close_btn = QPushButton("✕")
+        self._close_btn.setFixedSize(36, 30)
+        self._close_btn.setCursor(Qt.PointingHandCursor)
+        self._apply_close_btn_accent()
+        self._close_btn.clicked.connect(self.reject)
+        title_layout.addWidget(self._close_btn)
+
+        return title_bar
+
+    def _apply_close_btn_accent(self):
         accent = cfg.get_accent_color()
-        close_btn.setStyleSheet("""
+        self._close_btn.setStyleSheet("""
             QPushButton { background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }
             QPushButton:hover { background-color: %s; }
         """ % accent)
-        close_btn.clicked.connect(self.reject)
-        title_layout.addWidget(close_btn)
 
-        return title_bar
+    def apply_accent_color(self):
+        self._apply_close_btn_accent()
+        self.update()
 
     def _setup_ui(self) -> QVBoxLayout:
         layout = QVBoxLayout(self)
