@@ -64,11 +64,12 @@ class MainWindow(QMainWindow):
         self.player = AudioPlayer()
         self.playlist = Playlist()
         self.settings = AppSettings()
+        from musicplayer.core.db.connection import init_db
+        init_db()
         self.scanner = None
         self._drag_pos = QPoint()
         self._current_folder_path = None
         self._current_playing_filepath = None
-        self._blink_phase = 0.0
         self._mini_widget = None
 
         self._blink_animation = BlinkAnimation(self)
@@ -158,14 +159,6 @@ class MainWindow(QMainWindow):
         if event.buttons() == Qt.LeftButton and hasattr(self, '_drag_pos'):
             self.move(event.globalPosition().toPoint() - self._drag_pos)
             event.accept()
-
-    def _blink_get(self):
-        return self._blink_phase
-
-    def _blink_set(self, value):
-        self._blink_phase = value
-
-    blink_phase = property(_blink_get, _blink_set)
 
     def showMinimized(self):
         if self.settings.mini_widget_on_minimize:

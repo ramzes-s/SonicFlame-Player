@@ -2,7 +2,7 @@
 Blink animation for scanning status label.
 """
 
-from PySide6.QtCore import QPropertyAnimation, QEasingCurve, Property
+from PySide6.QtCore import QVariantAnimation, QEasingCurve
 
 def update_status_blink_color(phase: float, title_bar) -> str:
     """Calculate blink color and apply to title bar."""
@@ -16,17 +16,16 @@ def update_status_blink_color(phase: float, title_bar) -> str:
 
 
 class BlinkAnimation:
-    """Standalone blink animation — targets MainWindow's blink_phase property."""
+    """Standalone blink animation — animates scanning status label via QVariantAnimation."""
 
     def __init__(self, main_window):
         self._main_window = main_window
         self._animation = None
-        main_window._blink_phase = 0.0
 
     def start(self):
         if self._animation:
             self._animation.stop()
-        self._animation = QPropertyAnimation(self._main_window, b"_blink_phase")
+        self._animation = QVariantAnimation()
         self._animation.setDuration(4000)
         self._animation.setStartValue(0.0)
         self._animation.setEndValue(1.0)
