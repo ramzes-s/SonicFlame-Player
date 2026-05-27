@@ -8,385 +8,18 @@ Bottom block containing all playback controls:
 - Volume control
 """
 
-from PySide6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
-                                QSlider, QLabel, QFrame, QStyleOptionSlider, QStyle)
-from PySide6.QtCore import Qt, Signal, QSize, QRect, QByteArray, QPropertyAnimation, QEasingCurve, Property
-from PySide6.QtGui import QIcon, QPixmap, QPainter, QColor
-from PySide6.QtSvgWidgets import QSvgWidget
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QLabel
+from PySide6.QtCore import Qt, Signal
 from musicplayer.ui.svg_icons import (
     get_play_svg, get_pause_svg, get_next_svg, get_previous_svg,
     get_shuffle_svg, get_repeat_svg,
     get_volume_high_svg, get_volume_mute_svg, get_heart_svg,
     get_similar_tracks_svg, get_artist_svg
 )
-
-
 from musicplayer import config as cfg
-from musicplayer.config import TEXT_COLOR, DIVIDER_COLOR
-
-
-class IconButton(QPushButton):
-    """Button with SVG icon."""
-
-    def __init__(self, svg_getter, size=32, tooltip="", parent=None, circular_hover=False):
-        super().__init__(parent)
-        self.svg_getter = svg_getter
-        self.icon_size = size
-        self.tooltip = tooltip
-        self._overlay_callback = None  # Optional callback to draw on top of icon
-        self._circular_hover = circular_hover  # Use opacity hover effect
-
-        # Animated opacity for smooth hover transition
-        self._hover_opacity = 0.8  # Default 80% opacity
-        self._opacity_anim = None
-        if self._circular_hover:
-            self._opacity_anim = QPropertyAnimation(self, b"hover_opacity")
-            self._opacity_anim.setDuration(200)
-            self._opacity_anim.setEasingCurve(QEasingCurve.OutCubic)
-
-        self.setFixedSize(size + 6, size + 6)
-        self.setCursor(Qt.PointingHandCursor)
-
-        if self._circular_hover:
-            # No stylesheet — hover handled via opacity in _update_icon
-            self.setStyleSheet("""
-                QPushButton {
-                    background-color: transparent;
-                    border: none;
-                    padding: 4px;
-                }
-            """)
-        else:
-            self.setStyleSheet(self._get_style())
-
-        self._update_icon()
-
-        if tooltip:
-            self.setToolTip(tooltip)
-
-    # --- animated property ---
-
-    def _get_hover_opacity(self) -> float:
-        return self._hover_opacity
-
-    def _set_hover_opacity(self, value: float):
-        self._hover_opacity = value
-        self._update_icon()
-
-    hover_opacity = Property(float, _get_hover_opacity, _set_hover_opacity)
-
-    def enterEvent(self, event):
-        if self._circular_hover and self._opacity_anim:
-            self._opacity_anim.setStartValue(self._hover_opacity)
-            self._opacity_anim.setEndValue(1.0)
-            self._opacity_anim.start()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        if self._circular_hover and self._opacity_anim:
-            self._opacity_anim.setStartValue(self._hover_opacity)
-            self._opacity_anim.setEndValue(0.8)
-            self._opacity_anim.start()
-        super().leaveEvent(event)
-
-    def set_overlay_callback(self, callback):
-        """Set a callback (QPainter, QSize) -> None to draw on top of the icon."""
-        self._overlay_callback = callback
-        self._update_icon()
-    
-    def _get_style(self) -> str:
-        """Button stylesheet."""
-        return """
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                border-radius: 4px;
-                padding: 4px;
-            }
-            QPushButton:hover {
-                background-color: rgba(80, 80, 80, 0.4);
-            }
-            QPushButton:pressed {
-                background-color: rgba(80, 80, 80, 0.6);
-            }
-        """
-    
-    def _update_icon(self, color=None):
-        """Update button icon from SVG string."""
-        from PySide6.QtSvg import QSvgRenderer
-
-        use_color = color if color else TEXT_COLOR
-        svg_data = self.svg_getter(color=use_color)
-        renderer = QSvgRenderer(QByteArray(svg_data.encode('utf-8')))
-
-        size = self.icon_size
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.transparent)
-
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.Antialiasing)
-        painter.setRenderHint(QPainter.SmoothPixmapTransform)
-
-        # Opacity for circular hover buttons: animated via QPropertyAnimation
-        if self._circular_hover:
-            painter.setOpacity(self._hover_opacity)
-
-        renderer.render(painter, QRect(0, 0, size, size))
-
-        # Draw overlay if set
-        if self._overlay_callback is not None:
-            self._overlay_callback(painter, QSize(size, size))
-
-        painter.end()
-
-        self.setIcon(QIcon(pixmap))
-        self.setIconSize(QSize(self.icon_size, self.icon_size))
-    
-    def set_active(self, active: bool):
-        """Toggle active state with accent color."""
-        if active:
-            self._update_icon(cfg.get_accent_color())
-        else:
-            self._update_icon(TEXT_COLOR)
-
-
-class ColorHoverButton(IconButton):
-    """Button with smooth color transition on hover (no background)."""
-
-    def __init__(self, svg_getter, size=32, tooltip="", parent=None):
-        self._hover_anim = None
-        self._color_phase = 0.0
-        self._current_icon_color = TEXT_COLOR
-        super().__init__(svg_getter, size, tooltip, parent, circular_hover=False)
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: transparent;
-                border: none;
-                padding: 4px;
-            }
-            QPushButton:hover {
-                background-color: transparent;
-            }
-            QPushButton:pressed {
-                background-color: transparent;
-            }
-        """)
-
-    def _get_color_phase(self):
-        return self._color_phase
-
-    def _set_color_phase(self, value):
-        self._color_phase = value
-        self._update_icon_color()
-
-    color_phase = Property(float, _get_color_phase, _set_color_phase)
-
-    def _update_icon_color(self):
-        accent = cfg.get_accent_color()
-        r1, g1, b1 = int(TEXT_COLOR[1:3], 16), int(TEXT_COLOR[3:5], 16), int(TEXT_COLOR[5:7], 16)
-        r2, g2, b2 = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
-        t = self._color_phase
-        r = int(r1 + (r2 - r1) * t)
-        g = int(g1 + (g2 - g1) * t)
-        b = int(b1 + (b2 - b1) * t)
-        color = f"#{r:02x}{g:02x}{b:02x}"
-        self._current_icon_color = color
-        self._update_icon(color)
-
-    def _update_icon(self, color=None):
-        use_color = color if color else self._current_icon_color
-        self._current_icon_color = use_color
-        super()._update_icon(use_color)
-
-    def enterEvent(self, event):
-        if self._hover_anim:
-            self._hover_anim.stop()
-        self._hover_anim = QPropertyAnimation(self, b"color_phase")
-        self._hover_anim.setDuration(200)
-        self._hover_anim.setStartValue(self._color_phase)
-        self._hover_anim.setEndValue(1.0)
-        self._hover_anim.setEasingCurve(QEasingCurve.OutCubic)
-        self._hover_anim.start()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event):
-        if self._hover_anim:
-            self._hover_anim.stop()
-        self._hover_anim = QPropertyAnimation(self, b"color_phase")
-        self._hover_anim.setDuration(200)
-        self._hover_anim.setStartValue(self._color_phase)
-        self._hover_anim.setEndValue(0.0)
-        self._hover_anim.setEasingCurve(QEasingCurve.OutCubic)
-        self._hover_anim.start()
-        super().leaveEvent(event)
-
-
-class SeekSlider(QSlider):
-    """Custom styled seek slider."""
-    
-    def __init__(self, orientation=Qt.Horizontal, parent=None):
-        super().__init__(orientation, parent)
-        self.setStyleSheet(self._get_style())
-        self.setRange(0, 0)
-        self.setCursor(Qt.PointingHandCursor)
-        self._is_user_interacting = False
-    
-    def mousePressEvent(self, event):
-        """Handle click to seek."""
-        if event.button() == Qt.LeftButton and self.maximum() > 0:
-            # Calculate value from click position first
-            self._set_value_from_click(event)
-            self._is_user_interacting = True
-            # Call parent to set pressed state and emit sliderPressed signal
-            super().mousePressEvent(event)
-        else:
-            super().mousePressEvent(event)
-    
-    def mouseMoveEvent(self, event):
-        """Handle drag to seek."""
-        if event.buttons() == Qt.LeftButton and self._is_user_interacting:
-            self._set_value_from_click(event)
-            event.accept()
-        else:
-            super().mouseMoveEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        """Handle release."""
-        was_interacting = self._is_user_interacting
-        self._is_user_interacting = False
-        
-        # Always call parent to emit sliderReleased signal
-        super().mouseReleaseEvent(event)
-        
-        # Our custom handling after parent
-        if was_interacting:
-            event.accept()
-    
-    def _set_value_from_click(self, event):
-        """Calculate slider value from click position."""
-        if self.maximum() <= 0:
-            return
-        
-        # Get the groove geometry
-        style = self.style()
-        opt = QStyleOptionSlider()
-        self.initStyleOption(opt)
-        
-        groove_rect = style.subControlRect(
-            QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self
-        )
-        
-        # Calculate position within groove
-        if self.orientation() == Qt.Horizontal:
-            click_x = event.position().x()
-            groove_start = groove_rect.left()
-            groove_end = groove_rect.right()
-            groove_width = groove_end - groove_start
-            
-            if groove_width > 0:
-                # Calculate ratio (0.0 to 1.0)
-                ratio = max(0.0, min(1.0, (click_x - groove_start) / groove_width))
-                value = int(ratio * (self.maximum() - self.minimum()) + self.minimum())
-                self.setValue(value)
-    
-    def set_value_safe(self, value: int):
-        """Set value only if user is not interacting (avoid feedback loop)."""
-        if not self._is_user_interacting:
-            self.setValue(value)
-    
-    def _get_style(self) -> str:
-        """Slider stylesheet."""
-        return f"""
-            QSlider {{
-                background-color: transparent;
-            }}
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: rgba(80, 80, 80, 0.5);
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                width: 14px;
-                height: 14px;
-                margin: -5px 0;
-                background: {cfg.get_accent_color()};
-                border-radius: 7px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: #FFFFFF;
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {cfg.get_accent_color()};
-                border-radius: 2px;
-            }}
-        """
-
-
-class VolumeSlider(QSlider):
-    """Custom styled volume slider with click-to-seek support."""
-
-    def __init__(self, orientation=Qt.Horizontal, parent=None):
-        super().__init__(orientation, parent)
-        self.setStyleSheet(self._get_style())
-        self.setRange(0, 100)
-        self.setValue(50)
-        self.setFixedWidth(120)
-        self.setCursor(Qt.PointingHandCursor)
-
-    def mousePressEvent(self, event):
-        """Handle click anywhere on groove to set value."""
-        if event.button() == Qt.LeftButton and self.maximum() > 0:
-            self._set_value_from_click(event)
-            super().mousePressEvent(event)
-        else:
-            super().mousePressEvent(event)
-
-    def _set_value_from_click(self, event):
-        """Calculate slider value from click position."""
-        if self.maximum() <= 0:
-            return
-        style = self.style()
-        opt = QStyleOptionSlider()
-        self.initStyleOption(opt)
-        groove_rect = style.subControlRect(
-            QStyle.CC_Slider, opt, QStyle.SC_SliderGroove, self
-        )
-        if self.orientation() == Qt.Horizontal:
-            click_x = event.position().x()
-            groove_start = groove_rect.left()
-            groove_end = groove_rect.right()
-            groove_width = groove_end - groove_start
-            if groove_width > 0:
-                ratio = max(0.0, min(1.0, (click_x - groove_start) / groove_width))
-                value = int(ratio * (self.maximum() - self.minimum()) + self.minimum())
-                self.setValue(value)
-    
-    def _get_style(self) -> str:
-        """Slider stylesheet."""
-        return f"""
-            QSlider {{
-                background-color: transparent;
-            }}
-            QSlider::groove:horizontal {{
-                height: 4px;
-                background: rgba(80, 80, 80, 0.5);
-                border-radius: 2px;
-            }}
-            QSlider::handle:horizontal {{
-                width: 12px;
-                height: 12px;
-                margin: -4px 0;
-                background: {TEXT_COLOR};
-                border-radius: 6px;
-            }}
-            QSlider::handle:horizontal:hover {{
-                background: {cfg.get_accent_color()};
-            }}
-            QSlider::sub-page:horizontal {{
-                background: {TEXT_COLOR};
-                border-radius: 2px;
-            }}
-        """
+from musicplayer.config import TEXT_COLOR
+from musicplayer.ui.widgets.icon_button import IconButton, ColorHoverButton
+from musicplayer.ui.widgets.sliders import SeekSlider, VolumeSlider
 
 
 class ControlsWidget(QWidget):
@@ -432,31 +65,36 @@ class ControlsWidget(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 10, 20, 10)
         main_layout.setSpacing(8)
-        
-        # Top row: Seek bar and time labels
+
+        main_layout.addLayout(self._build_seek_bar())
+        main_layout.addWidget(self._build_controls_row(), alignment=Qt.AlignLeft)
+
+    def _build_seek_bar(self):
+        """Build seek bar with time labels."""
         seek_layout = QHBoxLayout()
-        
+
         self.time_label_left = QLabel("0:00")
         self.time_label_left.setStyleSheet(f"color: {TEXT_COLOR}; font-size: 14px; font-weight: bold;")
         self.time_label_left.setFixedWidth(60)
-        
+
         self.seek_slider = SeekSlider()
         self.seek_slider.sliderMoved.connect(self._on_seek_moved)
         self.seek_slider.sliderPressed.connect(self._on_seek_pressed)
         self.seek_slider.sliderReleased.connect(self._on_seek_released)
-        
+
         self.time_label_right = QLabel("0:00")
         self.time_label_right.setStyleSheet(f"color: {TEXT_COLOR}; font-size: 14px; font-weight: bold;")
         self.time_label_right.setFixedWidth(60)
         self.time_label_right.setAlignment(Qt.AlignRight)
-        
+
         seek_layout.addWidget(self.time_label_left)
         seek_layout.addWidget(self.seek_slider)
         seek_layout.addWidget(self.time_label_right)
-        
-        main_layout.addLayout(seek_layout)
-        
-        # Bottom row: Controls — wrapped in a container to prevent stretching
+
+        return seek_layout
+
+    def _build_controls_row(self):
+        """Build controls row with transport, volume and action buttons."""
         controls_row = QWidget()
         controls_layout = QHBoxLayout(controls_row)
         controls_layout.setContentsMargins(0, 0, 0, 0)
@@ -540,7 +178,7 @@ class ControlsWidget(QWidget):
         controls_layout.addWidget(self.heart_btn)
         controls_layout.addSpacing(10)
 
-        main_layout.addWidget(controls_row, alignment=Qt.AlignLeft)
+        return controls_row
     
     def _on_play_pause_clicked(self):
         """Toggle play/pause state."""
@@ -701,10 +339,6 @@ class ControlsWidget(QWidget):
         else:
             self.play_pause_btn.svg_getter = get_play_svg
             self.play_pause_btn._update_icon()
-    
-    def set_shuffle_state(self, enabled: bool):
-        """Update shuffle button state. This method is now a no-op as shuffle button is replaced."""
-        pass
     
     def set_repeat_mode(self, mode: str):
         """Update repeat button state."""
