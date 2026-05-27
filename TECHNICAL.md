@@ -11,18 +11,6 @@
 
 ```
 MusicPlayer2\
-├── main.py                             # Точка входа (плеер + библиотека через --library)
-├── requirements.txt                    # Зависимости
-├── Sonic-Flame.ico                     # Иконка приложения
-├── SonicFlame.png                      # Изображение для splash screen
-├── SonicFlamePlayer_vision.png         # Концепт-арт приложения
-├── SonicFlame.manifest                 # Манифест Windows (DPI-aware, supportedOS)
-├── SonicFlame.spec                     # Спецификация PyInstaller
-├── build.bat                           # Скрипт сборки
-├── TECHNICAL.md                        # Этот файл
-├── README.md                           # Документация пользователя
-├── LICENSE.txt                         # GPL v3
-├── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
 ├── res/                                # Ресурсы
 │   ├── covers/                         # Фоновые изображения обложек (1.jpg..14.jpg)
 │   ├── web_templates/                  # Шаблоны веб-интерфейса (вынесены из web_template.py)
@@ -33,106 +21,124 @@ MusicPlayer2\
 │       ├── genre_groups.json           # Группы жанров для фильтрации
 │       └── genre_map.json              # Маппинг жанров (ID3 → группы)
 ├── musicplayer/
-│   ├── __init__.py
-│   ├── config.py                       # Глобальные константы: APP_VERSION, ACCENT_COLOR, CACHE_DIR, пути кэша
 │   ├── core/
 │   │   ├── __init__.py
-│   │   ├── normalize.py                # Нормализация метаданных (mutagen)
-│   │   ├── audio_device_manager.py     # Управление устройствами вывода + автофолбэк
-│   │   ├── media_keys.py               # Глобальные медиа-клавиши (RegisterHotKey)
-│   │   ├── player.py                   # Обёртка над QMediaPlayer
-│   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── db/                         # SQLite библиотека
 │   │   │   ├── __init__.py             # Обратная совместимость — экспорт всех функций
-│   │   │   ├── connection.py           # Подключение к БД (пути из config)
-│   │   │   ├── tracks.py               # CRUD операции с треками, извлечение метаданных
-│   │   │   ├── favorites.py            # Операции с избранным
 │   │   │   ├── cache.py                # Кэширование обложек
+│   │   │   ├── connection.py           # Подключение к БД (пути из config)
+│   │   │   ├── favorites.py            # Операции с избранным
 │   │   │   ├── folders.py              # Операции с папками
-│   │   │   └── queries.py              # Фильтрация, сортировка, сложные запросы
+│   │   │   ├── queries.py              # Фильтрация, сортировка, сложные запросы
+│   │   │   └── tracks.py               # CRUD операции с треками, извлечение метаданных
+│   │   ├── audio_device_manager.py     # Управление устройствами вывода + автофолбэк
 │   │   ├── db.py                       # Обратная совместимость (импорт из пакета db/)
 │   │   ├── db_cleaner.py               # Очистка БД от отсутствующих файлов
 │   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
-│   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
-│   │   ├── web_server.py               # HTTP сервер (aiohttp)
-│   │   ├── web_api.py                  # API обработчики с валидацией
-│   │   ├── web_template.py             # Загрузчик шаблонов из res/web_templates/
+│   │   ├── media_keys.py               # Глобальные медиа-клавиши (RegisterHotKey)
+│   │   ├── normalize.py                # Нормализация метаданных (mutagen)
+│   │   ├── player.py                   # Обёртка над QMediaPlayer
+│   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── recommendations.py          # Алгоритм подбора похожих треков
+│   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
 │   │   ├── smtc_manager.py             # SMTC — интеграция с системным оверлеем Windows
+│   │   ├── web_api.py                  # API обработчики с валидацией
+│   │   ├── web_server.py               # HTTP сервер (aiohttp)
+│   │   ├── web_template.py             # Загрузчик шаблонов из res/web_templates/
 │   │   └── windows_sleep_blocker.py    # Предотвращение спящего режима во время воспроизведения
 │   ├── ui/
 │   │   ├── __init__.py
-│   │   ├── web_integration.py          # Qt-мост к веб-серверу (QObject + сигналы)
+│   │   ├── folder_browse/              # Кастомный диалог выбора папок (пакет)
+│   │   │   ├── __init__.py             # Re-export: FolderBrowseDialog
+│   │   │   ├── bottom_bar_widget.py    # Хлебные крошки + кнопка "Выбрать"
+│   │   │   ├── dialog.py               # FolderBrowseDialog (координатор)
+│   │   │   ├── folder_tree_widget.py   # Файловое дерево с ленивой подгрузкой
+│   │   │   ├── helpers.py              # Валидация путей, утилиты
+│   │   │   └── key_folders_widget.py   # Левая панель — топ папок
 │   │   ├── library/                    # Модули библиотеки
 │   │   │   ├── __init__.py             # Экспорт: LibraryDialog, LibraryModel, DataWorker, ArtistViewWidget
-│   │   │   ├── types.py                # Track dataclass, константы колонок (HEADERS, COL_*)
-│   │   │   ├── settings.py             # Сохранение ширины колонок (пути из config)
-│   │   │   ├── worker.py               # DataWorker (generic worker thread)
-│   │   │   ├── model.py                # LibraryModel + MoodStarDelegate
-│   │   │   ├── dialog.py               # LibraryDialog (основной диалог)
-│   │   │   ├── artist_view.py          # ArtistViewWidget (виджет "Исполнители")
 │   │   │   ├── artist_card.py          # ArtistCardWidget (карточка исполнителя)
-│   │   │   └── artist_worker.py        # ArtistProcessingWorker (пути из config)
+│   │   │   ├── artist_view.py          # ArtistViewWidget (виджет "Исполнители")
+│   │   │   ├── artist_worker.py        # ArtistProcessingWorker (пути из config)
+│   │   │   ├── dialog.py               # LibraryDialog (основной диалог)
+│   │   │   ├── model.py                # LibraryModel + MoodStarDelegate
+│   │   │   ├── settings.py             # Сохранение ширины колонок (пути из config)
+│   │   │   ├── types.py                # Track dataclass, константы колонок (HEADERS, COL_*)
+│   │   │   └── worker.py               # DataWorker (generic worker thread)
 │   │   ├── player/                     # Рефакторинг main_window.py — координатор и менеджеры
 │   │   │   ├── __init__.py             # Реэкспорт MainWindow
-│   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
-│   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
-│   │   │   ├── title_bar.py            # Кастомный заголовок окна (с кнопками и сортировкой)
 │   │   │   ├── animation.py            # BlinkAnimation — мигание статуса при сканировании
-│   │   │   ├── tray.py                 # TrayManager — системный трей и иконка
-│   │   │   ├── scanning.py             # ScanningManager — логика сканирования папок
+│   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
+│   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
 │   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов
-│   │   │   └── playlist_ops.py         # PlaylistManager — избранное, топ, артист, похожие треки
+│   │   │   ├── playlist_ops.py         # PlaylistManager — избранное, топ, артист, похожие треки
+│   │   │   ├── scanning.py             # ScanningManager — логика сканирования папок
+│   │   │   ├── title_bar.py            # Кастомный заголовок окна (с кнопками и сортировкой)
+│   │   │   └── tray.py                 # TrayManager — системный трей и иконка
+│   │   ├── settings/                   # Диалог настроек (пакет)
+│   │   │   ├── __init__.py             # Реэкспорт SettingsDialog
+│   │   │   ├── constants.py            # ACCENT_PRESETS, FORBIDDEN_PORTS, format_size
+│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, status bar)
+│   │   │   ├── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
+│   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
+│   │   │   ├── page_main.py            # MainPage (папка + точность похожих)
+│   │   │   ├── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
+│   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
+│   │   │   └── widgets.py              # ColorCircleButton, ClickableSlider, SpinnerWidget, TabButton
+│   │   ├── tag_editor/                 # Редактор тегов (разделённый на модули)
+│   │   │   ├── __init__.py             # Реэкспорт для обратной совместимости
+│   │   │   ├── api.py                  # iTunes/Deezer API функции (с логгированием)
+│   │   │   ├── base_dialog.py          # BaseFramelessDialog — базовый класс frameless-диалогов
+│   │   │   ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
+│   │   │   ├── cover.py                # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
+│   │   │   ├── cover_thread.py         # Поток поиска обложек (дедупликация через MD5)
+│   │   │   ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
+│   │   │   ├── editor.py               # TagEditorDialog (наследует BaseFramelessDialog)
+│   │   │   ├── threads.py              # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
+│   │   │   ├── track_mover.py          # move_track_to_folder — перемещение трека в другую папку из редактора тегов
+│   │   │   └── widgets.py              # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
+│   │   ├── widgets/                    # Переиспользуемые виджеты
+│   │   │   ├── __init__.py
+│   │   │   ├── frameless_dialog.py     # FramelessDialog — базовый frameless-диалог с перетаскиванием
+│   │   │   ├── icon_button.py          # IconButton + ColorHoverButton (вынесено из controls.py)
+│   │   │   ├── sliders.py              # ClickableSlider + SeekSlider + VolumeSlider (вынесено из controls.py)
+│   │   │   └── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
+│   │   ├── accent_style.py             # Применение акцентного цвета к главному окну (findChildren)
 │   │   ├── controls.py                 # Контролы управления (transport, seek, volume)
 │   │   ├── main_window.py              # Обратная совместимость (shim → ui.player.main_window)
 │   │   ├── mini_widget.py              # Мини-плеер для системного трея
 │   │   ├── playlist_view.py            # Плейлист с кастомным делегатом
 │   │   ├── remove_track_dialog.py      # Диалог и функция удаления трека из библиотеки
-│   │   ├── settings/                   # Диалог настроек (пакет)
-│   │   │   ├── __init__.py             # Реэкспорт SettingsDialog
-│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, status bar)
-│   │   │   ├── constants.py            # ACCENT_PRESETS, FORBIDDEN_PORTS, format_size
-│   │   │   ├── widgets.py              # ColorCircleButton, ClickableSlider, SpinnerWidget, TabButton
-│   │   │   ├── page_main.py            # MainPage (папка + точность похожих)
-│   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
-│   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
-│   │   │   ├── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
-│   │   │   └── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   ├── sidebar.py                  # Боковая панель (папки, избранное, топ, настройки)
 │   │   ├── svg_icons.py                # SVG-иконки как строки
-│   │   ├── accent_style.py             # Применение акцентного цвета к главному окну (findChildren)
 │   │   ├── track_info.py               # Виджет обложки с градиентной тенью
-│   │   ├── tag_editor/                 # Редактор тегов (разделённый на модули)
-│   │   │   ├── __init__.py             # Реэкспорт для обратной совместимости
-│   │   │   ├── base_dialog.py          # BaseFramelessDialog — базовый класс frameless-диалогов
-│   │   │   ├── constants.py            # ID3_GENRES, COVER_SIZE, BRIGHT_COLORS
-│   │   │   ├── api.py                  # iTunes/Deezer API функции (с логгированием)
-│   │   │   ├── cover.py                # Генерация абстрактной обложки (RGBA, кросс-платформенные шрифты)
-│   │   │   ├── cover_thread.py         # Поток поиска обложек (дедупликация через MD5)
-│   │   │   ├── threads.py              # Потоки поиска треков, скачивания обложек и сохранения тегов (M4A/MP4)
-│   │   │   ├── widgets.py              # LoadingBar, CoverDisplayLabel (с _is_generated_cover)
-│   │   │   ├── dialogs.py              # TrackSearchResultsDialog, CoverSearchResultsDialog, CoverTile
-│   │   │   ├── track_mover.py          # move_track_to_folder — перемещение трека в другую папку из редактора тегов
-│   │   │   └── editor.py               # TagEditorDialog (наследует BaseFramelessDialog)
-│   │   └── widgets/                    # Переиспользуемые виджеты
-│   │       ├── __init__.py
-│   │       ├── frameless_dialog.py     # FramelessDialog — базовый frameless-диалог с перетаскиванием
-│   │       ├── folder_browse_dialog.py # FolderBrowseDialog — кастомный выбор папок (tree, quick filter, key folders)
-│   │       ├── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
-│   │       ├── icon_button.py          # IconButton + ColorHoverButton (вынесено из controls.py)
-│   │       └── sliders.py              # ClickableSlider + SeekSlider + VolumeSlider (вынесено из controls.py)
-│   └── utils/
-│       ├── __init__.py
-│       ├── audio_scanner.py            # QThread сканер папок (sync с БД)
-│       ├── analysis_worker.py          # Анализ аудио (librosa)
-│       ├── color_extractor.py          # Извлечение доминантного цвета из обложки
-│       └── helpers.py                  # Утилиты форматирования
-└── .cache/                             # Данные приложения (создаются при первом запуске)
-    ├── musicplayer.db                  # SQLite библиотека (WAL mode)
-    ├── covers/                         # Обложки в формате WebP
-    ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
-    ├── settings.json                   # Пользовательские настройки
-    └── library_col_widths.json         # Ширина колонок библиотеки
+│   │   └── web_integration.py          # Qt-мост к веб-серверу (QObject + сигналы)
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── analysis_worker.py          # Анализ аудио (librosa)
+│   │   ├── audio_scanner.py            # QThread сканер папок (sync с БД)
+│   │   ├── color_extractor.py          # Извлечение доминантного цвета из обложки
+│   │   └── helpers.py                  # Утилиты форматирования
+│   ├── __init__.py
+│   └── config.py                       # Глобальные константы: APP_VERSION, ACCENT_COLOR, CACHE_DIR, пути кэша
+├── .cache/                             # Данные приложения (создаются при первом запуске)
+│   ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
+│   ├── covers/                         # Обложки в формате WebP
+│   ├── library_col_widths.json         # Ширина колонок библиотеки
+│   ├── musicplayer.db                  # SQLite библиотека (WAL mode)
+│   └── settings.json                   # Пользовательские настройки
+├── build.bat                           # Скрипт сборки
+├── LICENSE.txt                         # GPL v3
+├── main.py                             # Точка входа (плеер + библиотека через --library)
+├── README.md                           # Документация пользователя
+├── requirements.txt                    # Зависимости
+├── Sonic-Flame.ico                     # Иконка приложения
+├── SonicFlame.manifest                 # Манифест Windows (DPI-aware, supportedOS)
+├── SonicFlame.png                      # Изображение для splash screen
+├── SonicFlame.spec                     # Спецификация PyInstaller
+├── SonicFlamePlayer_vision.png         # Концепт-арт приложения
+├── TECHNICAL.md                        # Этот файл
+└── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
 ```
 
 ## Requirements
