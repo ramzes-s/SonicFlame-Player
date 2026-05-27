@@ -144,6 +144,8 @@ def main():
 
     # Suppress mpg123 logs (may or may not work depending on Qt backend setup)
     os.environ['MPG123_QUIET'] = '1'
+    # Suppress FFmpeg/Qt Multimedia internal logs
+    os.environ["QT_LOGGING_RULES"] = "qt.multimedia.ffmpeg*=false"
 
     # Check for --library flag to launch in library mode
     is_library_mode = "--library" in sys.argv
