@@ -16,7 +16,6 @@ from PySide6.QtGui import QIcon, QPixmap, QColor, QPainter
 from PySide6.QtSvg import QSvgRenderer
 from musicplayer.ui.svg_icons import (
     get_folder_svg,
-    get_all_music_svg,
     get_heart_svg,
     get_settings_svg,
     get_library_svg,
@@ -148,7 +147,6 @@ class SideBarWidget(QWidget):
 
     Buttons:
     - Open Folder (folder icon)
-    - All Music (5 icon variants for comparison)
     - Favorites (heart icon) — toggle state
     - Top (star icon) — toggle state
     - Library (books icon)
@@ -156,7 +154,6 @@ class SideBarWidget(QWidget):
     """
 
     folder_open_requested = Signal()
-    all_music_requested = Signal()
     favorites_toggled = Signal(bool)  # emitted with active state
     top_requested = Signal(bool)  # emitted with active state
     playlist_type_changed = Signal(str)  # emits: "Folder", "Favorites", "Top", "Playlist"
@@ -183,12 +180,6 @@ class SideBarWidget(QWidget):
         self.folder_btn = SidebarButton(get_folder_svg, tooltip="Открыть папку")
         self.folder_btn.clicked.connect(self.folder_open_requested.emit)
         layout.addWidget(self.folder_btn, alignment=Qt.AlignTop)
-
-        layout.addSpacing(4)
-
-        self.all_music_btn = SidebarButton(get_all_music_svg, tooltip="Вся музыка")
-        self.all_music_btn.clicked.connect(self.all_music_requested.emit)
-        layout.addWidget(self.all_music_btn, alignment=Qt.AlignTop)
 
         layout.addSpacing(8)
 
@@ -250,38 +241,27 @@ class SideBarWidget(QWidget):
         """Enable folder button only when music_folder is set in config."""
         self._music_folder_configured = configured
         self.folder_btn.setEnabled(configured)
-        self.all_music_btn.setEnabled(configured)
         if not configured:
             self.folder_btn._icon_alpha = 40
             self.folder_btn._update_icon()
-            self.all_music_btn._icon_alpha = 40
-            self.all_music_btn._update_icon()
         else:
             self.folder_btn._icon_alpha = OPACITY_DEFAULT
             self.folder_btn._update_icon()
-            self.all_music_btn._icon_alpha = OPACITY_DEFAULT
-            self.all_music_btn._update_icon()
 
     def set_folder_enabled(self, enabled: bool):
         """Enable or disable the folder button (used during scanning)."""
         self.folder_btn.setEnabled(enabled and self._music_folder_configured)
-        self.all_music_btn.setEnabled(enabled and self._music_folder_configured)
         if not enabled:
             self.folder_btn._icon_alpha = 40
             self.folder_btn._update_icon()
-            self.all_music_btn._icon_alpha = 40
-            self.all_music_btn._update_icon()
         else:
             self.folder_btn._icon_alpha = OPACITY_DEFAULT
             self.folder_btn._update_icon()
-            self.all_music_btn._icon_alpha = OPACITY_DEFAULT
-            self.all_music_btn._update_icon()
 
     def set_all_buttons_enabled(self, enabled: bool, include_folder: bool = True):
         """Enable or disable all sidebar buttons with visual feedback."""
         if include_folder:
             self.folder_btn.setEnabled(enabled and self._music_folder_configured)
-            self.all_music_btn.setEnabled(enabled and self._music_folder_configured)
         self.favorites_btn.setEnabled(enabled)
         self.top_btn.setEnabled(enabled)
 
@@ -294,8 +274,6 @@ class SideBarWidget(QWidget):
         if include_folder:
             self.folder_btn._icon_alpha = alpha
             self.folder_btn._update_icon()
-            self.all_music_btn._icon_alpha = alpha
-            self.all_music_btn._update_icon()
 
     def apply_accent_color(self, color: str):
         """Update accent color for active buttons."""
