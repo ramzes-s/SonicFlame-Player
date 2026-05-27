@@ -13,6 +13,7 @@ import sys
 import os
 import time
 import json
+import logging
 import ctypes
 from pathlib import Path
 
@@ -24,6 +25,74 @@ from PySide6.QtWidgets import QApplication, QSplashScreen
 from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, QByteArray
 from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QPainterPath
 from PySide6.QtSvg import QSvgRenderer
+
+
+# === LOGGING CONFIGURATION ===
+def _setup_logging():
+    """Configure root logger with file + console handlers at DEBUG level."""
+    from musicplayer import config as cfg
+
+    log_dir = cfg.CACHE_DIR
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "debug.log"
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.DEBUG)
+
+    # File handler — простая запись в файл, каждая сессия начинается с чистого листа
+    # Only created when LOG_DEBUG is True
+    if cfg.LOG_DEBUG:
+        fh = logging.FileHandler(str(log_file), mode='w', encoding='utf-8')
+        fh.setLevel(logging.DEBUG)
+        fh.setFormatter(logging.Formatter(
+            "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d — %(message)s",
+            datefmt="%H:%M:%S"
+        ))
+        root_logger.addHandler(fh)
+
+    # Console handler — WARNING+ only (avoid clutter in terminal)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.WARNING)
+    ch.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
+    root_logger.addHandler(ch)
+
+    if cfg.LOG_DEBUG:
+        logging.getLogger().info("Logging initialised — log file: %s", log_file)
+    return log_file
+
+
+def _setup_excepthook(log_file):
+    """Install global exception hooks to catch unhandled crashes."""
+    import traceback
+
+    def excepthook(exc_type, exc_value, exc_tb):
+        msg = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        logging.getLogger().critical("UNHANDLED EXCEPTION:\n%s", msg)
+        # Also write directly in case logging fails
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(f"\n==== UNHANDLED EXCEPTION ====\n{msg}\n")
+
+    sys.excepthook = excepthook
+
+    # Qt message handler — catches qWarning/qCritical from C++ side
+    from PySide6.QtCore import qInstallMessageHandler, QtMsgType
+
+    def qt_message_handler(msg_type, context, message):
+        level = {
+            QtMsgType.QtDebugMsg: logging.DEBUG,
+            QtMsgType.QtWarningMsg: logging.WARNING,
+            QtMsgType.QtCriticalMsg: logging.CRITICAL,
+            QtMsgType.QtFatalMsg: logging.CRITICAL,
+        }.get(msg_type, logging.WARNING)
+        record = logging.getLogger("qt").makeRecord(
+            "qt", level, context.file or "", context.line or 0,
+            message, [], None
+        )
+        logging.getLogger("qt").handle(record)
+        if msg_type == QtMsgType.QtFatalMsg:
+            logging.getLogger("qt").critical("Qt FATAL — aborting")
+
+    qInstallMessageHandler(qt_message_handler)
 
 
 class AnimatedSplash(QSplashScreen):
@@ -67,7 +136,11 @@ def _ensure_icon():
 
 def main():
     """Application entry point."""
+    log_file = _setup_logging()
+    _setup_excepthook(log_file)
     _ensure_icon()
+
+    logging.getLogger(__name__).info("App started (library=%s)", "--library" in sys.argv)
 
     # Suppress mpg123 logs (may or may not work depending on Qt backend setup)
     os.environ['MPG123_QUIET'] = '1'

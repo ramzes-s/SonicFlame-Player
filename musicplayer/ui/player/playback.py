@@ -297,6 +297,7 @@ class PlaybackManager(PlayerManagerBase):
         old_filepath = track.filepath
         was_playing = self._mw._current_playing_filepath == old_filepath and self._mw.player.is_playing()
         position = self._mw.player.get_position() if was_playing else 0
+        logger.info("Tag editor opened for: %s (was_playing=%s, pos=%d)", old_filepath, was_playing, position)
 
         if was_playing:
             self._mw.player.stop()
@@ -305,53 +306,86 @@ class PlaybackManager(PlayerManagerBase):
         dialog = TagEditorDialog(track.filepath, self._mw, update_player=True)
         dialog.exec()
 
-        if dialog.delete_confirmed:
+        delete_confirmed = dialog.delete_confirmed
+        save_confirmed = dialog.save_confirmed
+        new_filepath = dialog.file_path
+
+        # Destroy dialog explicitly before any UI updates to avoid Qt re-entrancy
+        dialog.deleteLater()
+        del dialog
+
+        if delete_confirmed:
+            logger.info("Track delete confirmed: %s", old_filepath)
             remove_track_from_library(old_filepath, self._mw.playlist_widget, self._mw.playlist, self._mw)
             try:
                 os.remove(old_filepath)
+                logger.info("File deleted from disk: %s", old_filepath)
             except OSError as e:
+                logger.error("Failed to delete file from disk: %s", e, exc_info=True)
                 StyledMessageBox.critical(self._mw, "Ошибка удаления файла", key=f"Не удалось удалить файл: {e}")
             return
 
-        if dialog.save_confirmed:
-            new_filepath = dialog.file_path
+        if save_confirmed:
+            logger.info("Save confirmed — old=%s, new=%s", old_filepath, new_filepath)
             if os.path.normpath(new_filepath) != os.path.normpath(old_filepath):
+                logger.info("File was renamed, deleting old track from DB: %s", old_filepath)
                 delete_track(old_filepath)
+            logger.info("Extracting metadata from: %s", new_filepath)
             updated_track = extract_metadata(new_filepath)
             if updated_track:
                 try:
                     upsert_track(updated_track, os.path.getmtime(new_filepath))
+                    logger.info("Upsert OK for: %s", new_filepath)
                 except Exception as e:
                     logger.error("UPSERT CRASHED: %s", e, exc_info=True)
                 try:
                     full_track = get_track(new_filepath) or updated_track
+                    logger.info("get_track returned: %s", full_track)
                 except Exception as e:
                     logger.error("GET_TRACK CRASHED: %s", e, exc_info=True)
                     full_track = updated_track
-                try:
-                    self._mw.playlist_widget.update_track_data(old_filepath, full_track)
-                except Exception as e:
-                    logger.error("UPDATE_TRACK_DATA CRASHED: %s", e, exc_info=True)
-                if self._mw._current_playing_filepath == old_filepath:
-                    self._mw._current_playing_filepath = new_filepath
-                if self._mw._current_playing_filepath:
-                    try:
-                        self._mw.playlist_widget.set_playing_track(self._mw._current_playing_filepath)
-                    except Exception as e:
-                        logger.error("SET_PLAYING_TRACK CRASHED: %s", e, exc_info=True)
-                if was_playing and full_track:
-                    self._mw.track_info_widget.update_track_info(full_track)
-                    try:
-                        self._mw.player.load_source(full_track)
-                    except Exception as e:
-                        logger.error("Failed to load source after tag edit: %s", e, exc_info=True)
-                    QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+                # Defer UI updates to next event loop cycle to let Qt settle after dialog close
+                QTimer.singleShot(0, lambda fp=old_filepath, nfp=new_filepath, ft=full_track, wp=was_playing, pos=position:
+                                  self._finish_tag_edit(fp, nfp, ft, wp, pos))
+            else:
+                logger.error("extract_metadata returned None for: %s", new_filepath)
         else:
+            logger.info("Save cancelled — resuming playback")
             if was_playing:
-                old_track = next((t for t in view_tracks if t.filepath == old_filepath), None)
-                if old_track:
-                    self._mw.player.load_source(old_track)
-                QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+                QTimer.singleShot(100, lambda fp=old_filepath, pos=position:
+                                  self._resume_after_cancel(fp, pos))
+
+    def _finish_tag_edit(self, old_filepath, new_filepath, full_track, was_playing, position):
+        """Post-save UI updates (deferred to avoid Qt re-entrancy crash)."""
+        try:
+            self._mw.playlist_widget.update_track_data(old_filepath, full_track)
+            logger.info("update_track_data OK")
+        except Exception as e:
+            logger.error("UPDATE_TRACK_DATA CRASHED: %s", e, exc_info=True)
+        if self._mw._current_playing_filepath == old_filepath:
+            self._mw._current_playing_filepath = new_filepath
+            logger.info("Updated _current_playing_filepath to: %s", new_filepath)
+        if self._mw._current_playing_filepath:
+            try:
+                self._mw.playlist_widget.set_playing_track(self._mw._current_playing_filepath)
+            except Exception as e:
+                logger.error("SET_PLAYING_TRACK CRASHED: %s", e, exc_info=True)
+        if was_playing and full_track:
+            self._mw.track_info_widget.update_track_info(full_track)
+            try:
+                logger.info("Reloading player source for resume at pos=%d", position)
+                self._mw.player.load_source(full_track)
+            except Exception as e:
+                logger.error("Failed to load source after tag edit: %s", e, exc_info=True)
+            QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+
+    def _resume_after_cancel(self, old_filepath, position):
+        """Resume playback after cancel (deferred)."""
+        view_tracks = self._mw.playlist_widget.get_view_tracks()
+        old_track = next((t for t in view_tracks if t.filepath == old_filepath), None)
+        if old_track:
+            self._mw.player.load_source(old_track)
+        QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
 
     def _resume_after_tag_edit(self, position: int):
         if self._mw.player.player.source().isEmpty():
