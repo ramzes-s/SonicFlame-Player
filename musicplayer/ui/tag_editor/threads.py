@@ -65,13 +65,22 @@ class _SaveTagsThread(QThread):
     def run(self):
         current_filepath = self.file_path
         old_path_obj = Path(current_filepath)
+        format_name = old_path_obj.suffix.lower()
+
+        logger.info("=== SAVE START — %s ===", current_filepath)
+        logger.debug("  title=%r, artist=%r, album=%r, year=%r, track=%r, genres=%r, cover=%d bytes, rename=%r",
+                     self.title, self.artist, self.album, self.year, self.track,
+                     self.genres, len(self.cover_data) if self.cover_data else 0,
+                     self.new_filename_stem)
 
         try:
             audio = MutagenFile(current_filepath, easy=False)
             if audio is None:
+                logger.error("MutagenFile returned None for %s", current_filepath)
                 raise ValueError("Не удалось загрузить файл для сохранения.")
 
             if isinstance(audio, MP3):
+                logger.debug("Format: MP3 — writing tags")
                 tags = audio.tags
                 if tags is None:
                     try:
@@ -99,9 +108,12 @@ class _SaveTagsThread(QThread):
                     tags["APIC"] = APIC(encoding=3, mime=mime, type=3, desc="Cover", data=self.cover_data)
 
                 audio.tags = tags
+                logger.debug("MP3: calling audio.save()")
                 audio.save()
+                logger.debug("MP3: save OK")
 
             elif isinstance(audio, FLAC):
+                logger.debug("Format: FLAC — writing tags")
                 audio.delete()
                 if self.title:
                     audio["title"] = self.title
@@ -128,9 +140,12 @@ class _SaveTagsThread(QThread):
                     pic.desc = "Cover"
                     audio.add_picture(pic)
 
+                logger.debug("FLAC: calling audio.save()")
                 audio.save()
+                logger.debug("FLAC: save OK")
 
             elif isinstance(audio, MP4):
+                logger.debug("Format: MP4/M4A — writing tags")
                 if self.title:
                     audio["\xa9nam"] = self.title
                 if self.artist:
@@ -156,9 +171,12 @@ class _SaveTagsThread(QThread):
                     fmt = MP4Cover.FORMAT_JPEG if mime == "image/jpeg" else MP4Cover.FORMAT_PNG
                     audio["covr"] = [MP4Cover(self.cover_data, fmt)]
 
+                logger.debug("MP4: calling audio.save()")
                 audio.save()
+                logger.debug("MP4: save OK")
 
             else:
+                logger.warning("Unsupported format: %s", type(audio).__name__)
                 self.error.emit("Сохранение тегов для этого формата файла не поддерживается.")
                 return
 
@@ -167,14 +185,18 @@ class _SaveTagsThread(QThread):
 
             if self.new_filename_stem:
                 new_filename = self.new_filename_stem + old_path_obj.suffix
+                logger.debug("Rename check: new=%s, old=%s", new_filename, old_path_obj.name)
                 if new_filename.lower() != old_path_obj.name.lower():
                     new_path_str = str(old_path_obj.with_name(new_filename))
                     if os.path.exists(new_path_str) and os.path.normpath(new_path_str) != os.path.normpath(current_filepath):
+                        logger.warning("Rename target exists: %s", new_path_str)
                         self.error.emit(f"Файл «{new_filename}» уже существует!")
                         return
+                    logger.info("Renaming %s -> %s", current_filepath, new_path_str)
                     os.rename(current_filepath, new_path_str)
                     current_filepath = new_path_str
 
+            logger.info("=== SAVE FINISHED — %s ===", current_filepath)
             self.save_finished.emit(current_filepath)
         except Exception as e:
             logger.error("Save thread failed: %s", e, exc_info=True)

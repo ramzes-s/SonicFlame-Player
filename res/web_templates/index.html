@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>SonicFlame Player</title>
+    <link rel="icon" type="image/x-icon" href="/Sonic-Flame.ico">
+    <style>
+{css}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="player-section">
+            <div class="player-main">
+                <div class="cover" id="cover"></div>
+                <div class="track-info">
+                    <div class="track-title" id="title">-</div>
+                    <div class="track-artist" id="artist">-</div>
+                    <div class="track-album" id="album">-</div>
+                </div>
+                <div class="seek-container">
+                    <span class="time-display time-current" id="currentTime">0:00</span>
+                    <input type="range" class="seek-bar" id="seek" min="0" max="100" value="0">
+                    <span class="time-display time-total" id="totalTime">0:00</span>
+                </div>
+                <div class="controls">
+                    <button class="btn" id="folderBtn" title="Выбрать папку">
+                        <svg width="26" height="26" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+                    </button>
+                    <button class="btn" id="prevBtn">
+                        <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+                    </button>
+                    <button class="btn btn-play" id="playBtn">
+                        <svg id="playIcon" width="44" height="44" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </button>
+                    <button class="btn" id="nextBtn">
+                        <svg width="32" height="32" viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                    </button>
+                    <button class="btn" id="heartBtn" title="Избранное">
+                        <svg width="28" height="28" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                    </button>
+                    <div class="folder-dropdown" id="folderDropdown">
+                        <div class="folder-list" id="folderList"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="playlist-section">
+            <div class="playlist" id="playlist"></div>
+        </div>
+    </div>
+    <div class="offline-overlay" id="offlineOverlay">
+        <div class="offline-text">Плеер выключен</div>
+        <button class="btn-refresh" onclick="location.reload()">Обновить страницу</button>
+    </div>
+    <script>
+{js}
+    </script>
+</body>
+</html>
