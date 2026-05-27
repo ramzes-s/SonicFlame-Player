@@ -241,7 +241,7 @@ class SettingsDialog(QDialog):
         self.accent_color_changed.emit(color_hex)
 
     def _browse_folder(self):
-        from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+        from musicplayer.ui.folder_browse.dialog import FolderBrowseDialog
         dlg = FolderBrowseDialog(
             parent=self,
             title="Выберите корневую папку с музыкой",

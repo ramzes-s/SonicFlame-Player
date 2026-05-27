@@ -1,0 +1,224 @@
+import os
+
+from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
+                                QListWidgetItem, QWidget)
+from PySide6.QtCore import Qt, QByteArray, QRectF, Signal
+from PySide6.QtGui import QPixmap, QPainter
+from PySide6.QtSvg import QSvgRenderer
+
+from musicplayer import config as cfg
+from musicplayer.ui.svg_icons import get_all_music_svg
+from musicplayer.core.db.queries import get_all_folders
+from .helpers import (_norm_path, _get_folder_icon, _get_track_count,
+                      _SCROLLBAR_STYLE)
+
+
+class KeyFoldersWidget(QWidget):
+    folder_selected = Signal(str, bool)  # path, is_root
+
+    def __init__(self, norm_root=None, parent=None):
+        super().__init__(parent)
+        self._norm_root = norm_root
+        self._build_ui()
+
+    def _build_ui(self):
+        self.setFixedWidth(264)
+        self.setStyleSheet("background-color: #000000;")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(4)
+
+        header = QLabel("\u041a\u043b\u044e\u0447\u0435\u0432\u044b\u0435 \u043f\u0430\u043f\u043a\u0438")
+        header.setStyleSheet("color: #888888; font-size: 11px; font-weight: bold; padding: 4px 2px;")
+        layout.addWidget(header)
+
+        self._key_list = QListWidget()
+        self._key_list.setStyleSheet("""
+            QListWidget {
+                background-color: #000000; color: #CCCCCC; border: none;
+                font-size: 12px; outline: none;
+            }
+            QListWidget::item {
+                padding: 10px 4px 10px 2px; border-bottom: 1px solid rgba(80,80,80,0.1);
+            }
+            QListWidget::item:hover {
+                background-color: rgba(80,80,80,0.2);
+            }
+        """ + _SCROLLBAR_STYLE)
+        self._key_list.itemClicked.connect(self._on_item_clicked)
+        self._key_list.currentItemChanged.connect(self._on_selection_changed)
+        layout.addWidget(self._key_list, 1)
+
+    def load_key_folders(self):
+        items = get_all_folders()
+        if self._norm_root is not None:
+            root_norm = _norm_path(self._norm_root)
+            items = [(p, c) for p, c in items if _norm_path(os.path.dirname(p)) == root_norm]
+        items.sort(key=lambda x: -x[1])
+        items = items[:10]
+
+        for folder_path, count in items:
+            name = os.path.basename(folder_path) or folder_path
+
+            widget = QWidget()
+            widget.setStyleSheet("background: transparent;")
+            hl = QHBoxLayout(widget)
+            hl.setContentsMargins(2, 2, 4, 2)
+            hl.setSpacing(6)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(_get_folder_icon().pixmap(16, 16))
+            hl.addWidget(icon_lbl)
+
+            name_lbl = QLabel(name)
+            name_lbl.setObjectName("key_name")
+            name_lbl.setStyleSheet("color: #CCCCCC; font-size: 12px;")
+            hl.addWidget(name_lbl, 1)
+
+            cnt_lbl = QLabel(str(count))
+            cnt_lbl.setStyleSheet("color: #666666; font-size: 11px;")
+            hl.addWidget(cnt_lbl)
+
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, folder_path)
+            item.setToolTip(folder_path)
+            self._key_list.addItem(item)
+            self._key_list.setItemWidget(item, widget)
+
+    def prepend_root_to_key_list(self, root_name: str):
+        accent = cfg.get_accent_color()
+        root_path = os.path.normpath(self._norm_root)
+        widget = QWidget()
+        widget.setStyleSheet("background: transparent;")
+        widget.setFixedHeight(28)
+        hl = QHBoxLayout(widget)
+        hl.setContentsMargins(2, 0, 4, 0)
+        hl.setSpacing(2)
+
+        icon_lbl = QLabel()
+        svg = get_all_music_svg(22, accent)
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        pixmap = QPixmap(22, 22)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        renderer.render(painter, QRectF(0, 0, 22, 22))
+        painter.end()
+        icon_lbl.setPixmap(pixmap)
+        icon_lbl.setStyleSheet("margin-bottom: 12px; margin-left: 4px;")
+        hl.addWidget(icon_lbl)
+
+        name_lbl = QLabel(root_name)
+        name_lbl.setObjectName("root_name")
+        name_lbl.setStyleSheet(f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
+        hl.addWidget(name_lbl, 1)
+
+        cnt = _get_track_count(root_path)
+        cnt_lbl = QLabel(str(cnt) if cnt else "")
+        cnt_lbl.setObjectName("root_count")
+        cnt_lbl.setStyleSheet(f"color: #666666; font-size: 11px; margin-bottom: 12px;")
+        hl.addWidget(cnt_lbl)
+
+        item = QListWidgetItem()
+        item.setData(Qt.UserRole, root_path)
+        item.setData(Qt.UserRole + 1, True)
+        item.setToolTip(root_path)
+        self._key_list.insertItem(0, item)
+        self._key_list.setItemWidget(item, widget)
+
+    def clear_selection(self):
+        self._key_list.clearSelection()
+        self._key_list.setCurrentItem(None)
+
+    def apply_accent_color(self, accent: str):
+        self._key_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: #000000; color: #CCCCCC; border: none;
+                font-size: 12px; outline: none;
+            }}
+            QListWidget::item {{
+                padding: 10px 4px 10px 2px; border-bottom: 1px solid rgba(80,80,80,0.1);
+            }}
+            QListWidget::item:hover {{
+                background-color: rgba(80,80,80,0.2);
+            }}
+            QListWidget::item:selected {{
+                background-color: {accent}; color: #000000;
+            }}
+        {_SCROLLBAR_STYLE}""")
+        self._update_root_item_accent(accent)
+
+    def _update_root_item_accent(self, accent: str):
+        for i in range(self._key_list.count()):
+            item = self._key_list.item(i)
+            if item and item.data(Qt.UserRole + 1):
+                is_selected = self._key_list.currentItem() is item
+                widget = self._key_list.itemWidget(item)
+                if widget is None:
+                    return
+                icon_color = "#000000" if is_selected else accent
+                icon_lbl = widget.findChild(QLabel)
+                if icon_lbl:
+                    svg = get_all_music_svg(22, icon_color)
+                    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+                    pixmap = QPixmap(22, 22)
+                    pixmap.fill(Qt.transparent)
+                    painter = QPainter(pixmap)
+                    renderer.render(painter, QRectF(0, 0, 22, 22))
+                    painter.end()
+                    icon_lbl.setPixmap(pixmap)
+                root_lbl = widget.findChild(QLabel, "root_name")
+                if root_lbl:
+                    root_color = "#000000" if is_selected else accent
+                    root_lbl.setStyleSheet(f"color: {root_color}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
+                cnt_lbl = widget.findChild(QLabel, "root_count")
+                if cnt_lbl:
+                    cnt_color = "#000000" if is_selected else "#666666"
+                    cnt_lbl.setStyleSheet(f"color: {cnt_color}; font-size: 11px; margin-bottom: 12px;")
+                return
+
+    def _on_item_clicked(self, item):
+        path = item.data(Qt.UserRole)
+        if not path or not os.path.isdir(path):
+            return
+        is_root = bool(item.data(Qt.UserRole + 1))
+        self.folder_selected.emit(path, is_root)
+
+    def _on_selection_changed(self, current, previous):
+        accent = cfg.get_accent_color()
+        for item, is_selected in ((current, True), (previous, False)):
+            if item is None:
+                continue
+            widget = self._key_list.itemWidget(item)
+            if widget is None:
+                continue
+            if item.data(Qt.UserRole + 1):
+                icon_lbl = widget.findChild(QLabel)
+                if icon_lbl:
+                    icon_color = "#000000" if is_selected else accent
+                    svg = get_all_music_svg(22, icon_color)
+                    renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+                    pixmap = QPixmap(22, 22)
+                    pixmap.fill(Qt.transparent)
+                    painter = QPainter(pixmap)
+                    renderer.render(painter, QRectF(0, 0, 22, 22))
+                    painter.end()
+                    icon_lbl.setPixmap(pixmap)
+                root_lbl = widget.findChild(QLabel, "root_name")
+                if root_lbl:
+                    root_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 12px;" if is_selected
+                        else f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;"
+                    )
+                cnt_lbl = widget.findChild(QLabel, "root_count")
+                if cnt_lbl:
+                    cnt_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 11px; margin-bottom: 12px;" if is_selected
+                        else f"color: #666666; font-size: 11px; margin-bottom: 12px;"
+                    )
+            else:
+                name_lbl = widget.findChild(QLabel, "key_name")
+                if name_lbl:
+                    name_lbl.setStyleSheet(
+                        f"color: #000000; font-size: 12px;" if is_selected
+                        else "color: #CCCCCC; font-size: 12px;"
+                    )

@@ -30,7 +30,7 @@ def move_track_to_folder(file_path: str, parent=None) -> str | None:
         StyledMessageBox.critical(parent, "Ошибка", text="Корневая папка музыки не настроена.")
         return None
 
-    from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+    from musicplayer.ui.folder_browse.dialog import FolderBrowseDialog
     dlg = FolderBrowseDialog(
         parent=parent,
         title="Выберите папку для перемещения",

@@ -68,6 +68,6 @@ def apply_accent_to_main_window(window, settings_dialog=None):
         settings_dialog.apply_accent_color(accent)
 
     # FolderBrowseDialog (if open anywhere under main window)
-    from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+    from musicplayer.ui.folder_browse.dialog import FolderBrowseDialog
     for dlg in window.findChildren(FolderBrowseDialog):
         dlg.apply_accent_color()

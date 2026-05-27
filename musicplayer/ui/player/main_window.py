@@ -315,7 +315,7 @@ class MainWindow(QMainWindow):
         self._web_integration.update_state()
 
     def _on_open_folder(self):
-        from musicplayer.ui.widgets.folder_browse_dialog import FolderBrowseDialog
+        from musicplayer.ui.folder_browse.dialog import FolderBrowseDialog
         start_dir = self._current_folder_path or self.settings.last_folder or self.settings.music_folder or ""
         dlg = FolderBrowseDialog(
             parent=self,
