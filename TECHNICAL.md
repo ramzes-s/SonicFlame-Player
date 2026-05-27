@@ -24,6 +24,10 @@ MusicPlayer2\
 ├── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
 ├── res/                                # Ресурсы
 │   ├── covers/                         # Фоновые изображения обложек (1.jpg..14.jpg)
+│   ├── web_templates/                  # Шаблоны веб-интерфейса (вынесены из web_template.py)
+│   │   ├── index.html                  # HTML-скелет
+│   │   ├── style.css                   # Стили
+│   │   └── app.js                      # JavaScript
 │   └── genres/
 │       ├── genre_groups.json           # Группы жанров для фильтрации
 │       └── genre_map.json              # Маппинг жанров (ID3 → группы)
@@ -51,7 +55,7 @@ MusicPlayer2\
 │   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
 │   │   ├── web_server.py               # HTTP сервер (aiohttp)
 │   │   ├── web_api.py                  # API обработчики с валидацией
-│   │   ├── web_template.py             # HTML шаблон веб-интерфейса
+│   │   ├── web_template.py             # Загрузчик шаблонов из res/web_templates/
 │   │   ├── recommendations.py          # Алгоритм подбора похожих треков
 │   │   ├── smtc_manager.py             # SMTC — интеграция с системным оверлеем Windows
 │   │   └── windows_sleep_blocker.py    # Предотвращение спящего режима во время воспроизведения
@@ -113,7 +117,9 @@ MusicPlayer2\
 │   │       ├── __init__.py
 │   │       ├── frameless_dialog.py     # FramelessDialog — базовый frameless-диалог с перетаскиванием
 │   │       ├── folder_browse_dialog.py # FolderBrowseDialog — кастомный выбор папок (tree, quick filter, key folders)
-│   │       └── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
+│   │       ├── styled_message_box.py   # StyledMessageBox — кастомный MessageBox (info/warning/error/question)
+│   │       ├── icon_button.py          # IconButton + ColorHoverButton (вынесено из controls.py)
+│   │       └── sliders.py              # ClickableSlider + SeekSlider + VolumeSlider (вынесено из controls.py)
 │   └── utils/
 │       ├── __init__.py
 │       ├── audio_scanner.py            # QThread сканер папок (sync с БД)
@@ -141,12 +147,12 @@ MusicPlayer2\
 | numpy        | >=1.24   | Численные расчёты (анализ аудио, цвет)        |
 | librosa      | >=0.10.1 | Анализ аудио (BPM, energy, mood)              |
 | qrcode[pil]  | >=7.4.2  | Генерация QR-кодов для веб-управления         |
-| winrt-Windows.Media           | >=3.2.0  | SMTC — Media API                          |
-| winrt-Windows.Media.Playback | >=3.2.0  | SMTC — Playback API                      |
-| winrt-Windows.Storage.Streams | >=3.2.0  | SMTC — Streams API                       |
-| winrt-Windows.Storage        | >=3.2.0  | SMTC — Storage API                       |
-| winrt-Windows.Foundation     | >=3.2.0  | SMTC — Foundation API                    |
-| winrt-Windows.UI.Core        | >=3.2.0  | SMTC — UI Core API                       |
+| winrt-Windows.Media           | >=3.2.0  | SMTC — Media API             |
+| winrt-Windows.Media.Playback | >=3.2.0  | SMTC — Playback API           |
+| winrt-Windows.Storage.Streams | >=3.2.0  | SMTC — Streams API           |
+| winrt-Windows.Storage        | >=3.2.0  | SMTC — Storage API            |
+| winrt-Windows.Foundation     | >=3.2.0  | SMTC — Foundation API         |
+| winrt-Windows.UI.Core        | >=3.2.0  | SMTC — UI Core API            |
 | pyinstaller  | >=6.0    | Сборка в standalone .exe (опционально)        |
 
 ## Архитектура
@@ -381,7 +387,7 @@ MusicPlayer2\
 
 - `web_server.py` — координатор, инициализация, маршруты
 - `web_api.py` — обработчики API эндпоинтов с валидацией
-- `web_template.py` — HTML/CSS/JS веб-интерфейса
+- `web_template.py` — загрузчик HTML/CSS/JS из `res/web_templates/` (вынесены из inline-строк)
 
 **Особенности**:
 - HTTP-сервер на aiohttp (порт настраивается, по умолчанию 8080)
@@ -691,25 +697,26 @@ MusicPlayer2\
 
 #### `ui/controls.py` — ControlsWidget
 
-**Компоненты**:
-- Seek slider + time labels (0:00 / 3:45)
-- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Все песни исполнителя" (левый край), кнопка "Поиск похожих треков"
-- Volume: icon (mute toggle) + slider
-- Heart button (избранное для текущего трека)
+После рефакторинга: `IconButton`/`ColorHoverButton` → `ui/widgets/icon_button.py`, `SeekSlider`/`VolumeSlider` → `ui/widgets/sliders.py` (с общей базой `ClickableSlider`).
 
-**SeekSlider**: кастомный клик/drag для seek, `_is_user_interacting` предотвращает feedback loop
+**Компоненты**:
+- Seek slider + time labels (0:00 / 3:45) — `SliderWidget` (из `ui/widgets/sliders.py`)
+- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Все песни исполнителя" (левый край), кнопка "Поиск похожих треков"
+- Volume: icon (mute toggle) + slider — `VolumeSliderWidget` (из `ui/widgets/sliders.py`)
+- Heart button (избранное для текущего трека) — `IconButton` (из `ui/widgets/icon_button.py`)
+
+**Сборка UI**: `_setup_ui()` разбита на `_build_seek_bar()` + `_build_controls_row()`
 
 #### `ui/sidebar.py` — SideBarWidget
 
 Боковая панель (ширина ~60px):
 - 📁 Открыть папку
-- 🎵 Вся музыка — загружает корневую папку (`music_folder`) из конфига без диалога
 - ♡ Избранное (toggle)
 - ⭐ Топ (toggle)
 - ⚙ Настройки
 - 📚 Библиотека (субпроцесс)
 
-**Сигналы**: `folder_open_requested`, `all_music_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `settings_requested`, `library_requested`
+**Сигналы**: `folder_open_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `settings_requested`, `library_requested`
 
 #### `ui/settings/` — Пакет настроек (рефакторинг)
 
@@ -912,6 +919,18 @@ MusicPlayer2\
 - Авто-закрытие по таймеру (`auto_close`, секунды)
 - Автоматический подсчёт высоты под текст
 
+**`icon_button.py`** — `IconButton(QPushButton)` + `ColorHoverButton(QPushButton)` (вынесено из `controls.py`):
+- `IconButton`: кнопка с SVG-иконкой, динамический акцентный цвет при наведении
+- `ColorHoverButton`: кнопка с рамкой акцентного цвета при наведении
+- Используются в `controls.py` (heart, volume, prev/next) и `sidebar.py`
+- `apply_accent(color)` — обновление цвета через QSS при смене темы
+
+**`sliders.py`** — `ClickableSlider(QSlider)` + `SeekSlider(ClickableSlider)` + `VolumeSlider(ClickableSlider)` (вынесено из `controls.py`):
+- `ClickableSlider`: базовый класс с click-to-seek (переопределён `mousePressEvent`/`mouseMoveEvent`)
+- `SeekSlider`: слайдер прогресса (0–длительность в мс), `_is_user_interacting` предотвращает feedback loop с `QMediaPlayer`
+- `VolumeSlider`: слайдер громкости (0–100), шаг 5
+- Все три используются также в `settings/widgets.py` (`ClickableSlider` как регулятор точности)
+
 ### Utils модули
 
 #### `utils/audio_scanner.py` — AudioScanner
@@ -962,7 +981,7 @@ QThread для сканирования папок. Для максимальн�
 
 | Константа           | Значение        | Файл                   |
 |---------------------|-----------------|------------------------|
-| APP_VERSION         | `0.9.93`        | `musicplayer/config.py`|
+| APP_VERSION         | `0.9.95`        | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`       | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`       | `musicplayer/config.py`|
 | DIVIDER_COLOR       | `rgba(80,80,80,0.5)` | `musicplayer/config.py`|
