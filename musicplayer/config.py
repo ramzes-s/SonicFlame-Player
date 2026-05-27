@@ -10,6 +10,9 @@ from pathlib import Path
 # Application version
 APP_VERSION = "0.9.95"
 
+# Debug logging toggle — set False to disable file logging
+LOG_DEBUG = True
+
 # Global accent color — change here to update the entire app
 ACCENT_COLOR = "#ed6a02"
 
