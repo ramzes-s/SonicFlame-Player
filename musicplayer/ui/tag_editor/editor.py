@@ -368,6 +368,7 @@ class TagEditorDialog(BaseFramelessDialog):
             self.genre_layout.insertWidget(self.genre_layout.count() - 1, btn)
 
     def _load_tags(self):
+        logger.info("Loading tags from: %s", self.file_path)
         self.genre_tags = []
         self.bitrate_lbl.setText("—")
         self.samplerate_lbl.setText("—")
@@ -704,7 +705,9 @@ class TagEditorDialog(BaseFramelessDialog):
 
     def _save_tags(self):
         if self._save_thread and self._save_thread.isRunning():
+            logger.warning("Save already in progress — ignoring")
             return
+        logger.info("Starting save for: %s", self.file_path)
         self.save_btn.setEnabled(False)
         self.cancel_btn.setEnabled(False)
         self.delete_btn.setEnabled(False)
@@ -726,6 +729,7 @@ class TagEditorDialog(BaseFramelessDialog):
         self._save_thread.start()
 
     def _on_save_finished(self, new_filepath):
+        logger.info("Save finished OK — %s", new_filepath)
         self.loading_bar.stop()
         self.save_btn.setEnabled(True)
         self.cancel_btn.setEnabled(True)
