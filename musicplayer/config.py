@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "0.9.95"
+APP_VERSION = "1.0.0"
 
 # Debug logging toggle — set False to disable file logging
 LOG_DEBUG = True
