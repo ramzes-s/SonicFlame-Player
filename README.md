@@ -100,6 +100,7 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Dark theme with dynamic accent color
 - Playlists: folders, Top, Favorites, Full Library (5000+ tracks)
 - Connection via QR code scan or manual IP:PORT
+- Download on Website: [sonicflame.pro](https:///sonicflame.pro) 
 
 ## Installation
 
@@ -241,6 +242,7 @@ GNU General Public License v3.0 (GPL v3)
 - Тёмная тема с динамическим акцентным цветом
 - Плейлисты: папки, Топ, Избранное, Вся библиотека (5000+)
 - Подключение по QR-коду или вручную (IP:PORT)
+- Скачайте на сайте: [sonicflame.pro](https:///sonicflame.pro) 
 
 ## Установка
 
