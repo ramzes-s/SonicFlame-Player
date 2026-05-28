@@ -83,6 +83,8 @@ class MainWindow(QMainWindow):
         self.ipc_server.play_track_requested.connect(self.__playback.play_from_library)
         self.ipc_server.artist_play_requested.connect(self.__playlist.load_artist)
         self.ipc_server.library_closed.connect(self._on_ipc_library_closed)
+        self.ipc_server.activate_requested.connect(self._on_activate_requested)
+        self.ipc_server.start()
 
         self._web_integration = WebIntegration(self)
         self.analysis_manager = AnalysisManager(self)
@@ -436,6 +438,14 @@ class MainWindow(QMainWindow):
     def _on_ipc_library_closed(self):
         if hasattr(self, '_library_process') and self._library_process:
             self._library_process.poll()
+
+    def _on_activate_requested(self):
+        if self.isHidden():
+            self._restore_from_tray()
+        else:
+            self.showNormal()
+            self.raise_()
+            self.activateWindow()
 
     def _on_similar_tracks_requested(self):
         self._playlist.load_similar_tracks()

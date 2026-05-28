@@ -134,6 +134,40 @@ def _ensure_icon():
                 import shutil
                 shutil.copy2(str(src), str(dest))
 
+def _try_activate_existing_instance():
+    """
+    Single-instance lock via QSharedMemory.
+    Returns True if another instance is running (and sends it an activate command).
+    Keeps the shared memory reference alive via function attribute to prevent GC.
+    """
+    from PySide6.QtCore import QSharedMemory
+    from PySide6.QtNetwork import QLocalSocket
+
+    _lock = QSharedMemory("SonicFlamePlayer_SingleInstance")
+    if _lock.attach():
+        # Another instance exists — send activate command via the IPC server
+        print("[SingleInstance] Existing instance detected, activating...")
+        socket = QLocalSocket()
+        socket.connectToServer("SonicFlamePlayerIPC_v2")
+        if socket.waitForConnected(2000):
+            payload = json.dumps({"type": "activate"}).encode("utf-8") + b'\n'
+            socket.write(payload)
+            socket.flush()
+            socket.waitForBytesWritten(1000)
+            socket.disconnectFromServer()
+            print("[SingleInstance] Activate command sent.")
+        else:
+            print(f"[SingleInstance] Could not connect to IPC server: "
+                  f"{socket.errorString()}", file=sys.stderr)
+        return True
+
+    _lock.create(1)
+    # Keep reference alive for the entire process lifetime
+    _try_activate_existing_instance._lock = _lock
+    print("[SingleInstance] First instance lock acquired.")
+    return False
+
+
 def main():
     """Application entry point."""
     log_file = _setup_logging()
@@ -161,7 +195,12 @@ def main():
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
     app = QApplication(sys.argv)
-    
+
+    # Single-instance check (skip for library subprocess)
+    if not is_library_mode and _try_activate_existing_instance():
+        logging.getLogger(__name__).info("Existing instance detected, activating and exiting.")
+        os._exit(0)
+
     if is_library_mode:
         # === LIBRARY MODE ===
         _run_library_mode(app)

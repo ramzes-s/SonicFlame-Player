@@ -32,6 +32,7 @@ class IPCServer(QObject):
     play_track_requested = Signal(str)
     artist_play_requested = Signal(str)
     library_closed = Signal()
+    activate_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -114,6 +115,8 @@ class IPCServer(QObject):
                 self.artist_play_requested.emit(payload["artist"])
         elif cmd_type == "close":
             self.library_closed.emit()
+        elif cmd_type == "activate":
+            self.activate_requested.emit()
 
     def _send_command(self, command: dict):
         """Sends a JSON command to the connected client."""
