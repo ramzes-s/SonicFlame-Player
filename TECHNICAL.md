@@ -986,23 +986,23 @@ QThread для сканирования папок. Для максимальн�
 
 ## Глобальные константы
 
-| Константа           | Значение        | Файл                   |
-|---------------------|-----------------|------------------------|
-| APP_VERSION         | `0.9.95`        | `musicplayer/config.py`|
-| ACCENT_COLOR        | `#ed6a02`       | `musicplayer/config.py`|
-| TEXT_COLOR          | `#FFFFFF`       | `musicplayer/config.py`|
-| DIVIDER_COLOR       | `rgba(80,80,80,0.5)` | `musicplayer/config.py`|
-| PROJECT_DIR         | корень проекта  | `musicplayer/config.py`|
-| CACHE_DIR           | `.cache/`       | `musicplayer/config.py`|
-| DB_PATH             | `.cache/musicplayer.db` | `musicplayer/config.py`|
-| COVERS_DIR          | `.cache/covers/`| `musicplayer/config.py`|
-| ARTIST_COLLAGES_DIR | `.cache/artist_collages/` | `musicplayer/config.py`|
-| SETTINGS_FILE       | `.cache/settings.json` | `musicplayer/config.py`|
+| Константа           | Значение                         | Файл                   |
+|---------------------|----------------------------------|------------------------|
+| APP_VERSION         | `1.0.0`                          | `musicplayer/config.py`|
+| ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
+| TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
+| DIVIDER_COLOR       | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
+| PROJECT_DIR         | корень проекта                   | `musicplayer/config.py`|
+| CACHE_DIR           | `.cache/`                        | `musicplayer/config.py`|
+| DB_PATH             | `.cache/musicplayer.db`          | `musicplayer/config.py`|
+| COVERS_DIR          | `.cache/covers/`                 | `musicplayer/config.py`|
+| ARTIST_COLLAGES_DIR | `.cache/artist_collages/`        | `musicplayer/config.py`|
+| SETTINGS_FILE       | `.cache/settings.json`           | `musicplayer/config.py`|
 | COL_WIDTHS_FILE     | `.cache/library_col_widths.json` | `musicplayer/config.py`|
-| MIN_TEMPO / MAX_TEMPO | 40 / 200     | `musicplayer/config.py`|
-| MIN_ENERGY / MAX_ENERGY | 0.01 / 1.0 | `musicplayer/config.py`|
-| MIN_MOOD / MAX_MOOD | 0.01 / 1.0      | `musicplayer/config.py`|
-| Мин. размер окна    | 1100×600        | `ui/main_window.py`    |
+| MIN_TEMPO / MAX_TEMPO | 40 / 200                         | `musicplayer/config.py`|
+| MIN_ENERGY / MAX_ENERGY | 0.01 / 1.0                       | `musicplayer/config.py`|
+| MIN_MOOD / MAX_MOOD | 0.01 / 1.0                       | `musicplayer/config.py`|
+| Мин. размер окна    | 1100×600                         | `ui/main_window.py`    |
 
 Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.
 
