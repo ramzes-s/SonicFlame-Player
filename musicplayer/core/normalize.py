@@ -140,6 +140,9 @@ def normalize_track(track) -> "TrackInfo":
         tempo=getattr(track, 'tempo', 0.0),
         energy=getattr(track, 'energy', 0.0),
         mood=getattr(track, 'mood', 0.0),
+        zero_crossing_rate=getattr(track, 'zero_crossing_rate', 0.0),
+        spectral_flux=getattr(track, 'spectral_flux', 0.0),
+        hpss_ratio=getattr(track, 'hpss_ratio', 0.0),
     )
 
 

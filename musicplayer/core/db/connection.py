@@ -104,7 +104,11 @@ def init_db():
                     bitrate INTEGER DEFAULT 0,
                     tempo REAL DEFAULT 0,
                     energy REAL DEFAULT 0,
-                    mood REAL DEFAULT 0
+                    mood REAL DEFAULT 0,
+                    zero_crossing_rate REAL DEFAULT 0,
+                    spectral_flux REAL DEFAULT 0,
+                    hpss_ratio REAL DEFAULT 0,
+                    language TEXT DEFAULT ''
                 )
             """)
             conn.execute("""
@@ -156,6 +160,12 @@ def init_db():
                     track_count INTEGER DEFAULT 0
                 )
             """)
+
+        # Migrate language column if missing
+        cursor = conn.execute("PRAGMA table_info(library)")
+        cols = {row[1] for row in cursor.fetchall()}
+        if 'language' not in cols:
+            conn.execute("ALTER TABLE library ADD COLUMN language TEXT DEFAULT ''")
 
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_library_mtime ON library(mtime)

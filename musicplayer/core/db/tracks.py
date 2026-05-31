@@ -5,6 +5,7 @@ Handles track CRUD operations, metadata extraction, and row conversion.
 """
 
 import os
+import re
 import sqlite3
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -26,7 +27,11 @@ class TrackInfo:
                  genre: str = "", is_lossless: bool = False,
                  play_count: int = 0, bitrate: int = 0,
                  tempo: float = 0.0, energy: float = 0.0, mood: float = 0.0,
-                 mtime: float = 0.0):
+                 zero_crossing_rate: float = 0.0,
+                 spectral_flux: float = 0.0,
+                 hpss_ratio: float = 0.0,
+                 mtime: float = 0.0,
+                 language: str = ""):
         self.filepath = filepath
         self.title = title or Path(filepath).stem
         self.artist = artist or "Unknown Artist"
@@ -41,7 +46,11 @@ class TrackInfo:
         self.tempo = tempo
         self.energy = energy
         self.mood = mood
+        self.zero_crossing_rate = zero_crossing_rate
+        self.spectral_flux = spectral_flux
+        self.hpss_ratio = hpss_ratio
         self.mtime = mtime
+        self.language = language
 
     def to_dict(self) -> dict:
         """Serialize to dict (excluding cover data for JSON storage)."""
@@ -53,12 +62,16 @@ class TrackInfo:
             "duration": self.duration,
             "has_cover": self.has_cover,
             "genre": self.genre,
+            "language": self.language,
             "is_lossless": self.is_lossless,
             "play_count": self.play_count,
             "bitrate": self.bitrate,
             "tempo": self.tempo,
             "energy": self.energy,
             "mood": self.mood,
+            "zero_crossing_rate": self.zero_crossing_rate,
+            "spectral_flux": self.spectral_flux,
+            "hpss_ratio": self.hpss_ratio,
         }
 
     @classmethod
@@ -78,6 +91,9 @@ class TrackInfo:
             tempo=data.get("tempo", 0.0),
             energy=data.get("energy", 0.0),
             mood=data.get("mood", 0.0),
+            zero_crossing_rate=data.get("zero_crossing_rate", 0.0),
+            spectral_flux=data.get("spectral_flux", 0.0),
+            hpss_ratio=data.get("hpss_ratio", 0.0),
         )
 
     def __repr__(self):
@@ -111,7 +127,15 @@ def _row_to_track(row: tuple) -> TrackInfo:
     if len(row) > 12:
         track.mood = row[12]
     if len(row) > 13:
-        track.mtime = row[13]
+        track.hpss_ratio = row[13]
+    if len(row) > 14:
+        track.zero_crossing_rate = row[14]
+    if len(row) > 15:
+        track.spectral_flux = row[15]
+    if len(row) > 16:
+        track.mtime = row[16]
+    if len(row) > 17:
+        track.language = row[17]
     return track
 
 
@@ -148,7 +172,15 @@ def _row_to_track_with_cover(row: tuple) -> TrackInfo:
     if len(row) > 12:
         track.mood = row[12]
     if len(row) > 13:
-        track.mtime = row[13]
+        track.hpss_ratio = row[13]
+    if len(row) > 14:
+        track.zero_crossing_rate = row[14]
+    if len(row) > 15:
+        track.spectral_flux = row[15]
+    if len(row) > 16:
+        track.mtime = row[16]
+    if len(row) > 17:
+        track.language = row[17]
     return track
 
 
@@ -174,7 +206,11 @@ def get_track(filepath: str) -> Optional[TrackInfo]:
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
                    COALESCE(mood, 0.0) as mood,
-                   mtime
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   mtime,
+                   COALESCE(language, '') as language
             FROM library WHERE filepath = ?
         """, (filepath,))
         row = cursor.fetchone()
@@ -202,15 +238,18 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
     current_tempo = 0.0
     current_energy = 0.0
     current_mood = 0.0
+    current_zero_crossing_rate = 0.0
+    current_spectral_flux = 0.0
+    current_hpss_ratio = 0.0
 
     with get_connection() as conn:
         cursor = conn.execute(
-            "SELECT play_count, tempo, energy, mood FROM library WHERE filepath = ?",
+            "SELECT play_count, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio FROM library WHERE filepath = ?",
             (track.filepath,)
         )
         row = cursor.fetchone()
         if row:
-            current_count, current_tempo, current_energy, current_mood = row
+            current_count, current_tempo, current_energy, current_mood, current_zero_crossing_rate, current_spectral_flux, current_hpss_ratio = row
 
     final_tempo = getattr(track, 'tempo', 0.0)
     if final_tempo == 0.0 and current_tempo != 0.0:
@@ -224,6 +263,18 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
     if final_mood == 0.0 and current_mood != 0.0:
         final_mood = current_mood
 
+    final_zero_crossing_rate = getattr(track, 'zero_crossing_rate', 0.0)
+    if final_zero_crossing_rate == 0.0 and current_zero_crossing_rate != 0.0:
+        final_zero_crossing_rate = current_zero_crossing_rate
+
+    final_spectral_flux = getattr(track, 'spectral_flux', 0.0)
+    if final_spectral_flux == 0.0 and current_spectral_flux != 0.0:
+        final_spectral_flux = current_spectral_flux
+
+    final_hpss_ratio = getattr(track, 'hpss_ratio', 0.0)
+    if final_hpss_ratio == 0.0 and current_hpss_ratio != 0.0:
+        final_hpss_ratio = current_hpss_ratio
+
     final_play_count = getattr(track, 'play_count', 0)
     if preserve_play_count:
         final_play_count = current_count
@@ -233,8 +284,10 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
             INSERT OR REPLACE INTO library
                 (filepath, mtime, title, artist, album, duration,
                  has_cover, genre, is_lossless, play_count, bitrate,
-                 tempo, energy, mood)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 tempo, energy, mood,
+                 zero_crossing_rate, spectral_flux, hpss_ratio,
+                 language)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             normalized.filepath,
             mtime,
@@ -250,22 +303,32 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
             final_tempo,
             final_energy,
             final_mood,
+            final_zero_crossing_rate,
+            final_spectral_flux,
+            final_hpss_ratio,
+            getattr(track, 'language', ''),
         ))
 
     if track.has_cover and track.cover_data:
         _save_cover(track.filepath, track.cover_data)
 
 
-def update_track_analysis(filepath: str, tempo: float, energy: float, mood: float):
+def update_track_analysis(filepath: str, tempo: float, energy: float, mood: float,
+                          zero_crossing_rate: float = 0.0,
+                          spectral_flux: float = 0.0,
+                          hpss_ratio: float = 0.0):
     """Update only the analysis fields for a track."""
     with get_connection() as conn:
         conn.execute("""
             UPDATE library SET
                 tempo = ?,
                 energy = ?,
-                mood = ?
+                mood = ?,
+                zero_crossing_rate = ?,
+                spectral_flux = ?,
+                hpss_ratio = ?
             WHERE filepath = ?
-        """, (tempo, energy, mood, filepath))
+        """, (tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio, filepath))
 
 
 def increment_play_count(filepath: str) -> int:
@@ -310,7 +373,11 @@ def get_all_library_tracks_light() -> List[TrackInfo]:
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
                    COALESCE(mood, 0.0) as mood,
-                   mtime
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   mtime,
+                   COALESCE(language, '') as language
             FROM library
         """)
         rows = cursor.fetchall()
@@ -422,6 +489,11 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
         album = normalized.get('album', album)
         genre = normalized.get('genre', genre)
 
+        # Detect language: prefer metadata tag, fall back to unicode range
+        language = _get_language_tag(tags) if hasattr(audio, 'tags') and audio.tags is not None else ''
+        if not language:
+            language = _detect_language(title + ' ' + artist)
+
         return TrackInfo(
             filepath=filepath,
             title=title,
@@ -431,6 +503,7 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
             has_cover=cover_data is not None,
             cover_data=cover_data,
             genre=genre,
+            language=language,
             is_lossless=is_lossless,
             bitrate=bitrate,
             mtime=file_mtime,
@@ -454,6 +527,95 @@ def _is_lossless_format(filepath: str, audio) -> bool:
     return False
 
 
+# Unicode range patterns for language detection
+_UNICODE_CYRILLIC = re.compile(r'[\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F]')
+_UNICODE_CJK = re.compile(r'[\u4E00-\u9FFF\u3400-\u4DBF]')
+_UNICODE_JAPANESE = re.compile(r'[\u3040-\u309F\u30A0-\u30FF]')
+_UNICODE_KOREAN = re.compile(r'[\uAC00-\uD7AF\u1100-\u11FF]')
+_UNICODE_ARABIC = re.compile(r'[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]')
+_UNICODE_HEBREW = re.compile(r'[\u0590-\u05FF]')
+_UNICODE_GREEK = re.compile(r'[\u0370-\u03FF\u1F00-\u1FFF]')
+_UNICODE_THAI = re.compile(r'[\u0E00-\u0E7F]')
+_UNICODE_DEVANAGARI = re.compile(r'[\u0900-\u097F]')
+
+
+def _detect_language(text: str) -> str:
+    """Detect language from text using unicode ranges. Returns ISO 639-1 code."""
+    if not text:
+        return ''
+    # Count non-ASCII script chars
+    cyrillic = len(_UNICODE_CYRILLIC.findall(text))
+    cjk = len(_UNICODE_CJK.findall(text))
+    japanese = len(_UNICODE_JAPANESE.findall(text))
+    korean = len(_UNICODE_KOREAN.findall(text))
+    arabic = len(_UNICODE_ARABIC.findall(text))
+    hebrew = len(_UNICODE_HEBREW.findall(text))
+    greek = len(_UNICODE_GREEK.findall(text))
+    thai = len(_UNICODE_THAI.findall(text))
+    devanagari = len(_UNICODE_DEVANAGARI.findall(text))
+    total = cyrillic + cjk + japanese + korean + arabic + hebrew + greek + thai + devanagari
+    if total == 0:
+        return 'en'
+    lang_scores = {
+        'ja': japanese + (cjk if japanese > 0 else 0),
+        'ko': korean,
+        'zh': cjk,
+        'ru': cyrillic,
+        'ar': arabic,
+        'he': hebrew,
+        'el': greek,
+        'th': thai,
+        'hi': devanagari,
+    }
+    return max(lang_scores, key=lang_scores.get)
+
+
+# ISO 639-2 (3-letter) → ISO 639-1 (2-letter) mapping for common languages
+_ISO639_2_TO_1 = {
+    'ara': 'ar', 'bul': 'bg', 'cat': 'ca', 'ces': 'cs', 'cze': 'cs',
+    'chi': 'zh', 'zho': 'zh', 'hrv': 'hr', 'dan': 'da', 'dut': 'nl',
+    'nld': 'nl', 'eng': 'en', 'est': 'et', 'fin': 'fi', 'fre': 'fr',
+    'fra': 'fr', 'deu': 'de', 'ger': 'de', 'ell': 'el', 'gre': 'el',
+    'heb': 'he', 'hin': 'hi', 'hun': 'hu', 'isl': 'is', 'ind': 'id',
+    'ita': 'it', 'jpn': 'ja', 'kor': 'ko', 'lav': 'lv', 'lit': 'lt',
+    'msa': 'ms', 'may': 'ms', 'nor': 'no', 'pol': 'pl', 'por': 'pt',
+    'ron': 'ro', 'rum': 'ro', 'rus': 'ru', 'srp': 'sr', 'slo': 'sk',
+    'slk': 'sk', 'slv': 'sl', 'spa': 'es', 'swe': 'sv', 'tha': 'th',
+    'tur': 'tr', 'ukr': 'uk', 'vie': 'vi',
+}
+
+
+def _get_language_tag(tags) -> str:
+    """Extract language from audio file metadata tags.
+    Returns ISO 639-1 2-letter code, or empty string if not found."""
+    try:
+        # ID3 tags (MP3) — TLAN frame
+        if hasattr(tags, 'getall'):
+            val = tags.getall('TLAN')
+            if val:
+                lang = str(val[0]).strip()
+                if len(lang) == 3:
+                    return _ISO639_2_TO_1.get(lang.lower(), lang.lower())
+                return lang.lower()[:2]
+
+        # Vorbis comments (FLAC, OGG)
+        if hasattr(tags, '__getitem__'):
+            try:
+                val = tags['language']
+                if val:
+                    lang = str(val[0]).strip() if isinstance(val, list) else str(val).strip()
+                    if len(lang) == 3:
+                        return _ISO639_2_TO_1.get(lang.lower(), lang.lower())
+                    return lang.lower()[:2]
+            except (KeyError, IndexError):
+                pass
+
+        # MP4/M4A — no standard language tag for content; fall through
+    except Exception:
+        pass
+    return ''
+
+
 def _get_tag(tags, key: str, filepath: str) -> str:
     """Extract a tag value, handling different formats."""
     try:
@@ -468,7 +630,7 @@ def _get_tag(tags, key: str, filepath: str) -> str:
             for tag_key in tag_map.get(key, []):
                 val = tags.getall(tag_key)
                 if val:
-                    return str(val[0])
+                    return _join_tag_values(val, key)
 
         # Vorbis comments (FLAC, OGG)
         if hasattr(tags, '__getitem__'):
@@ -481,7 +643,7 @@ def _get_tag(tags, key: str, filepath: str) -> str:
             try:
                 val = tags[tag_map.get(key, key)]
                 if val:
-                    return str(val[0]) if isinstance(val, list) else str(val)
+                    return _join_tag_values(val, key)
             except (KeyError, IndexError):
                 pass
 
@@ -496,7 +658,7 @@ def _get_tag(tags, key: str, filepath: str) -> str:
             try:
                 val = tags[tag_map.get(key, key)]
                 if val:
-                    return str(val[0]) if isinstance(val, list) else str(val)
+                    return _join_tag_values(val, key)
             except (KeyError, IndexError):
                 pass
 
@@ -507,6 +669,16 @@ def _get_tag(tags, key: str, filepath: str) -> str:
     if key != 'title':
         return ""
     return Path(filepath).stem
+
+
+def _join_tag_values(val, key: str) -> str:
+    """Join multiple tag values; for genre join with '/', otherwise take first."""
+    parts = [str(v) for v in (val if isinstance(val, list) else [val]) if v]
+    if not parts:
+        return ''
+    if key == 'genre':
+        return '/'.join(parts)
+    return parts[0]
 
 
 def _extract_cover(audio, tags) -> Optional[bytes]:
@@ -554,7 +726,12 @@ def get_tracks_by_artist(artist_name: str) -> List[TrackInfo]:
                    COALESCE(bitrate, 0) as bitrate,
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
-                   COALESCE(mood, 0.0) as mood
+                   COALESCE(mood, 0.0) as mood,
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   mtime,
+                   COALESCE(language, '') as language
             FROM library
             WHERE
                 artist = ? COLLATE NOCASE
@@ -597,7 +774,11 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
                    COALESCE(mood, 0.0) as mood,
-                   mtime
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   mtime,
+                   COALESCE(language, '') as language
             FROM library
             WHERE filepath LIKE ?
             ORDER BY filepath
