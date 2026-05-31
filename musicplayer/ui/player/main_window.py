@@ -9,6 +9,7 @@ from pathlib import Path
 from PySide6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                                 QGraphicsDropShadowEffect)
 from PySide6.QtCore import Qt, QPoint, QTimer
+from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon
 
 from musicplayer.core.player import AudioPlayer
@@ -64,6 +65,9 @@ class MainWindow(QMainWindow):
         self.player = AudioPlayer()
         self.playlist = Playlist()
         self.settings = AppSettings()
+        self._idle_timer = QTimer(self)
+        self._idle_timer.setSingleShot(True)
+        self._idle_timer.timeout.connect(self._on_idle_timeout)
         from musicplayer.core.db.connection import init_db
         init_db()
         self.scanner = None
@@ -227,6 +231,8 @@ class MainWindow(QMainWindow):
         self._tray.hide()
         if self.scanner and self.scanner.isRunning():
             self.scanner.cancel()
+        if self.analysis_manager:
+            self.analysis_manager.cancel_analysis()
         self.player.stop()
         self.player.close_smtc()
         self.ipc_server.stop()
@@ -384,6 +390,17 @@ class MainWindow(QMainWindow):
             self._mini_widget.set_play_state(is_playing)
         self._web_integration.update_state()
 
+        # Idle shutdown timer
+        mins = self.settings.idle_shutdown_minutes
+        if mins > 0:
+            if is_playing:
+                self._idle_timer.stop()
+            elif not self._idle_timer.isActive():
+                self._idle_timer.start(mins * 60 * 1000)
+
+    def _on_idle_timeout(self):
+        self.close()
+
     def _on_player_error(self, error_msg: str):
         StyledMessageBox.critical(self, "Player Error", text=error_msg)
 
@@ -409,6 +426,7 @@ class MainWindow(QMainWindow):
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)
         dialog.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         dialog.audio_device_changed.connect(self.player.set_audio_device)
+        dialog.db_reset_requested.connect(self._on_db_reset_requested)
         dialog.exec()
         self._settings_dialog = None
         apply_accent_to_main_window(self)
@@ -416,6 +434,36 @@ class MainWindow(QMainWindow):
     def _on_prevent_sleep_toggled(self, enabled: bool):
         if self.player:
             self.player.set_prevent_sleep(enabled)
+
+    def _on_db_reset_requested(self):
+        from musicplayer.core.db.connection import DB_PATH, COVERS_DIR, init_db
+        import shutil
+
+        # Stop playback
+        self.player.stop()
+        self._current_playing_filepath = None
+
+        # Delete DB file + WAL/SHM
+        for suffix in ('', '-wal', '-shm'):
+            p = Path(str(DB_PATH) + suffix)
+            if p.exists():
+                p.unlink()
+
+        # Clear covers cache
+        if COVERS_DIR.exists():
+            shutil.rmtree(COVERS_DIR)
+
+        # Recreate empty DB
+        init_db()
+
+        # Clear UI
+        self.playlist.clear()
+        self.playlist_widget.clear()
+        self.track_info_widget.clear()
+
+        # Rescan if music folder is set
+        if self.settings.music_folder and os.path.isdir(self.settings.music_folder):
+            self._scan_folder(self.settings.music_folder)
 
     def _on_library_requested(self):
         if not self.ipc_server.is_client_connected():
