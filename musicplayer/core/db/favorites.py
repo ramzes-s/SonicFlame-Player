@@ -63,7 +63,10 @@ def get_favorite_tracks() -> List[TrackInfo]:
                    COALESCE(l.bitrate, 0) as bitrate,
                    COALESCE(l.tempo, 0.0) as tempo,
                    COALESCE(l.energy, 0.0) as energy,
-                   COALESCE(l.mood, 0.0) as mood
+                   COALESCE(l.mood, 0.0) as mood,
+                   COALESCE(l.hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(l.zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(l.spectral_flux, 0.0) as spectral_flux
             FROM favorites f
             INNER JOIN library l ON l.filepath = f.filepath
             ORDER BY l.filepath
@@ -98,6 +101,12 @@ def get_favorite_tracks() -> List[TrackInfo]:
                 track.energy = row[11]
             if len(row) > 12:
                 track.mood = row[12]
+            if len(row) > 13:
+                track.hpss_ratio = row[13]
+            if len(row) > 14:
+                track.zero_crossing_rate = row[14]
+            if len(row) > 15:
+                track.spectral_flux = row[15]
             if len(row) > 8:
                 track.mtime = row[8]
 

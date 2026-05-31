@@ -19,13 +19,14 @@ class AnalysisWorker(QThread):
     Worker thread for analyzing audio files in the background.
     Extracts tempo, energy, and mood using librosa.
     """
-    track_analyzed = Signal(str, float, float, float) # filepath, tempo, energy, mood
+    track_analyzed = Signal(str, float, float, float, float, float, float) # filepath, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio
     analysis_finished = Signal()
     analysis_error = Signal(str)
 
-    def __init__(self, filepaths: List[str], parent: Optional[QObject] = None):
+    def __init__(self, filepaths: List[str], duration: int = 30, parent: Optional[QObject] = None):
         super().__init__(parent)
         self._filepaths = filepaths
+        self._duration = duration
         self._is_cancelled = False
 
     def run(self):
@@ -36,57 +37,65 @@ class AnalysisWorker(QThread):
                     break
 
                 start_time = time.time()
-                tempo, energy, mood = self._analyze_single_track(filepath)
+                tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio = self._analyze_single_track(filepath)
                 elapsed = time.time() - start_time
 
                 # Skip if analysis took too long (> 10 seconds)
                 if elapsed > 10:
                     print(f"Skipping slow file: {filepath} ({elapsed:.1f}s)")
-                    tempo, energy, mood = 0.0, 0.0, 0.0
+                    tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio = 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
-                self.track_analyzed.emit(filepath, tempo, energy, mood)
+                self.track_analyzed.emit(filepath, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio)
             self.analysis_finished.emit()
         except Exception as e:
             self.analysis_error.emit(f"Error during analysis: {e}")
 
-    def _analyze_single_track(self, filepath: str) -> tuple[float, float, float]:
+    def _analyze_single_track(self, filepath: str) -> tuple[float, float, float, float, float, float]:
         """
-        Analyzes a single audio file for tempo, energy, and mood.
-        Returns (tempo, energy, mood).
+        Analyzes a single audio file for tempo, energy, mood, and hpss_ratio.
+        Returns (tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio).
         """
         try:
-            # Skip files larger than 100MB to avoid memory/timeout issues
+            # Skip files larger than 500MB to avoid memory/timeout issues
             file_size = os.path.getsize(filepath)
             if file_size > 500 * 1024 * 1024:
                 print(f"Skipping large file: {filepath} ({file_size // (1024*1024)}MB)")
-                return 0.0, 0.0, 0.0
+                return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
             # Load audio file - librosa expects mono audio by default
-            y, sr = librosa.load(filepath, sr=None, mono=True, duration=30) # Limit duration for faster analysis
+            y, sr = librosa.load(filepath, sr=None, mono=True, duration=self._duration)
 
             # 1. Tempo (BPM)
             tempo = tempo_rhythm(y=y, sr=sr)[0]
 
-            # 2. Energy (RMS Energy) - Perceptual measure of intensity and activity
-            # Higher RMS usually means more energetic.
-            rms = librosa.feature.rms(y=y)
-            energy = np.mean(rms) # Mean RMS over the track
+            # 2. Energy (Onset strength) — rhythmic density
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
+            energy = float(np.mean(onset_env))
+            energy = np.clip(energy / 3.0, 0, 1)
 
-            # 3. Mood (Valence proxy) - Using spectral centroid, normalized
-            # Higher spectral centroid can correlate with brighter, happier sounds.
+            # 3. Mood — spectral centroid (brightness), normalized
             cent = librosa.feature.spectral_centroid(y=y, sr=sr)
-            mood = np.mean(cent) # Mean spectral centroid
+            mood = float(np.mean(cent))
+            mood = np.clip(mood / (sr / 2) * 2.5, 0, 1)
 
-            # Normalize energy and mood to a 0-1 range (approximate for now)
-            # These normalizations might need calibration based on actual data
-            energy = np.clip(energy * 10, 0, 1) # Scale RMS up and clip
-            mood = np.clip(mood / (sr / 2) * 2, 0, 1) # Scale centroid and clip, max centroid is sr/2
+            # 4. Zero crossing rate — noise / distortion
+            zcr = librosa.feature.zero_crossing_rate(y=y)
+            zero_crossing_rate = float(np.mean(zcr)) * 2.5
 
-            return float(tempo), float(energy), float(mood)
+            # 5. Spectral flux + harmonic ratio — reuse STFT magnitude once
+            spec = np.abs(librosa.stft(y=y))
+            flux = np.sqrt(np.sum(np.diff(spec, axis=1)**2, axis=0))
+            spectral_flux = float(np.mean(flux))
+
+            # Harmonic ratio from spectral flatness (fast, no extra decomposition)
+            flatness = librosa.feature.spectral_flatness(S=spec)
+            hpss_ratio = 1.0 - float(np.mean(flatness))
+
+            return float(tempo), float(energy), float(mood), zero_crossing_rate, spectral_flux, hpss_ratio
         except Exception as e:
             # Log error for this specific file, return default values
             print(f"Error analyzing {filepath}: {e}", file=sys.stderr)
-            return 0.0, 0.0, 0.0
+            return 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
 
     def cancel(self):
         """Cancel the analysis operation."""
@@ -131,19 +140,24 @@ class AnalysisManager(QObject):
                 self._worker.wait(500)   # Wait max 500ms
             self._worker = None
 
-        self._worker = AnalysisWorker(filepaths_to_analyze, self)
+        from musicplayer.core.settings import get_analysis_duration
+        duration = get_analysis_duration()
+        self._worker = AnalysisWorker(filepaths_to_analyze, duration, self)
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
         self._worker.start()
         self.analysis_started.emit()
 
-    def _on_track_analyzed(self, filepath: str, tempo: float, energy: float, mood: float):
+    def _on_track_analyzed(self, filepath: str, tempo: float, energy: float, mood: float,
+                           zero_crossing_rate: float = 0.0,
+                           spectral_flux: float = 0.0,
+                           hpss_ratio: float = 0.0):
         """Slot to receive analysis results and update the database."""
         # Update the database
         try:
             # We need a function in db.py to update only analysis fields
-            update_track_analysis(filepath, tempo, energy, mood)
+            update_track_analysis(filepath, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio)
         except Exception as e:
             print(f"AnalysisManager: Failed to update DB for {filepath}: {e}", file=sys.stderr)
         

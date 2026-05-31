@@ -162,6 +162,9 @@ def get_library_tracks_page(
                COALESCE(tempo, 0.0) as tempo,
                COALESCE(energy, 0.0) as energy,
                COALESCE(mood, 0.0) as mood,
+               COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+               COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+               COALESCE(spectral_flux, 0.0) as spectral_flux,
                mtime
         FROM library
         {where_sql}
@@ -221,7 +224,10 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                    COALESCE(bitrate, 0) as bitrate,
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
-                   COALESCE(mood, 0.0) as mood
+                   COALESCE(mood, 0.0) as mood,
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux
             FROM library
             WHERE play_count > 0
             ORDER BY play_count DESC
@@ -255,6 +261,9 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                 tempo=row[11] if len(row) > 11 else 0.0,
                 energy=row[12] if len(row) > 12 else 0.0,
                 mood=row[13] if len(row) > 13 else 0.0,
+                hpss_ratio=row[14] if len(row) > 14 else 0.0,
+                zero_crossing_rate=row[15] if len(row) > 15 else 0.0,
+                spectral_flux=row[16] if len(row) > 16 else 0.0,
             )
 
             try:
@@ -298,7 +307,10 @@ def find_similar_tracks(filepath: str, limit: int = 20) -> List[TrackInfo]:
                    COALESCE(bitrate, 0) as bitrate,
                    COALESCE(tempo, 0.0) as tempo,
                    COALESCE(energy, 0.0) as energy,
-                   COALESCE(mood, 0.0) as mood
+                   COALESCE(mood, 0.0) as mood,
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux
             FROM library
             WHERE filepath != ? AND tempo > 0.0
         """, (filepath,))

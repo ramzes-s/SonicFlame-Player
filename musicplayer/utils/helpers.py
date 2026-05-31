@@ -5,8 +5,8 @@ Common utility functions for formatting, validation, etc.
 """
 
 from pathlib import Path
-from PySide6.QtGui import QColor # ADDED
-import numpy as np # ADDED
+from PySide6.QtGui import QColor
+import numpy as np
 from musicplayer import config as cfg
 
 
@@ -26,36 +26,20 @@ def _normalize(value: float, min_val: float, max_val: float) -> float:
 def get_color_from_features(tempo: float, energy: float, mood: float) -> QColor:
     """
     Converts tempo, energy, and mood values into a QColor using HSV.
-    This version normalizes the features from their real-world observed
-    ranges before mapping them to color components.
-
-    - Hue (the color itself) is from Mood.
-    - Saturation ("white tint") is from Energy. Low energy = more tinted.
-    - Value (brightness) is from Tempo. All colors are bright.
+    - Hue  ← Tempo:  green (120°) for slow → red (0°) for fast
+    - Sat  ← Energy: low = muted, high = vibrant
+    - Val  ← Mood:   low = dim, high = bright
     """
-    # Use ranges from config
-    min_mood, max_mood = cfg.MIN_MOOD, cfg.MAX_MOOD
-    min_tempo, max_tempo = cfg.MIN_TEMPO, cfg.MAX_TEMPO
-    min_energy, max_energy = cfg.MIN_ENERGY, cfg.MAX_ENERGY
+    t = max(cfg.TEMPO_MIN, min(cfg.TEMPO_MAX, tempo))
+    norm_t = _normalize(t, cfg.TEMPO_MIN, cfg.TEMPO_MAX)
+    norm_e = _normalize(energy, cfg.ENERGY_MIN, cfg.ENERGY_MAX)
+    norm_m = _normalize(mood, cfg.MOOD_MIN, cfg.MOOD_MAX)
 
-    # 2. Normalize each feature from its actual range to a [0, 1] scale.
-    norm_mood = _normalize(mood, min_mood, max_mood)
-    norm_tempo = _normalize(tempo, min_tempo, max_tempo)
-    norm_energy = _normalize(energy, min_energy, max_energy)
+    hue = int(120 * (1.0 - norm_t ** 0.464))   # 120° (green) → 0° (red), orange ≈130 BPM
+    sat = int(80 + norm_e * 175)              # 80–255: muted → vibrant
+    val = int(180 + norm_m * 75)              # 180–255: dim → bright
 
-    # 3. Map the normalized [0, 1] values to HSV components.
-    # Hue from Mood (full 0-359 degree range)
-    hue = int(norm_mood * 359)
-
-    # Saturation from Energy (controls the "white tint")
-    # Low energy = lower saturation (more white). Subtle range.
-    saturation = int(180 + norm_energy * 75) # Range [180, 255]
-
-    # Value (Brightness) from Tempo
-    # Keep in a high and narrow range to ensure all colors are bright.
-    value = int(220 + norm_tempo * 35) # Range [220, 255]
-
-    return QColor.fromHsv(hue, saturation, value)
+    return QColor.fromHsv(hue, sat, val)
 
 
 def format_duration(seconds: float) -> str:

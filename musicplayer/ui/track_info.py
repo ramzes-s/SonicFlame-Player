@@ -60,6 +60,9 @@ class AlbumArtWidget(QWidget):
         self._tempo = 0.0
         self._energy = 0.0
         self._mood = 0.0
+        self._zero_crossing_rate = 0.0
+        self._spectral_flux = 0.0
+        self._hpss_ratio = 0.0
     
     def set_album_art(self, cover_data: bytes):
         """Load and display album cover from bytes."""
@@ -76,20 +79,29 @@ class AlbumArtWidget(QWidget):
         self.set_analysis_features(0.0, 0.0, 0.0) # Clear features too
         self.update()
 
-    def set_analysis_features(self, tempo: float, energy: float, mood: float):
+    def set_analysis_features(self, tempo: float, energy: float, mood: float,
+                               zero_crossing_rate: float = 0.0,
+                               spectral_flux: float = 0.0,
+                               hpss_ratio: float = 0.0):
         """Set analysis features for the star icon."""
         self._tempo = tempo
         self._energy = energy
         self._mood = mood
+        self._zero_crossing_rate = zero_crossing_rate
+        self._spectral_flux = spectral_flux
+        self._hpss_ratio = hpss_ratio
 
         if self._tempo > 0.0:
             star_size = 20
+            star_color = get_color_from_features(self._tempo, self._energy, self._mood)
+            print(f"[MoodStar] tempo={self._tempo:.1f} energy={self._energy:.3f} mood={self._mood:.3f} "
+                  f"zcr={self._zero_crossing_rate:.3f} flux={self._spectral_flux:.2f} "
+                  f"hpss={self._hpss_ratio:.3f} → hue={star_color.hue()}")
             pixmap = QPixmap(star_size, star_size)
             pixmap.fill(Qt.transparent)
             
             painter = QPainter(pixmap)
             painter.setRenderHint(QPainter.Antialiasing, True)
-            star_color = get_color_from_features(self._tempo, self._energy, self._mood)
             painter.setPen(Qt.NoPen)
             painter.setBrush(star_color)
             
@@ -386,7 +398,10 @@ class TrackInfoWidget(QWidget):
             self.album_art_widget.set_analysis_features(
                 tempo=getattr(track, 'tempo', 0.0),
                 energy=getattr(track, 'energy', 0.0),
-                mood=getattr(track, 'mood', 0.0)
+                mood=getattr(track, 'mood', 0.0),
+                zero_crossing_rate=getattr(track, 'zero_crossing_rate', 0.0),
+                spectral_flux=getattr(track, 'spectral_flux', 0.0),
+                hpss_ratio=getattr(track, 'hpss_ratio', 0.0)
             )
         else:
             self.title_label.setText("No Track Selected")
@@ -399,8 +414,14 @@ class TrackInfoWidget(QWidget):
         self.update_track_info(None)
 
     def apply_accent_color(self, color: str):
-        """Update accent color for title label."""
-        # Use default size for empty state
+        """Update accent color for title label, preserving calculated font size."""
+        current = self.title_label.styleSheet()
+        if current:
+            import re
+            m = re.search(r'font-size:\s*(\d+)px', current)
+            size = m.group(1) if m else '20'
+        else:
+            size = '20'
         self.title_label.setStyleSheet(
-            f"color: {color}; font-size: 20px; font-weight: bold;"
+            f"color: {color}; font-size: {size}px; font-weight: bold;"
         )
