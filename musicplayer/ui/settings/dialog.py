@@ -28,6 +28,7 @@ class SettingsDialog(QDialog):
     web_server_toggled = Signal(bool)
     web_server_port_changed = Signal(int)
     music_folder_changed = Signal(bool)
+    db_reset_requested = Signal()
     prevent_sleep_toggled = Signal(bool)
     audio_device_changed = Signal(object)
 
@@ -179,6 +180,8 @@ class SettingsDialog(QDialog):
 
         main_page.folder_browse_requested.connect(self._browse_folder)
         main_page.similarity_precision_changed.connect(self._on_similarity_precision_changed)
+        main_page.analysis_duration_changed.connect(self._on_analysis_duration_changed)
+        main_page.db_reset_requested.connect(self.db_reset_requested.emit)
 
         appearance_page.accent_color_selected.connect(self._set_accent_color)
         appearance_page.dynamic_color_toggled.connect(self.dynamic_color_toggled.emit)
@@ -274,13 +277,16 @@ class SettingsDialog(QDialog):
     def _on_similarity_precision_changed(self, value: int):
         self.settings.similarity_precision = value
 
+    def _on_analysis_duration_changed(self, value: int):
+        self.settings.analysis_duration = value
+
     def _update_stats(self):
         covers_size = get_covers_cache_size()
         self.covers_size_label.setText(f"Кеш обложек:  {format_size(covers_size)}")
 
         track_count = get_library_track_count()
         analyzed_count = get_analyzed_track_count()
-        self.library_count_label.setText(f"Треков:  {track_count} ({analyzed_count})")
+        self.library_count_label.setText(f"Треков:  {track_count}  Проанализированно: {analyzed_count}")
 
         current = self.settings._data.get("accent_color", ACCENT_PRESETS[0][0])
         self._pages[1].highlight_color(current)

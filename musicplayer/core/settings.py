@@ -76,15 +76,15 @@ def set_prevent_sleep(value: bool):
 def ensure_default_similarity_precision():
     data = _read_settings_json()
     if "similarity_precision" not in data:
-        data["similarity_precision"] = 10
+        data["similarity_precision"] = 20
         _write_settings_json(data)
 
 def get_similarity_precision():
     data = _read_settings_json()
-    return data.get("similarity_precision", 10)
+    return data.get("similarity_precision", 20)
 
 def set_similarity_precision(value: int):
-    value = max(0, min(20, int(value)))
+    value = max(0, min(40, int(value)))
     data = _read_settings_json()
     if data.get("similarity_precision") == value:
         return
@@ -93,10 +93,31 @@ def set_similarity_precision(value: int):
     for instance in _app_settings_instances:
         instance._data["similarity_precision"] = value
 
+def ensure_default_analysis_duration():
+    data = _read_settings_json()
+    if "analysis_duration" not in data:
+        data["analysis_duration"] = config.ANALYSIS_DURATION
+        _write_settings_json(data)
+
+def get_analysis_duration():
+    data = _read_settings_json()
+    return data.get("analysis_duration", config.ANALYSIS_DURATION)
+
+def set_analysis_duration(value: int):
+    value = max(30, min(60, int(value) // 10 * 10))
+    data = _read_settings_json()
+    if data.get("analysis_duration") == value:
+        return
+    data["analysis_duration"] = value
+    _write_settings_json(data)
+    for instance in _app_settings_instances:
+        instance._data["analysis_duration"] = value
+
 # Ensure default on import
 ensure_default_playlist_sort_mode()
 ensure_default_prevent_sleep()
 ensure_default_similarity_precision()
+ensure_default_analysis_duration()
 
 class AppSettings:
     """Manages persistent application settings."""
@@ -119,8 +140,12 @@ class AppSettings:
             "web_server_port": 8080,
             "allow_remote_shutdown": False,
             "playlist_sort_mode": "artist",
-            "similarity_precision": 10,
+            "similarity_precision": 20,
+            "analysis_duration": config.ANALYSIS_DURATION,
             "audio_output_device": None,
+            "use_language_filter": False,
+            "language_filter_mode": "off",
+            "idle_shutdown_minutes": 60,
         }
         self._load()
 
@@ -300,11 +325,20 @@ class AppSettings:
 
     @property
     def similarity_precision(self) -> int:
-        return self._data.get("similarity_precision", 10)
+        return self._data.get("similarity_precision", 20)
 
     @similarity_precision.setter
     def similarity_precision(self, value: int):
-        self._data["similarity_precision"] = max(0, min(20, int(value)))
+        self._data["similarity_precision"] = max(0, min(40, int(value)))
+        self._save()
+
+    @property
+    def analysis_duration(self) -> int:
+        return self._data.get("analysis_duration", config.ANALYSIS_DURATION)
+
+    @analysis_duration.setter
+    def analysis_duration(self, value: int):
+        self._data["analysis_duration"] = max(30, min(60, int(value) // 10 * 10))
         self._save()
 
     @property
@@ -315,3 +349,31 @@ class AppSettings:
     def audio_output_device(self, value: str | None):
         self._data["audio_output_device"] = value
         self._save()
+
+    @property
+    def idle_shutdown_minutes(self) -> int:
+        return self._data.get("idle_shutdown_minutes", 60)
+
+    @idle_shutdown_minutes.setter
+    def idle_shutdown_minutes(self, value: int):
+        self._data["idle_shutdown_minutes"] = max(0, int(value))
+        self._save()
+
+    @property
+    def use_language_filter(self) -> bool:
+        return self._data.get("use_language_filter", False)
+
+    @use_language_filter.setter
+    def use_language_filter(self, value: bool):
+        self._data["use_language_filter"] = value
+        self._save()
+
+    @property
+    def language_filter_mode(self) -> str:
+        return self._data.get("language_filter_mode", "off")
+
+    @language_filter_mode.setter
+    def language_filter_mode(self, value: str):
+        if value in ("off", "penalty", "exclude"):
+            self._data["language_filter_mode"] = value
+            self._save()

@@ -25,6 +25,7 @@ class TallItemDelegate(QStyledItemDelegate):
 
 class SystemPage(QWidget):
     prevent_sleep_toggled = Signal(bool)
+    idle_shutdown_changed = Signal(int)
     cleanup_finished = Signal(int)
     audio_device_changed = Signal(object)
 
@@ -38,6 +39,37 @@ class SystemPage(QWidget):
         lo.setContentsMargins(24, 20, 24, 20)
         lo.setSpacing(16)
 
+        # Idle shutdown
+        idle_row = QHBoxLayout()
+        idle_row.setSpacing(10)
+        idle_label = QLabel("Закрывать программу после простоя")
+        idle_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        idle_row.addWidget(idle_label)
+        idle_row.addStretch()
+        self._idle_combo = QComboBox()
+        self._idle_combo.setFixedWidth(200)
+        self._idle_combo.setItemDelegate(TallItemDelegate(self._idle_combo))
+        idle_options = [
+            ("Никогда", 0),
+            ("15 минут", 15),
+            ("30 минут", 30),
+            ("1 час", 60),
+            ("3 часа", 180),
+            ("6 часов", 360),
+            ("12 часов", 720),
+        ]
+        saved = self._settings.idle_shutdown_minutes
+        selected = 0
+        for i, (label, mins) in enumerate(idle_options):
+            self._idle_combo.addItem(label, mins)
+            if mins == saved:
+                selected = i
+        self._idle_combo.setCurrentIndex(selected)
+        self._idle_combo.currentIndexChanged.connect(self._on_idle_changed)
+        idle_row.addWidget(self._idle_combo)
+        lo.addLayout(idle_row)
+        self._apply_idle_combo_style()
+
         # Prevent sleep
         self.prevent_sleep_cb = QCheckBox("Блокировать сон при работающем плеере")
         self.prevent_sleep_cb.setChecked(self._settings.prevent_sleep)
@@ -50,13 +82,13 @@ class SystemPage(QWidget):
         device_label = QLabel("Устройство вывода звука")
         device_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
         device_row.addWidget(device_label)
+        device_row.addStretch()
         self._device_combo = QComboBox()
         self._device_combo.setFixedWidth(300)
         self._populate_device_list()
         self._device_combo.currentIndexChanged.connect(self._on_device_changed)
         self._apply_combo_style()
         device_row.addWidget(self._device_combo)
-        device_row.addStretch()
         lo.addLayout(device_row)
 
         lo.addStretch()
@@ -100,6 +132,42 @@ class SystemPage(QWidget):
         self._settings.audio_output_device = device_id
         self.audio_device_changed.emit(device_id)
 
+    def _apply_idle_combo_style(self):
+        accent = cfg.get_accent_color()
+        self._idle_combo.setStyleSheet(f"""
+            QComboBox {{
+                background-color: #000000;
+                border: none;
+                outline: none;
+                border-bottom: 1px solid {accent};
+                color: #FFFFFF;
+                font-size: 13px;
+                padding: 1px 8px 1px 8px;
+            }}
+            QComboBox::drop-down {{
+                border: none;
+                outline: none;
+                width: 20px;
+            }}
+            QComboBox QAbstractItemView {{
+                background-color: #000000;
+                border: 1px solid {accent};
+                color: #FFFFFF;
+                outline: none;
+                margin: 0px;
+            }}
+            QComboBox QAbstractItemView::item:selected {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::item:hover {{
+                background-color: {accent};
+            }}
+            QComboBox QAbstractItemView::viewport {{
+                background-color: #000000;
+                border: none;
+            }}
+        """)
+
     def _apply_combo_style(self):
         accent = cfg.get_accent_color()
         self._device_combo.setStyleSheet(f"""
@@ -135,6 +203,11 @@ class SystemPage(QWidget):
                 border: none;
             }}
         """)
+
+    def _on_idle_changed(self, idx: int):
+        mins = self._idle_combo.itemData(idx)
+        self._settings.idle_shutdown_minutes = mins
+        self.idle_shutdown_changed.emit(mins)
 
     def _on_prevent_sleep_toggled(self, checked: bool):
         self._settings.prevent_sleep = checked
@@ -194,6 +267,7 @@ class SystemPage(QWidget):
         self._apply_checkbox_style()
         self._update_cleanup_btn_style()
         self._apply_combo_style()
+        self._apply_idle_combo_style()
 
     def cleanup(self):
         if hasattr(self, '_cleanup_worker') and self._cleanup_worker.isRunning():
