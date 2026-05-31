@@ -399,7 +399,9 @@ class MainWindow(QMainWindow):
                 self._idle_timer.start(mins * 60 * 1000)
 
     def _on_idle_timeout(self):
-        self.close()
+        self._tray.hide()
+        self._hide_mini_widget()
+        QApplication.quit()
 
     def _on_player_error(self, error_msg: str):
         StyledMessageBox.critical(self, "Player Error", text=error_msg)
