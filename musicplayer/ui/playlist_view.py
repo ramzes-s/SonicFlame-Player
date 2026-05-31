@@ -219,6 +219,12 @@ class PlaylistDelegate(QStyledItemDelegate):
                 if not genres:
                     genres = [raw_genres.strip()] if raw_genres.strip() else []
 
+                # Limit to 3 genres max, show +N for overflow
+                MAX_GENRES = 3
+                if len(genres) > MAX_GENRES:
+                    extra = len(genres) - MAX_GENRES + 1
+                    genres = genres[:MAX_GENRES - 1] + [f'+{extra}']
+
                 for genre_text in reversed(genres):
                     if len(genre_text) > 18:
                         genre_text = genre_text[:17] + '…'
