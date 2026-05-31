@@ -240,6 +240,10 @@ MusicPlayer2\
 | tempo | REAL | Темп (BPM) |
 | energy | REAL | Энергичность (0-1) |
 | mood | REAL | Настроение (0-1) |
+| zero_crossing_rate | REAL | Zero-crossing rate (яркость, 0-1) |
+| spectral_flux | REAL | Spectral flux (изменчивость) |
+| hpss_ratio | REAL | HPSS-ratio (percussive vs harmonic, 0-1) |
+| language | TEXT | ISO 639-1 код языка (из метатегов или unicode-детекции) |
 
 **Таблица `favorites`**:
 
@@ -328,10 +332,14 @@ MusicPlayer2\
 | web_server_enabled | bool | Веб-сервер включён |
 | web_server_port | int | Порт веб-сервера (по умолчанию 8080) |
 | playlist_sort_mode | str | Режим сортировки плейлиста (artist/title/newest/shuffle) |
-| similarity_precision | int | Точность подбора похожих треков (0–20, по умолч. 10) |
+| similarity_precision | int | Точность подбора похожих треков (0–40, по умолч. 20) |
+| analysis_duration | int | Длительность анализа треков (30–60с, по умолч. 30) |
+| analysis_mode_enabled | bool | Включён ли анализ аудио |
 | allow_remote_shutdown | bool   | Разрешить удалённое закрытие программы |
 | prevent_sleep        | bool   | Блокировать спящий режим во время воспроизведения |
 | audio_output_device  | str    | ID выбранного устройства вывода (None = по умолчанию) |
+| language_filter_mode | str    | Режим фильтра языка: "off" / "penalty" / "exclude" (по умолч. "off") |
+| idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
 
 ### Модуль для подбора похожих треков на основе различных критериев.
 #### `core/db_cleaner.py` — Database Cleaner
@@ -348,33 +356,48 @@ MusicPlayer2\
 
 #### `core/recommendations.py` — Recommendations
 
-Алгоритм вычисляет взвешенную сумму схожести треков по четырём метрикам + штраф за общего исполнителя.
+Алгоритм: взвешенная сумма genre + 6 аудиоизмерений + штраф за артиста. Без принудительной нормализации к 1.0 — веса и порог настраиваются независимо.
 
-**Веса метрик:**
-| Метрика | Вес |
-|---------|-----|
-| Жанр (`WEIGHT_GENRE`) | 0.35 |
-| Темп (`WEIGHT_TEMPO`) | 0.30 |
-| Энергия (`WEIGHT_ENERGY`) | 0.20 |
-| Настроение (`WEIGHT_MOOD`) | 0.15 |
-| Штраф за исполнителя (`PENALTY_ARTIST`) | −0.10 |
+**Взвешенная сумма** (score может быть > 1.0):
 
-**Жанр**: точное совпадение → 1.0, совпадение группы жанров → 0.9, частичное → boost 1.15.
-**Аудио-метрики**: нормализация в диапазон [0, 1], затем линейный спад `max(0, 1 - diff / threshold)` с порогом `METRIC_SINGLE_DIM_THRESHOLD_FOR_SIMILARITY_SCORE = 0.14`.
+```
+score = GENRE_WEIGHT × genre + tempo×w_t + energy×w_e + mood×w_m + zcr×w_z + flux×w_f + hpss×w_h
+```
 
-**Динамический порог отбора**:
-Значение `min_similarity_threshold` вычисляется по формуле: `SIMILARITY_THRESHOLD_BASE + (similarity_precision / 100)`, где:
-- `SIMILARITY_THRESHOLD_BASE = 0.60` — базовая нижняя планка
-- `similarity_precision` — настройка пользователя (0–20, по умолч. 10)
+**6 измерений** — normalisation [0,1], затем линейный спад `max(0, 1 − diff / tol)`:
 
-При `similarity_precision = 10` порог = 0.70; при `similarity_precision = 0` порог = 0.60; при `similarity_precision = 20` порог = 0.80.
+| Измерение | Вес | Физический смысл |
+|-----------|-----|------------------|
+| tempo | 0.30 | BPM (normalise 60–180) |
+| energy | 0.20 | Onset strength / 3.0 |
+| mood | 0.20 | Spectral centroid / (sr/2) × 2.5 |
+| zcr | 0.15 | Zero-crossing rate × 2.5 |
+| flux | 0.30 | Spectral flux |
+| hpss | 0.15 | Spectral flatness → percussive ratio |
+| genre | 0.30 | Exact match → 1.0, group → 0.9, partial → boost 1.15 |
+
+**Допуск** — единый для всех 6 измерений:
+```
+tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
+```
+`TOL_BASELINE=0.30`, scale от 0.5 (prec=0) до 0.25 (prec=40).
+
+**Порог отбора**: `0.5 + precision/100`. precision 0–40, по умолч. 20 → порог 0.70.
+
+**Штраф за артиста**: −0.08 при совпадении исполнителя.
+
+**Штраф за язык** (если `language_filter_mode = "penalty"`): −0.20 при несовпадении языка.
+
+**Исключение по языку** (если `language_filter_mode = "exclude"`): score = 0 при несовпадении языка (ранний выход, анализ не выполняется).
 
 **Ключевые функции:**
-- `calculate_similarity(track1, track2) → float`: Балл сходства [0.0, 1.0].
+- `calculate_similarity(track1, track2, dim_tols=None, lang_filter_mode="off") → float`: взвешенная сумма.
+- `_normalize_track(track) → dict`: нормализация 6 dims трека в [0,1].
+- `_compute_dimsims(n1, n2, tols) → dict`: per-dim similarity.
 - `find_similar_tracks(current_track, all_tracks, limit=10, min_similarity_threshold=None) → List[TrackInfo]`:
-  - Если порог не передан, вычисляется динамически из настроек.
-  - Отбирает треки с score ≥ порога, сортирует по убыванию, берёт top `limit`, перемешивает.
-- `get_similarity_threshold() → float`: Вычисляет текущий порог из `settings.json`.
+  - Отбирает score ≥ порога, сортировка, top `limit`, shuffle.
+- `get_similarity_threshold() → float`: из precision.
+- `get_dim_tolerances(precision) → dict`: допуски для 6 dims.
 
 #### `core/media_keys.py` — Media Keys Handler
 Обработчик глобальных медиа-клавиш (Play/Pause, Next, Previous) для Windows.
@@ -553,6 +576,7 @@ MusicPlayer2\
 - **Системный трей**: `QSystemTrayIcon` с контекстным меню (Показать/Выход)
 - **Мини-виджет**: `MiniPlayerWidget` при сворачивании в трей (если включено в настройках)
 - **Обработка удаления трека**: использует `remove_track_from_library` из `ui/remove_track_dialog.py`
+- **Сброс базы данных**: удаляет `musicplayer.db` + `-wal` + `-shm`, очищает кеш обложек, переинициализирует БД, сбрасывает UI и запускает полное пересканирование
 - **Библиотека-субпроцесс**: запуск `main.py --library` через `subprocess.Popen`
 
 **Поиск похожих треков (UI)**:
@@ -671,7 +695,7 @@ MusicPlayer2\
 - Размер: 375x375–525x525px
 - `paintEvent()`: чёрный фон → размытая копия с градиентной маской → чёткая обложка (opacity 0.85) → внутренняя чёрная тень (60px)
 - SVG-плейсхолдер (музыкальная нота) когда нет обложки
-- **Звезда настроения**: `QLabel` с иконкой звезды накладывается поверх `AlbumArtWidget`, чтобы обеспечить видимость поверх заглушки. Цвет звезды (`tempo`, `energy`, `mood`) вычисляется в `utils/helpers.py`.
+- **Звезда настроения**: `QLabel` с иконкой звезды накладывается поверх `AlbumArtWidget`. Цвет (HSV: Hue от tempo, Sat от energy, Val от mood) вычисляется в `utils/helpers.py`. Диапазон: slow→зелёный (120°), medium→оранжевый (30°), fast→красный (0°), где slow/fast = TEMPO_MIN(60)/TEMPO_MAX(180) из config.
 
 **`TrackInfoWidget`**:
 - `title_label` — 18px, акцентный цвет, bold
@@ -743,7 +767,9 @@ MusicPlayer2\
 
 **`page_main.py`** — MainPage:
 - **Корневая папка** — кнопка с путём (красная рамка если не задана)
-- **Точность подбора похожих** — `ClickableSlider` (0–20)
+- **Точность подбора похожих** — `ClickableSlider` (0–40, шаг 1)
+- **Длительность анализа треков** — `ClickableSlider` (30–60, шаг 10, с привязкой и меткой)
+- **Удалить базу данных** — красная кнопка с подтверждением (сбрасывает БД + кеш обложек)
 
 **`page_appearance.py`** — AppearancePage + `TallItemDelegate`:
 - **Акцентный цвет** — 15 пресетов (кружки), включая Slate (`#607884`)
@@ -951,12 +977,27 @@ QThread для сканирования папок. Для максимальн�
 - `scanning_finished(list)` — финальный список треков
 - `scanning_error(str)` — ошибка
 
+#### `utils/analysis_worker.py` — AnalysisWorker
+QThread для анализа одного аудиофайла через librosa.
+
+**Извлекаемые признаки** (6 dims):
+- **tempo** — BPM через onset-корреляцию (librosa.onset.onset_strength → tempo)
+- **energy** — `onset_strength / 3.0`, clamped [0, 1]
+- **mood** — `spectral_centroid / (sr/2) × 2.5`, clamped [0, 1]
+- **zero_crossing_rate** — средний ZCR × 2.5
+- **spectral_flux** — средний onset_strength (нормализация 0–140)
+- **hpss_ratio** — `1.0 − mean(spectral_flatness)` → percussive ratio (быстрее полного HPSS)
+
+**Длительность**: настраиваемая (30–60с), из `settings.analysis_duration`. Анализируются первые N секунд трека.
+
+**Менеджер**: `AnalysisManager` — пропускает треки с tempo>0 (уже проанализированы).
+
 #### `utils/helpers.py`
 - `format_duration(seconds)` → `"M:SS"`
 - `is_audio_file(filepath)` → bool
 - `sanitize_filename(filename)` → str
 - `get_folder_path(filepath)` → str
-- `get_color_from_features(tempo, energy, mood)` -> QColor
+- `get_color_from_features(tempo, energy, mood)` -> QColor (константы из config: TEMPO_MIN/MAX для HSV)
 
 ## Git конфигурация
 
@@ -988,10 +1029,11 @@ QThread для сканирования папок. Для максимальн�
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.0.0`                          | `musicplayer/config.py`|
+| APP_VERSION         | `1.1.0`                          | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
 | DIVIDER_COLOR       | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
+| ANALYSIS_DURATION   | `30` (сек)                       | `musicplayer/config.py`|
 | PROJECT_DIR         | корень проекта                   | `musicplayer/config.py`|
 | CACHE_DIR           | `.cache/`                        | `musicplayer/config.py`|
 | DB_PATH             | `.cache/musicplayer.db`          | `musicplayer/config.py`|
@@ -999,9 +1041,14 @@ QThread для сканирования папок. Для максимальн�
 | ARTIST_COLLAGES_DIR | `.cache/artist_collages/`        | `musicplayer/config.py`|
 | SETTINGS_FILE       | `.cache/settings.json`           | `musicplayer/config.py`|
 | COL_WIDTHS_FILE     | `.cache/library_col_widths.json` | `musicplayer/config.py`|
-| MIN_TEMPO / MAX_TEMPO | 40 / 200                         | `musicplayer/config.py`|
-| MIN_ENERGY / MAX_ENERGY | 0.01 / 1.0                       | `musicplayer/config.py`|
-| MIN_MOOD / MAX_MOOD | 0.01 / 1.0                       | `musicplayer/config.py`|
+| TEMPO_MIN / TEMPO_MAX | 60 / 180                         | `musicplayer/config.py`|
+| ENERGY_MIN / ENERGY_MAX | 0.01 / 1.0                       | `musicplayer/config.py`|
+| MOOD_MIN / MOOD_MAX | 0.01 / 1.0                       | `musicplayer/config.py`|
+| FLUX_MIN / FLUX_MAX | 0.0 / 140.0                      | `musicplayer/config.py`|
+| HPSS_NORM_MIN / HPSS_NORM_MAX | 0.5 / 1.0                       | `musicplayer/config.py`|
+| TOL_BASELINE        | `0.30` (базовая чувствительность, scale 0.5→0.25) | `musicplayer/config.py`|
+| GENRE_WEIGHT        | `0.30` (вес жанра в weighted sum) | `musicplayer/config.py`|
+| AUDIO_WEIGHT_TEMPO…HPSS | 0.30/0.20/0.20/0.15/0.30/0.15 (веса 6 dims) | `musicplayer/config.py`|
 | Мин. размер окна    | 1100×600                         | `ui/main_window.py`    |
 
 Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.

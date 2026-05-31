@@ -1,6 +1,16 @@
 # SonicFlame Player
 
-Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
+![python 3.10](https://img.shields.io/badge/python-3.10-blue)
+![PySide 6.6.1](https://img.shields.io/badge/PySide6-6.6.1-green)
+![mutagen 1.47.0](https://img.shields.io/badge/mutagen-1.47-blue)
+![librosa 0.10.1](https://img.shields.io/badge/librosa-0.10.1-cyan)
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Latest Release](https://img.shields.io/github/v/release/ramzes-s/SonicFlame-Player)](https://github.com/ramzes-s/SonicFlame-Player/releases/latest)
+[![GitHub Downloads](https://img.shields.io/github/downloads/ramzes-s/SonicFlame-Player/total)](https://github.com/ramzes-s/SonicFlame-Player/releases)
+
+**Modern desktop audio player with a GUI built on Python (PySide6/Qt6).**
+
 
 ![SonicFlame Player](SonicFlamePlayer_vision.png)
 
@@ -17,7 +27,7 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - System media keys (play/pause, next, prev)
 - Auto-switch audio output device when connected
 - Load all tracks by current artist
-- Find similar tracks (genre, tempo, energy, mood)
+- Find similar tracks (genre, tempo, energy, mood, language filter)
 - Favorites toggle (heart button)
 - Top listened (top 100 by play count)
 - Windows SMTC integration (media overlay)
@@ -57,16 +67,16 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Folder-based browsing with track counting
 - Paginated library view (250 items per page)
 - Filter by folder, genre, or search query
-- DB cleanup for tracks with missing files
+- DB cleanup for missing files (on folder load or manually in settings)
 - Force refresh library cache
 - Library as a separate subprocess
 - IPC communication between player and library (QLocalSocket)
 
 ### Settings Dialog (5 pages)
-- **Main page**: root music folder, similarity precision slider
+- **Main page**: root music folder, similarity precision slider, language filter mode (the larger the library, the higher you can set precision for better results; matching only works for scanned tracks, marked with ★ on the cover or in the library, also shown in settings in brackets next to total track count: 7500 (7500))
 - **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity
 - **Web Server page**: enable toggle, port with validator (1024-65535), QR code, remote shutdown toggle
-- **System page**: sleep blocker, audio output device combobox, DB cleanup button
+- **System page**: sleep blocker, audio output device selection, idle shutdown timer, DB cleanup
 - **About page**: app name & version, author info, GitHub & website links
 
 ### Tag Editor
@@ -87,9 +97,9 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Playback controls: Play/Pause, Next/Previous, Seek, Volume
 - Playlist loading: folders, Favorites, Top, Similar Tracks
 - Cover display (base64), title, artist, album
-- Folder selection from indexed list
+- Folder selection from list (from DB)
 - QR code for easy connection
-- Offline detection with notification overlay
+- Offline detection with request loop stop
 - IP filtering (local/private addresses only)
 - Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
 
@@ -98,12 +108,16 @@ Modern desktop audio player with a GUI built on Python (PySide6/Qt6).
 - Repeat mode toggle, favorites toggle
 - Seek bar and volume control
 - Dark theme with dynamic accent color
-- Playlists: folders, Top, Favorites, Full Library (5000+ tracks)
+- Playlists: folders, Top, Favorites, Similar, All Artist Tracks, Full Library (10000+)
 - Connection via QR code scan or manual IP:PORT
-- Download on Website: [sonicflame.pro](https:///sonicflame.pro) 
+- Remote shutdown (must be enabled in player settings)
+- Download on Website: [sonicflame.pro](https:///sonicflame.pro)
 
 ## Installation
 
+**For .exe:** just place in an empty folder and run.
+
+For DEV:
 ```bash
 pip install -r requirements.txt
 ```
@@ -159,8 +173,8 @@ GNU General Public License v3.0 (GPL v3)
 - Системные медиа-клавиши (play/pause, next, prev)
 - Автопереключение аудиоустройства при подключении
 - Все треки текущего исполнителя
-- Похожие треки (жанр, темп, энергия, настроение)
-- Избранное (кнопка сердца)
+- Похожие треки (жанр, темп, энергия, настроение, фильтр языка)
+- Избранное
 - Топ прослушиваний (топ-100 по счётчику)
 - Интеграция SMTC Windows (медиа-оверлей)
 - Блокировка сна во время воспроизведения
@@ -175,16 +189,14 @@ GNU General Public License v3.0 (GPL v3)
 - Звезда настроения (tempo, energy, mood)
 - Плейлист с автоскроллом к текущему треку
 - Сортировка плейлиста: исполнитель, название, новизна, перемешать
-- Режим сортировки сохраняется в конфиге
-- Подсветка активного трека после смены сортировки
-- Боковая панель: открыть папку, вся музыка, избранное, топ, настройки, библиотека
+- Запоминание режима сортировки для последующих запусков
+- Боковая панель: открыть папку, избранное, топ, настройки, библиотека
 - Иконка в системном трее с контекстным меню
 - Сворачивание в трей с мини-плеером
 - Настройка прозрачности мини-плеера
 - Кастомные frameless-диалоги с акцентной рамкой
 - Кастомный выбор папки с деревом, фильтром, списком ключевых папок
 - Стилизованные message box (info, warning, error, question)
-- Анимация сканирования с мигающим статусом
 
 ### Библиотека и организация
 - SQLite база данных (WAL mode)
@@ -192,23 +204,23 @@ GNU General Public License v3.0 (GPL v3)
 - Умный sync — отслеживание изменений, автообновление БД
 - Анализ настроения трека (tempo, energy, mood) через librosa (асинхронно)
 - Представление "Исполнители" с коллажами обложек (2x2)
-- Карточка исполнителя с анимацией при наведении
+- Карточка исполнителя с подсветкой  при наведении
 - Кеш исполнителей для быстрой загрузки
 - Управление избранным
 - Топ прослушиваний (счётчик на трек)
 - Навигация по папкам со счётчиком треков
-- Пагинация в библиотеке (250 элементов)
+- Пагинация в библиотеке (250 элементов) ленивая подгрузка
 - Фильтр по папке, жанру или поиску
-- Очистка БД от отсутствующих файлов
+- Очистка БД от отсутствующих файлов (при загрузке папки, либо принудительно в настройках)
 - Принудительное обновление кеша библиотеки
 - Библиотека как отдельный субпроцесс
 - IPC связь между плеером и библиотекой (QLocalSocket)
 
 ### Диалог настроек (5 страниц)
-- **Главная**: корневая папка, точность похожих треков
+- **Главная**: корневая папка, точность похожих треков, фильтр языка (чем обьемнее библиотека, тем выше можно задирать точность, тем лучше результат, подбор происходит только по отсканированным трекам (обозначаются ★ звездой на обложке или в библиотеке и в окне настроек в скобках рядом с общим числом треков: 7500 (7500)))
 - **Внешний вид**: 15 пресетов акцента, динамический цвет, мини-плеер и прозрачность
 - **Веб-сервер**: вкл/выкл, порт с валидатором (1024-65535), QR-код, удалённое закрытие
-- **Система**: блокировка сна, устройство вывода, очистка БД
+- **Система**: блокировка сна, устройство вывода, таймер автовыключения, очистка БД
 - **О программе**: название, версия, автор, ссылки GitHub и сайт
 
 ### Редактор тегов
@@ -216,22 +228,20 @@ GNU General Public License v3.0 (GPL v3)
 - Поиск информации онлайн (iTunes, Deezer API)
 - Поиск и загрузка обложек онлайн
 - Генерация абстрактной обложки из фоновых изображений
-- Переименование файла из тегов
 - Перемещение трека в другую папку
-- Разделители жанров: `;`, `,`, `/`
 - Асинхронное сохранение с индикатором загрузки
 
 ### Веб-сервер для удалённого управления
-- Встроенный HTTP-сервер (aiohttp) на настраиваемом порту
+- Встроенный локальный  HTTP-сервер (aiohttp) на настраиваемом порту
 - Адаптивный веб-интерфейс (desktop + mobile)
 - REST API для внешнего управления
 - Статус воспроизведения в реальном времени (polling 1000мс)
 - Управление: Play/Pause, Next/Previous, Seek, Volume
 - Загрузка плейлистов: папки, Избранное, Топ, Похожие
 - Обложка (base64), название, артист, альбом
-- Выбор папки из списка
+- Выбор папки из списка (из бд)
 - QR-код для быстрого подключения
-- Offline detection с уведомлением
+- Offline detection с остановкой цикла запросов
 - IP-фильтрация (только локальные/приватные адреса)
 - Security headers (X-Content-Type-Options, X-Frame-Options, X-XSS-Protection)
 
@@ -240,12 +250,16 @@ GNU General Public License v3.0 (GPL v3)
 - Повтор, избранное
 - Seek bar и громкость
 - Тёмная тема с динамическим акцентным цветом
-- Плейлисты: папки, Топ, Избранное, Вся библиотека (5000+)
+- Плейлисты: папки, Топ, Избранное, Похожие, все треки Исполнителя, Вся библиотека (10000+)
 - Подключение по QR-коду или вручную (IP:PORT)
-- Скачайте на сайте: [sonicflame.pro](https:///sonicflame.pro) 
+- Закрытие плеера дистанционно (требуется включить в настройках самого плеера)
+- Скачайте приложение на сайте: [sonicflame.pro](https:///sonicflame.pro) 
 
 ## Установка
 
+**Для .exe: просто положить в пустую папку и запустить.**
+
+Для DEV:
 ```bash
 pip install -r requirements.txt
 ```
