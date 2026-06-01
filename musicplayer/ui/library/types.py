@@ -25,11 +25,11 @@ class Track:
     """Lightweight data class for tracks displayed in the UI."""
     __slots__ = ('filepath', 'title', 'artist', 'album', 'genre',
                  'duration', 'bitrate', 'folder', 'play_count',
-                 'tempo', 'energy', 'mood')
+                 'tempo', 'energy', 'mood', 'is_favorite')
 
     def __init__(self, filepath, title, artist, album, genre,
                  duration, bitrate, folder, play_count,
-                 tempo, energy, mood):
+                 tempo, energy, mood, is_favorite=False):
         self.filepath = filepath
         self.title = title
         self.artist = artist
@@ -42,3 +42,4 @@ class Track:
         self.tempo = tempo
         self.energy = energy
         self.mood = mood
+        self.is_favorite = is_favorite

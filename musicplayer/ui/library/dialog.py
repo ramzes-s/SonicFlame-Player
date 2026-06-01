@@ -21,7 +21,6 @@ from musicplayer import config as cfg
 from musicplayer.core.db import (
     get_all_genres,
     get_all_folders,
-    get_favorite_filepaths,
 )
 from musicplayer.ui.svg_icons import get_music_note_svg
 from musicplayer.ui.library.model import LibraryModel, MoodStarDelegate
@@ -220,7 +219,7 @@ class LibraryDialog(QDialog):
 
     def _initial_load(self):
         def _fetch_initial_data():
-            return get_all_genres(), get_all_folders(), get_favorite_filepaths()
+            return get_all_genres(), get_all_folders()
 
         worker = DataWorker(_fetch_initial_data)
         worker.results_ready.connect(self._on_initial_data_ready)
@@ -228,7 +227,7 @@ class LibraryDialog(QDialog):
         worker.start()
 
     def _on_initial_data_ready(self, result):
-        genres, folders, fav_set = result
+        genres, folders = result
 
         self.genre_cb.blockSignals(True)
         self.genre_cb.clear()
@@ -244,7 +243,7 @@ class LibraryDialog(QDialog):
             self.folder_cb.addItem(f"{name} ({track_count})", folder_path)
         self.folder_cb.blockSignals(False)
 
-        self.model.set_fav_set(fav_set)
+        self.model.reset()
 
     def refresh_data(self):
         self._initial_load()

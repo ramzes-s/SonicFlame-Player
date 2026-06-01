@@ -31,7 +31,8 @@ class TrackInfo:
                  spectral_flux: float = 0.0,
                  hpss_ratio: float = 0.0,
                  mtime: float = 0.0,
-                 language: str = ""):
+                 language: str = "",
+                 is_favorite: bool = False):
         self.filepath = filepath
         self.title = title or Path(filepath).stem
         self.artist = artist or "Unknown Artist"
@@ -51,6 +52,7 @@ class TrackInfo:
         self.hpss_ratio = hpss_ratio
         self.mtime = mtime
         self.language = language
+        self.is_favorite = is_favorite
 
     def to_dict(self) -> dict:
         """Serialize to dict (excluding cover data for JSON storage)."""
@@ -72,6 +74,7 @@ class TrackInfo:
             "zero_crossing_rate": self.zero_crossing_rate,
             "spectral_flux": self.spectral_flux,
             "hpss_ratio": self.hpss_ratio,
+            "is_favorite": self.is_favorite,
         }
 
     @classmethod
@@ -94,6 +97,7 @@ class TrackInfo:
             zero_crossing_rate=data.get("zero_crossing_rate", 0.0),
             spectral_flux=data.get("spectral_flux", 0.0),
             hpss_ratio=data.get("hpss_ratio", 0.0),
+            is_favorite=data.get("is_favorite", False),
         )
 
     def __repr__(self):
@@ -136,6 +140,8 @@ def _row_to_track(row: tuple) -> TrackInfo:
         track.mtime = row[16]
     if len(row) > 17:
         track.language = row[17]
+    if len(row) > 18:
+        track.is_favorite = bool(row[18])
     return track
 
 
@@ -181,6 +187,8 @@ def _row_to_track_with_cover(row: tuple) -> TrackInfo:
         track.mtime = row[16]
     if len(row) > 17:
         track.language = row[17]
+    if len(row) > 18:
+        track.is_favorite = bool(row[18])
     return track
 
 
@@ -210,7 +218,8 @@ def get_track(filepath: str) -> Optional[TrackInfo]:
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    mtime,
-                   COALESCE(language, '') as language
+                   COALESCE(language, '') as language,
+                   COALESCE(is_favorite, 0) as is_favorite
             FROM library WHERE filepath = ?
         """, (filepath,))
         row = cursor.fetchone()
@@ -241,15 +250,16 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
     current_zero_crossing_rate = 0.0
     current_spectral_flux = 0.0
     current_hpss_ratio = 0.0
+    current_is_favorite = False
 
     with get_connection() as conn:
         cursor = conn.execute(
-            "SELECT play_count, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio FROM library WHERE filepath = ?",
+            "SELECT play_count, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio, is_favorite FROM library WHERE filepath = ?",
             (track.filepath,)
         )
         row = cursor.fetchone()
         if row:
-            current_count, current_tempo, current_energy, current_mood, current_zero_crossing_rate, current_spectral_flux, current_hpss_ratio = row
+            current_count, current_tempo, current_energy, current_mood, current_zero_crossing_rate, current_spectral_flux, current_hpss_ratio, current_is_favorite = row
 
     final_tempo = getattr(track, 'tempo', 0.0)
     if final_tempo == 0.0 and current_tempo != 0.0:
@@ -279,6 +289,10 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
     if preserve_play_count:
         final_play_count = current_count
 
+    final_is_favorite = getattr(track, 'is_favorite', False)
+    if row is not None:
+        final_is_favorite = current_is_favorite
+
     with get_connection() as conn:
         conn.execute("""
             INSERT OR REPLACE INTO library
@@ -286,8 +300,8 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
                  has_cover, genre, is_lossless, play_count, bitrate,
                  tempo, energy, mood,
                  zero_crossing_rate, spectral_flux, hpss_ratio,
-                 language)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 language, is_favorite)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             normalized.filepath,
             mtime,
@@ -307,6 +321,7 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
             final_spectral_flux,
             final_hpss_ratio,
             getattr(track, 'language', ''),
+            1 if final_is_favorite else 0,
         ))
 
     if track.has_cover and track.cover_data:
@@ -344,7 +359,7 @@ def increment_play_count(filepath: str) -> int:
 
 
 def delete_track(filepath: str):
-    """Delete a track from the library (and favorites, and cover file)."""
+    """Delete a track from the library (and cover file)."""
     # Validate filepath for path traversal
     from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
     music_folder = get_music_folder()
@@ -355,7 +370,6 @@ def delete_track(filepath: str):
     delete_cover(filepath)
 
     with get_connection() as conn:
-        conn.execute("DELETE FROM favorites WHERE filepath = ?", (filepath,))
         conn.execute("DELETE FROM library WHERE filepath = ?", (filepath,))
 
 
@@ -377,7 +391,8 @@ def get_all_library_tracks_light() -> List[TrackInfo]:
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    mtime,
-                   COALESCE(language, '') as language
+                   COALESCE(language, '') as language,
+                   COALESCE(is_favorite, 0) as is_favorite
             FROM library
         """)
         rows = cursor.fetchall()
@@ -730,22 +745,23 @@ def get_tracks_by_artist(artist_name: str) -> List[TrackInfo]:
                    COALESCE(hpss_ratio, 0.0) as hpss_ratio,
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
-                   mtime,
-                   COALESCE(language, '') as language
-            FROM library
-            WHERE
-                artist = ? COLLATE NOCASE
-               OR artist LIKE ? || ' & %' COLLATE NOCASE
-               OR artist LIKE ? || ' ft. %' COLLATE NOCASE
-               OR artist LIKE ? || ' feat. %' COLLATE NOCASE
-               OR artist LIKE ? || ' vs %' COLLATE NOCASE
-               OR artist LIKE ? || ' vs. %' COLLATE NOCASE
-               OR artist LIKE ? || ' / %' COLLATE NOCASE
-               OR artist LIKE ? || ', %' COLLATE NOCASE
-               OR artist LIKE ? || '/%' COLLATE NOCASE
-               OR artist LIKE ? || '&%' COLLATE NOCASE
-               OR artist LIKE ? || ',%' COLLATE NOCASE
-            ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, title COLLATE NOCASE
+                    mtime,
+                    COALESCE(language, '') as language,
+                    COALESCE(is_favorite, 0) as is_favorite
+             FROM library
+             WHERE
+                 artist = ? COLLATE NOCASE
+                OR artist LIKE ? || ' & %' COLLATE NOCASE
+                OR artist LIKE ? || ' ft. %' COLLATE NOCASE
+                OR artist LIKE ? || ' feat. %' COLLATE NOCASE
+                OR artist LIKE ? || ' vs %' COLLATE NOCASE
+                OR artist LIKE ? || ' vs. %' COLLATE NOCASE
+                OR artist LIKE ? || ' / %' COLLATE NOCASE
+                OR artist LIKE ? || ', %' COLLATE NOCASE
+                OR artist LIKE ? || '/%' COLLATE NOCASE
+                OR artist LIKE ? || '&%' COLLATE NOCASE
+                OR artist LIKE ? || ',%' COLLATE NOCASE
+             ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, title COLLATE NOCASE
         """, (
             artist_name, artist_name, artist_name, artist_name, artist_name,
             artist_name, artist_name, artist_name, artist_name, artist_name,
@@ -776,9 +792,10 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
                    COALESCE(mood, 0.0) as mood,
                    COALESCE(hpss_ratio, 0.0) as hpss_ratio,
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
-                   COALESCE(spectral_flux, 0.0) as spectral_flux,
-                   mtime,
-                   COALESCE(language, '') as language
+                    COALESCE(spectral_flux, 0.0) as spectral_flux,
+                    mtime,
+                    COALESCE(language, '') as language,
+                    COALESCE(is_favorite, 0) as is_favorite
             FROM library
             WHERE filepath LIKE ?
             ORDER BY filepath

@@ -12,12 +12,12 @@ from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 
 from musicplayer.core.db import (
     ensure_cover_for_track,
-    is_favorite as db_is_favorite,
     increment_play_count,
     get_track,
     upsert_track,
     delete_track,
     extract_metadata,
+    is_favorite as db_is_favorite,
 )
 from musicplayer.ui.remove_track_dialog import show_missing_track_dialog, remove_track_from_library
 from musicplayer.utils.audio_scanner import AudioScanner
@@ -71,7 +71,7 @@ class PlaybackManager(PlayerManagerBase):
         self._mw.track_info_widget.update_track_info(track)
         self._mw.playlist_widget.set_current_track_by_filepath(track.filepath)
         self._mw.playlist_widget.set_playing_track(track.filepath)
-        self._mw.controls_widget.set_current_track_favorite(track.filepath, db_is_favorite(track.filepath))
+        self._mw.controls_widget.set_current_track_favorite(track.filepath, track.is_favorite)
         self._update_mini_track(track)
         self._mw.player.play()
         self._mw.controls_widget.set_play_state(True)
@@ -116,7 +116,7 @@ class PlaybackManager(PlayerManagerBase):
 
         self._apply_dynamic_color(track)
         self._mw.track_info_widget.update_track_info(track)
-        self._mw.controls_widget.set_current_track_favorite(track.filepath, db_is_favorite(track.filepath))
+        self._mw.controls_widget.set_current_track_favorite(track.filepath, track.is_favorite)
         self._mw.player.play()
         self._mw.controls_widget.set_play_state(True)
 
@@ -275,6 +275,7 @@ class PlaybackManager(PlayerManagerBase):
         if 0 <= index < len(view_tracks):
             track = view_tracks[index]
             new_state = self._mw.playlist_widget.favorites.toggle_favorite(track.filepath)
+            track.is_favorite = new_state
             if self._mw.sidebar._favorites_active:
                 self._mw.playlist_widget.show_favorites_only()
             else:
@@ -327,14 +328,31 @@ class PlaybackManager(PlayerManagerBase):
 
         if save_confirmed:
             logger.info("Save confirmed — old=%s, new=%s", old_filepath, new_filepath)
+            was_favorite = False
+            old_analysis = {}
             if os.path.normpath(new_filepath) != os.path.normpath(old_filepath):
                 logger.info("File was renamed, deleting old track from DB: %s", old_filepath)
+                old_track = get_track(old_filepath)
+                if old_track:
+                    was_favorite = old_track.is_favorite
+                    old_analysis = {
+                        'tempo': old_track.tempo,
+                        'energy': old_track.energy,
+                        'mood': old_track.mood,
+                        'zero_crossing_rate': old_track.zero_crossing_rate,
+                        'spectral_flux': old_track.spectral_flux,
+                        'hpss_ratio': old_track.hpss_ratio,
+                        'play_count': old_track.play_count,
+                    }
                 delete_track(old_filepath)
             logger.info("Extracting metadata from: %s", new_filepath)
             updated_track = extract_metadata(new_filepath)
             if updated_track:
+                updated_track.is_favorite = was_favorite
+                for key, val in old_analysis.items():
+                    setattr(updated_track, key, val)
                 try:
-                    upsert_track(updated_track, os.path.getmtime(new_filepath))
+                    upsert_track(updated_track, os.path.getmtime(new_filepath), preserve_play_count=False)
                     logger.info("Upsert OK for: %s", new_filepath)
                 except Exception as e:
                     logger.error("UPSERT CRASHED: %s", e, exc_info=True)

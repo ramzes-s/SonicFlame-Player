@@ -1,7 +1,7 @@
 """
 Favorites Module
 
-Handles favorites operations and favorite tracks retrieval.
+Handles favorites operations using the is_favorite column in the library table.
 """
 
 import os
@@ -9,74 +9,76 @@ from typing import List, Set
 from musicplayer.core.db.connection import get_connection
 from musicplayer.core.db.cache import _load_cover
 from musicplayer.core.db.tracks import (
-    TrackInfo, _row_to_track_with_cover, extract_metadata, upsert_track, delete_track
+    TrackInfo, _row_to_track_with_cover, extract_metadata, upsert_track
 )
 
 
 def is_favorite(filepath: str) -> bool:
     """Check if a track is in favorites."""
-    # Validate filepath for path traversal
     from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
     music_folder = get_music_folder()
     if not is_safe_filepath(filepath, music_folder):
         return False
 
     with get_connection() as conn:
-        cursor = conn.execute("SELECT 1 FROM favorites WHERE filepath = ?", (filepath,))
-        return cursor.fetchone() is not None
+        cursor = conn.execute(
+            "SELECT is_favorite FROM library WHERE filepath = ?", (filepath,)
+        )
+        row = cursor.fetchone()
+        return bool(row[0]) if row is not None else False
 
 
 def toggle_favorite(filepath: str) -> bool:
     """Toggle favorite status. Returns new state (True = favorite)."""
-    # Validate filepath for path traversal
     from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
     music_folder = get_music_folder()
     if not is_safe_filepath(filepath, music_folder):
         return False
 
-    if is_favorite(filepath):
-        with get_connection() as conn:
-            conn.execute("DELETE FROM favorites WHERE filepath = ?", (filepath,))
-        return False
-    else:
-        with get_connection() as conn:
-            conn.execute("INSERT OR IGNORE INTO favorites (filepath) VALUES (?)", (filepath,))
-        return True
+    with get_connection() as conn:
+        conn.execute("""
+            UPDATE library SET is_favorite = CASE WHEN is_favorite THEN 0 ELSE 1 END
+            WHERE filepath = ?
+        """, (filepath,))
+        cursor = conn.execute(
+            "SELECT is_favorite FROM library WHERE filepath = ?", (filepath,)
+        )
+        row = cursor.fetchone()
+        return bool(row[0]) if row is not None else False
 
 
 def get_favorite_filepaths() -> Set[str]:
     """Get all favorite track filepaths."""
     with get_connection() as conn:
-        cursor = conn.execute("SELECT filepath FROM favorites")
+        cursor = conn.execute("SELECT filepath FROM library WHERE is_favorite = 1")
         return {row[0] for row in cursor.fetchall()}
 
 
 def get_favorite_tracks() -> List[TrackInfo]:
-    """Get ALL favorite tracks from the library.
-    Checks file mtime against DB and re-extracts metadata if file was modified.
-    If a favorite filepath is missing from library, extract metadata on-the-fly.
-    """
+    """Get ALL favorite tracks from the library."""
     with get_connection() as conn:
         cursor = conn.execute("""
-            SELECT l.filepath, l.title, l.artist, l.album, l.duration,
-                   l.has_cover, l.genre, l.is_lossless, l.mtime,
-                   COALESCE(l.bitrate, 0) as bitrate,
-                   COALESCE(l.tempo, 0.0) as tempo,
-                   COALESCE(l.energy, 0.0) as energy,
-                   COALESCE(l.mood, 0.0) as mood,
-                   COALESCE(l.hpss_ratio, 0.0) as hpss_ratio,
-                   COALESCE(l.zero_crossing_rate, 0.0) as zero_crossing_rate,
-                   COALESCE(l.spectral_flux, 0.0) as spectral_flux
-            FROM favorites f
-            INNER JOIN library l ON l.filepath = f.filepath
-            ORDER BY l.filepath
+            SELECT filepath, title, artist, album, duration,
+                   has_cover, genre, is_lossless,
+                   COALESCE(play_count, 0) as play_count,
+                   COALESCE(bitrate, 0) as bitrate,
+                   COALESCE(tempo, 0.0) as tempo,
+                   COALESCE(energy, 0.0) as energy,
+                   COALESCE(mood, 0.0) as mood,
+                   COALESCE(hpss_ratio, 0.0) as hpss_ratio,
+                   COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   mtime,
+                   COALESCE(language, '') as language,
+                   COALESCE(is_favorite, 0) as is_favorite
+            FROM library
+            WHERE is_favorite = 1
+            ORDER BY filepath
         """)
 
         results = []
         for row in cursor.fetchall():
             filepath = row[0]
-            db_mtime = row[8]
-
             has_cover = bool(row[5])
             cover_data = _load_cover(filepath) if has_cover else None
             if cover_data is None:
@@ -93,6 +95,8 @@ def get_favorite_tracks() -> List[TrackInfo]:
                 genre=row[6] or "",
                 is_lossless=bool(row[7]),
             )
+            if len(row) > 8:
+                track.play_count = row[8]
             if len(row) > 9:
                 track.bitrate = row[9]
             if len(row) > 10:
@@ -107,36 +111,13 @@ def get_favorite_tracks() -> List[TrackInfo]:
                 track.zero_crossing_rate = row[14]
             if len(row) > 15:
                 track.spectral_flux = row[15]
-            if len(row) > 8:
-                track.mtime = row[8]
+            if len(row) > 16:
+                track.mtime = row[16]
+            if len(row) > 17:
+                track.language = row[17]
+            if len(row) > 18:
+                track.is_favorite = bool(row[18])
 
-            # Check mtime — if file changed, re-extract metadata
-            try:
-                if os.path.exists(filepath):
-                    current_mtime = os.path.getmtime(filepath)
-                    if current_mtime > db_mtime:
-                        updated_track = extract_metadata(filepath)
-                        if updated_track:
-                            upsert_track(updated_track, current_mtime)
-                            track = updated_track
-                else:
-                    conn.execute("DELETE FROM favorites WHERE filepath = ?", (filepath,))
-            except Exception:
-                pass
-
-            results.append(track)
-
-        found_filepaths = {r.filepath for r in results}
-
-    # Find favorites not in library — extract metadata on-the-fly
-    all_fav_paths = get_favorite_filepaths()
-    missing = all_fav_paths - found_filepaths
-
-    for filepath in sorted(missing):
-        track = extract_metadata(filepath)
-        if track:
-            track_mtime = track.mtime if track.mtime else os.path.getmtime(filepath)
-            upsert_track(track, track_mtime)
             results.append(track)
 
     return results

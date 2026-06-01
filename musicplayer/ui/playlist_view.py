@@ -68,7 +68,7 @@ class PlaylistDelegate(QStyledItemDelegate):
         """Check if a track is in favorites."""
         if track is None:
             return False
-        return db_is_favorite(track.filepath)
+        return track.is_favorite
 
     def _render_heart_pixmap(self, is_fav: bool) -> QPixmap:
         """Render heart SVG with appropriate color and opacity."""

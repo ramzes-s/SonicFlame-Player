@@ -195,5 +195,9 @@ class PlaylistManager(PlayerManagerBase):
         if self._mw._current_playing_filepath:
             new_state = db_toggle_favorite(self._mw._current_playing_filepath)
             self._mw.controls_widget.set_current_track_favorite(self._mw._current_playing_filepath, new_state)
+            for t in self._mw.playlist_widget.get_view_tracks():
+                if t.filepath == self._mw._current_playing_filepath:
+                    t.is_favorite = new_state
+                    break
             self._mw.playlist_widget.list_widget.viewport().update()
             self._mw._web_integration.update_favorites()

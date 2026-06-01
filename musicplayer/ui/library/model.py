@@ -83,7 +83,6 @@ class LibraryModel(QAbstractTableModel):
         super().__init__(parent)
         self._cache: Dict[int, Track] = {}
         self._total_rows = 0
-        self._fav_set = set()
 
         self._search_term = ""
         self._genre_filter = ""
@@ -93,10 +92,6 @@ class LibraryModel(QAbstractTableModel):
         self._sort_ord = "ASC"
 
         self.worker: Optional[DataWorker] = None
-
-    def set_fav_set(self, fav_set: set):
-        self._fav_set = fav_set
-        self.reset()
 
     def set_search_term(self, term: str):
         self._search_term = term
@@ -121,9 +116,8 @@ class LibraryModel(QAbstractTableModel):
         self._sort_ord = "ASC" if order == Qt.AscendingOrder else "DESC"
 
         self._cache.clear()
-        self.dataChanged.emit(self.index(0, 0), self.index(self._total_rows - 1, self.columnCount() - 1))
-
         if self._total_rows > 0:
+            self.dataChanged.emit(self.index(0, 0), self.index(self._total_rows - 1, self.columnCount() - 1))
             self.fetchMore(QModelIndex())
 
     def get_track(self, row: int) -> Optional[Track]:
@@ -169,7 +163,7 @@ class LibraryModel(QAbstractTableModel):
             if col == 7:
                 return str(track.play_count) if track.play_count else "0"
             if col == 8:
-                return "♥" if track.filepath in self._fav_set else ""
+                return "♥" if track.is_favorite else ""
             return None
 
         if role == Qt.TextAlignmentRole and col in (5, 6, 7, 8, 9):
@@ -178,7 +172,7 @@ class LibraryModel(QAbstractTableModel):
         if role == Qt.FontRole and col in (3, 4, 6, 7):
             return QFont("Segoe UI", 9)
 
-        if role == Qt.ForegroundRole and col == 8 and track.filepath in self._fav_set:
+        if role == Qt.ForegroundRole and col == 8 and track.is_favorite:
             return QColor(cfg.get_accent_color())
 
         if role == Qt.UserRole and col == 9:
@@ -251,6 +245,7 @@ class LibraryModel(QAbstractTableModel):
                 tempo=getattr(ti, 'tempo', 0.0),
                 energy=getattr(ti, 'energy', 0.0),
                 mood=getattr(ti, 'mood', 0.0),
+                is_favorite=getattr(ti, 'is_favorite', False),
             ))
         return offset, tracks
 

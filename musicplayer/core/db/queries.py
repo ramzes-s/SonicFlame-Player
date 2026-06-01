@@ -8,9 +8,8 @@ import os
 import math
 import sqlite3
 from pathlib import Path
-from typing import List, Set, Tuple, Optional
+from typing import List, Tuple, Optional
 from musicplayer.core.db.connection import get_connection, normalize_path
-from musicplayer.core.db.favorites import get_favorite_filepaths
 from musicplayer.core.db.tracks import (
     TrackInfo, _row_to_track_with_cover, _row_to_track, get_track
 )
@@ -28,17 +27,13 @@ def _escape_like_pattern(text: str) -> str:
 
 
 def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: str,
-                          fav_only: bool, fav_set: Set[str]) -> Tuple[str, List]:
+                          fav_only: bool) -> Tuple[str, List]:
     """Helper to build WHERE clauses and parameters for filtering."""
     where_clauses = []
     params = []
 
     if fav_only:
-        if not fav_set:
-            return " WHERE 0", []
-        placeholders = ','.join('?' for _ in fav_set)
-        where_clauses.append(f"filepath IN ({placeholders})")
-        params.extend(list(fav_set))
+        where_clauses.append("is_favorite = 1")
 
     if genre_filter:
         where_clauses.append("genre LIKE ?")
@@ -84,8 +79,7 @@ def get_filtered_library_track_count(
     fav_only: bool = False
 ) -> int:
     """Get total number of tracks in the library that match filters."""
-    fav_set = get_favorite_filepaths() if fav_only else set()
-    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fav_set)
+    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only)
 
     query = f"SELECT COUNT(*) FROM library{where_sql}"
 
@@ -119,10 +113,7 @@ def get_library_tracks_page(
     offset = _validate_int(offset, 0)
     limit = _validate_int(limit, 50, 1, 500)
 
-    fav_set_for_filter = get_favorite_filepaths() if fav_only else set()
-    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only, fav_set_for_filter)
-
-    fav_set_for_sort = get_favorite_filepaths()
+    where_sql, params = _build_filter_clauses(search_term, genre_filter, folder_filter, fav_only)
 
     # Map UI sort names to DB columns - whitelist approach
     sort_map = {
@@ -139,14 +130,9 @@ def get_library_tracks_page(
     }
 
     # Validate sort_col against whitelist - prevent SQL injection in ORDER BY
-    if sort_col == "♡" and fav_set_for_sort:
-        order_col = "EXISTS(SELECT 1 FROM favorites f WHERE f.filepath = library.filepath)"
-    elif sort_col == "♡":
-        order_col = "0"
-    elif sort_col in sort_map:
+    if sort_col in sort_map:
         order_col = sort_map[sort_col]
     else:
-        # Unknown sort column - default to safe value
         order_col = "title COLLATE NOCASE"
 
     # Validate sort direction - only allow ASC or DESC
@@ -165,7 +151,9 @@ def get_library_tracks_page(
                COALESCE(hpss_ratio, 0.0) as hpss_ratio,
                COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                COALESCE(spectral_flux, 0.0) as spectral_flux,
-               mtime
+               mtime,
+               COALESCE(language, '') as language,
+               COALESCE(is_favorite, 0) as is_favorite
         FROM library
         {where_sql}
         ORDER BY {order_clause}
@@ -227,7 +215,9 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                    COALESCE(mood, 0.0) as mood,
                    COALESCE(hpss_ratio, 0.0) as hpss_ratio,
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
-                   COALESCE(spectral_flux, 0.0) as spectral_flux
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   COALESCE(language, '') as language,
+                   COALESCE(is_favorite, 0) as is_favorite
             FROM library
             WHERE play_count > 0
             ORDER BY play_count DESC
@@ -264,6 +254,7 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                 hpss_ratio=row[14] if len(row) > 14 else 0.0,
                 zero_crossing_rate=row[15] if len(row) > 15 else 0.0,
                 spectral_flux=row[16] if len(row) > 16 else 0.0,
+                is_favorite=bool(row[18]) if len(row) > 18 else False,
             )
 
             try:
@@ -310,7 +301,9 @@ def find_similar_tracks(filepath: str, limit: int = 20) -> List[TrackInfo]:
                    COALESCE(mood, 0.0) as mood,
                    COALESCE(hpss_ratio, 0.0) as hpss_ratio,
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
-                   COALESCE(spectral_flux, 0.0) as spectral_flux
+                   COALESCE(spectral_flux, 0.0) as spectral_flux,
+                   COALESCE(language, '') as language,
+                   COALESCE(is_favorite, 0) as is_favorite
             FROM library
             WHERE filepath != ? AND tempo > 0.0
         """, (filepath,))
