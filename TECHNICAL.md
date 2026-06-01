@@ -243,7 +243,7 @@ MusicPlayer2\
 | zero_crossing_rate | REAL | Zero-crossing rate (яркость, 0-1) |
 | spectral_flux | REAL | Spectral flux (изменчивость) |
 | hpss_ratio | REAL | HPSS-ratio (percussive vs harmonic, 0-1) |
-| language | TEXT | ISO 639-1 код языка (из метатегов или unicode-детекции) |
+| language | TEXT | ISO 639-1 код языка (из метатегов TLAN/Vorbis LANGUAGE или unicode-детекции по кириллице, CJK, арабскому, ивриту, греческому, тайскому, деванагари) |
 
 **Таблица `favorites`**:
 
@@ -389,6 +389,10 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **Штраф за язык** (если `language_filter_mode = "penalty"`): −0.20 при несовпадении языка.
 
 **Исключение по языку** (если `language_filter_mode = "exclude"`): score = 0 при несовпадении языка (ранний выход, анализ не выполняется).
+
+**Определение языка**: язык извлекается из метатегов (ID3 TLAN, Vorbis LANGUAGE). Если тег отсутствует — определяется unicode-диапазоном первого непробельного текста (кириллица → "ru", CJK → "ja"/"zh"/"ko", арабский → "ar", иврит → "he", греческий → "el", тайский → "th", деванагари → "hi"). ISO 639-2→639-1 маппинг для распространённых языков.
+
+**Жанры**: множественные значения жанров для FLAC/MP3/M4A объединяются через `/` при сохранении в БД. В UI плейлиста отображается макс. 3 жанра; при превышении — `+N`.
 
 **Ключевые функции:**
 - `calculate_similarity(track1, track2, dim_tols=None, lang_filter_mode="off") → float`: взвешенная сумма.
@@ -578,6 +582,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Обработка удаления трека**: использует `remove_track_from_library` из `ui/remove_track_dialog.py`
 - **Сброс базы данных**: удаляет `musicplayer.db` + `-wal` + `-shm`, очищает кеш обложек, переинициализирует БД, сбрасывает UI и запускает полное пересканирование
 - **Библиотека-субпроцесс**: запуск `main.py --library` через `subprocess.Popen`
+- **Idle shutdown timer**: `_idle_timer` (`QTimer`) запускается при паузе/стопе, сбрасывается при возобновлении воспроизведения. По истечении таймера вызывает `QApplication.quit()` (не `self.close()`, т.к. окно может быть скрыто в трее). Интервал из `settings.idle_shutdown_minutes`.
 
 **Поиск похожих треков (UI)**:
 - Обрабатывает запрос от кнопки "Поиск похожих треков" в `ControlsWidget` и из веб-интерфейса (`/api/play_similar`).
@@ -685,6 +690,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Прямые ссылки: `window.controls_widget`, `window.sidebar`, `window.playlist_widget`, `window.track_info_widget` — вызывают `apply_accent_color(accent)` на каждом
 - `findChild(QWidget, "main_container")` — обновление QSS-границы контейнера (border с alpha=0.1)
 - `findChildren(FolderBrowseDialog)` — обновление открытого `FolderBrowseDialog` (если есть): вызывает `dlg.apply_accent_color()` → `super().apply_accent_color()` (обновляет close button + перерисовывает акцентную рамку) → обновление всех внутренних виджетов диалога
+- `findChildren(TagEditorDialog)` — обновление открытого редактора тегов (close button, text input focus border, save button, genre tags)
+- `findChildren(TrackSearchResultsDialog)` / `findChildren(CoverSearchResultsDialog)` — обновление open search dialogs (pick button, score label, CoverTile repaint)
 - Slider'ы: пересоздание QSS через `_get_style()`
 - Title bar close button: обновление стиля
 - Перерисовка playlist viewport
@@ -707,7 +714,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **`PlaylistDelegate`**:
 - Кастомная отрисовка через `paint()`
 - **Текст**: артист (10px, полупрозрачный белый ~70%, белый при воспроизведении), название (11px, bold, белый, акцентный при воспроизведении)
-- **Бейджи** (справа налево): длительность, жанры, корона (lossless), сердце (избранное)
+- **Бейджи** (справа налево): длительность, жанры (макс. 3, при превышении показывается `+N`), корона (lossless), сердце (избранное)
 - Высота элемента: 52px
 
 **`PlaylistListWidget`**:
@@ -769,6 +776,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Корневая папка** — кнопка с путём (красная рамка если не задана)
 - **Точность подбора похожих** — `ClickableSlider` (0–40, шаг 1)
 - **Длительность анализа треков** — `ClickableSlider` (30–60, шаг 10, с привязкой и меткой)
+- **Фильтр языка** — QComboBox (Не учитывать / Понижать вес / Исключать), значение хранится в `language_filter_mode`
 - **Удалить базу данных** — красная кнопка с подтверждением (сбрасывает БД + кеш обложек)
 
 **`page_appearance.py`** — AppearancePage + `TallItemDelegate`:
@@ -784,6 +792,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **`page_system.py`** — SystemPage + `CleanupWorker`:
 - **Блокировать сон** — QCheckBox
+- **Таймер автовыключения** — QComboBox (Никогда / 15 мин / 30 мин / 1 ч / 3 ч / 6 ч / 12 ч), значение хранится в `idle_shutdown_minutes`
 - **Устройство вывода звука** — QComboBox со списком доступных устройств + "По умолчанию". Стилизован через `QAbstractItemView::item:selected/hover` с акцентным цветом. Использует `TallItemDelegate` для высоты элементов.
 - **Чистка мусора в БД** — кнопка, запускает `CleanupWorker` в отдельном потоке; результат (количество удалённых треков) выводится на самой кнопке на 3 секунды
 
@@ -855,8 +864,9 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 Базовый класс для frameless-диалогов. Содержит:
 - `paintEvent` с акцентной рамкой
 - `mousePressEvent`/`mouseMoveEvent` для перетаскивания окна
-- `_build_title_bar(title_text)` — кастомный заголовок с иконкой, кнопкой закрытия
+- `_build_title_bar(title_text)` — кастомный заголовок с иконкой, кнопкой закрытия (сохраняется как `self._close_btn`)
 - `_setup_ui()` — создание контейнера с чёрным фоном (единая структура для всех диалогов)
+- `apply_accent_color(color)` — обновляет hover-цвет close button. Вызывается из `accent_style.py` при смене акцента
 
 ##### `editor.py` — TagEditorDialog
 Наследует `BaseFramelessDialog`. Основной диалог редактора:
@@ -864,9 +874,10 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Перемещение трека**: кнопка "Переместить в папку" → вызов `move_track_to_folder()` → обновление `file_path`.
 - **Редактирование полей**: title, artist, album, year, track number, genre.
 - **Синхронизация с именем файла**: заполнение из имени, генерация имени из тегов.
-- **Управление обложками**: загрузка, онлайн-поиск (iTunes/Deezer), генерация.
+- **Управление обложками**: загрузка (диалог открывается в папке трека через `os.path.dirname(self.file_path)`), онлайн-поиск (iTunes/Deezer), генерация. При отсутствии обложки отображается StyledMessageBox "Обложка не найдена." с кнопкой "Искать в интернете" → открывает Google Images.
 - **Поиск метаданных онлайн** через iTunes и Deezer.
 - **Асинхронное сохранение** в фоновом потоке.
+- **`apply_accent_color(color)`** — обновляет close button (super), focus border всех `QLineEdit`, background + hover `save_btn`, и перерисовывает genre tag badges через `_refresh_genre_tags()`. Текст-инпуты хранятся в `self._text_inputs`.
 
 ##### `track_mover.py` — move_track_to_folder
 Функция перемещения трека в другую папку:
@@ -875,9 +886,9 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Возвращает новый путь или `None`.
 
 ##### `base_dialog.py`, `dialogs.py` — Dialog classes
-- `TrackSearchResultsDialog` — результаты поиска треков.
-- `CoverSearchResultsDialog` — выбор обложки.
-- `CoverTile` — плитка обложки с SVG-заглушкой.
+- `TrackSearchResultsDialog` — результаты поиска треков. `apply_accent_color(color)` обновляет pick button (✓ Подходит) + score label (акцент при 100%) через `findChildren` по всем `_card_frames`.
+- `CoverSearchResultsDialog` — выбор обложки. `apply_accent_color(color)` вызывает `update()` на всех `CoverTile` (которые перерисовывают hover-галочку акцентным цветом из `cfg.get_accent_color()` в `paintEvent`).
+- `CoverTile` — плитка обложки с SVG-заглушкой. `paintEvent` читает акцент динамически через `cfg.get_accent_color()`, поэтому не требует пересоздания.
 - Все наследуют `BaseFramelessDialog`, устранено ~55 строк дублирования.
 
 ##### `threads.py` — Worker threads
