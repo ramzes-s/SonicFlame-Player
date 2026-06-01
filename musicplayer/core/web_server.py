@@ -76,15 +76,15 @@ class WebServer(QObject):
         self._api_handlers = APIHandlers(self)
         self._setup_routes()
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
 
         self._runner = web.AppRunner(self._app)
-        loop.run_until_complete(self._runner.setup())
+        self._loop.run_until_complete(self._runner.setup())
         self._site = web.TCPSite(self._runner, '0.0.0.0', port)
-        loop.run_until_complete(self._site.start())
+        self._loop.run_until_complete(self._site.start())
         self._is_running = True
-        loop.run_forever()
+        self._loop.run_forever()
 
         return True
 
@@ -93,20 +93,20 @@ class WebServer(QObject):
         self._port = port
 
         def run_server():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+            self._loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self._loop)
 
             self._app = web.Application()
             self._api_handlers = APIHandlers(self)
             self._setup_routes()
 
             self._runner = web.AppRunner(self._app)
-            loop.run_until_complete(self._runner.setup())
+            self._loop.run_until_complete(self._runner.setup())
             self._site = web.TCPSite(self._runner, '0.0.0.0', port)
-            loop.run_until_complete(self._site.start())
+            self._loop.run_until_complete(self._site.start())
 
             self._is_running = True
-            loop.run_forever()
+            self._loop.run_forever()
 
         thread = threading.Thread(target=run_server, daemon=True)
         thread.start()
@@ -158,14 +158,14 @@ class WebServer(QObject):
 
     def stop(self):
         """Stop the web server."""
-        if hasattr(self, '_runner') and self._runner:
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                loop.run_until_complete(self._runner.cleanup())
-            except Exception:
-                pass
         self._is_running = False
+        loop = getattr(self, '_loop', None)
+        if loop is None:
+            return
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except Exception:
+            pass
 
     def is_running(self) -> bool:
         return self._is_running
