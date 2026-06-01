@@ -8,13 +8,16 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.5"
 
 # Debug logging toggle — set False to disable file logging
 LOG_DEBUG = True
 
 # Global accent color — change here to update the entire app
 ACCENT_COLOR = "#ed6a02"
+
+# Database version for schema compatibility checking
+DB_VERSION = 1
 
 # Global colors
 TEXT_COLOR = "#FFFFFF"

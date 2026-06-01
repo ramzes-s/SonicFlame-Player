@@ -7,6 +7,8 @@ All functionality has been moved to the db package.
 
 from musicplayer.core.db import (
     get_connection,
+    set_system_value,
+    get_system_value,
     init_db,
     get_db_mtime,
     DB_PATH,
@@ -47,6 +49,8 @@ from musicplayer.core.db import (
     delete_folder,
     get_cover_path,
     _get_cover_path,
+    set_system_value,
+    get_system_value,
 )
 
 __all__ = [
@@ -91,4 +95,6 @@ __all__ = [
     "delete_folder",
     "get_cover_path",
     "_get_cover_path",
+    "set_system_value",
+    "get_system_value",
 ]

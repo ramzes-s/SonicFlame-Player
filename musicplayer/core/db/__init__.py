@@ -74,6 +74,11 @@ from musicplayer.core.db.folders import (
     delete_folder,
 )
 
+from musicplayer.core.db.system import (
+    set_system_value,
+    get_system_value,
+)
+
 __all__ = [
     # Connection
     "get_connection",
@@ -123,4 +128,7 @@ __all__ = [
     "upsert_folder",
     "get_folder_track_count",
     "delete_folder",
+    # System
+    "set_system_value",
+    "get_system_value",
 ]

@@ -4,6 +4,7 @@ from PySide6.QtGui import QPixmap, QPainter, QColor, QFont
 from PySide6.QtSvgWidgets import QSvgWidget
 
 from musicplayer import config as cfg
+from musicplayer.core.db.system import get_system_value
 from musicplayer.ui.svg_icons import get_music_note_svg
 
 
@@ -27,6 +28,14 @@ class AboutPage(QWidget):
         self._title_label.setStyleSheet(f"color: {accent}; font-size: 22px; font-weight: 600;")
         self._title_label.setAlignment(Qt.AlignCenter)
         lo.addWidget(self._title_label)
+
+        lo.addSpacing(10)
+        db_ver = get_system_value('db_version_compare')
+        db_ver_str = db_ver if db_ver is not None else "не установлена"
+        ver_label = QLabel(f"Версия БД: {db_ver_str}.   Требуемая версия БД: {cfg.DB_VERSION}")
+        ver_label.setStyleSheet("color: #ffffff; font-size: 12px;")
+        ver_label.setAlignment(Qt.AlignCenter)
+        lo.addWidget(ver_label)
         lo.addSpacing(20)
 
         # Author note

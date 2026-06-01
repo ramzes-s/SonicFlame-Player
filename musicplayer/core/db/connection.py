@@ -108,12 +108,7 @@ def init_db():
                     zero_crossing_rate REAL DEFAULT 0,
                     spectral_flux REAL DEFAULT 0,
                     hpss_ratio REAL DEFAULT 0,
-                    language TEXT DEFAULT ''
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE favorites (
-                    filepath TEXT PRIMARY KEY NOT NULL
+                    is_favorite INTEGER DEFAULT 0
                 )
             """)
             conn.execute("""
@@ -134,20 +129,28 @@ def init_db():
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_library_genre ON library(genre)
             """)
+            conn.execute("""
+                CREATE TABLE system_data (
+                    key TEXT PRIMARY KEY NOT NULL,
+                    value TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                INSERT OR IGNORE INTO system_data (key, value)
+                VALUES ('db_version_compare', ?)
+            """, (str(config.DB_VERSION),))
             return
 
         # Table exists — migrate missing columns
 
-        # Ensure favorites table exists
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='favorites'"
-        )
-        if not cursor.fetchone():
-            conn.execute("""
-                CREATE TABLE favorites (
-                    filepath TEXT PRIMARY KEY NOT NULL
-                )
-            """)
+        # Drop old favorites table — now using is_favorite column in library
+        conn.execute("DROP TABLE IF EXISTS favorites")
+
+        # Ensure is_favorite column exists in library
+        cursor = conn.execute("PRAGMA table_info(library)")
+        columns = {row[1] for row in cursor.fetchall()}
+        if 'is_favorite' not in columns:
+            conn.execute("ALTER TABLE library ADD COLUMN is_favorite INTEGER DEFAULT 0")
 
         # Ensure folders table exists
         cursor = conn.execute(
@@ -160,12 +163,6 @@ def init_db():
                     track_count INTEGER DEFAULT 0
                 )
             """)
-
-        # Migrate language column if missing
-        cursor = conn.execute("PRAGMA table_info(library)")
-        cols = {row[1] for row in cursor.fetchall()}
-        if 'language' not in cols:
-            conn.execute("ALTER TABLE library ADD COLUMN language TEXT DEFAULT ''")
 
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_library_mtime ON library(mtime)
@@ -184,6 +181,40 @@ def init_db():
                 last_updated_mtime REAL NOT NULL
             )
         """)
+        # ---- System Data (key-value store) ----
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS system_data (
+                key TEXT PRIMARY KEY NOT NULL,
+                value TEXT NOT NULL
+            )
+        """)
+
+
+def check_db_version() -> Optional[str]:
+    """Check DB version compatibility. Returns error message or None if OK."""
+    db_version_str = None
+    try:
+        from musicplayer.core.db.system import get_system_value
+        db_version_str = get_system_value('db_version_compare')
+    except Exception:
+        pass
+    try:
+        db_version = int(db_version_str) if db_version_str is not None else 0
+    except (ValueError, TypeError):
+        return None
+    if db_version > config.DB_VERSION:
+        return (
+            f"База данных создана более новой версией программы "
+            f"(версия БД: {db_version}, версия программы: {config.DB_VERSION}).\n"
+            f"Пожалуйста, обновите программу."
+        )
+    if db_version < config.DB_VERSION:
+        return (
+            f"База данных устарела и несовместима с текущей версией программы "
+            f"(версия БД: {db_version}, требуемая версия: {config.DB_VERSION}).\n"
+            f"Требуется обновление базы данных."
+        )
+    return None
 
 
 def get_db_mtime() -> float:
