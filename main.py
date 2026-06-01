@@ -22,8 +22,8 @@ import mutagen
 
 # === SPLASH — BEFORE any heavy imports ===
 from PySide6.QtWidgets import QApplication, QSplashScreen
-from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, QByteArray
-from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QPainterPath
+from PySide6.QtCore import Qt, QRectF, QPropertyAnimation, QEasingCurve, QByteArray, QTimer
+from PySide6.QtGui import QFont, QIcon, QPixmap, QPainter, QPainterPath, QColor
 from PySide6.QtSvg import QSvgRenderer
 
 
@@ -283,6 +283,11 @@ def _run_player_mode(app: QApplication):
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
+    # Early DB version check before showing the splash
+    from musicplayer.core.db.connection import init_db, check_db_version
+    init_db()
+    db_error = check_db_version()
+
     W, H = 1100, 600
     RADIUS = 12
     pixmap = QPixmap(W, H)
@@ -308,6 +313,12 @@ def _run_player_mode(app: QApplication):
     painter.setPen(Qt.white)
     painter.setFont(QFont("Segoe UI", 28, QFont.Bold))
     painter.drawText(0, logo_y + logo_size + 10, W, 50, Qt.AlignCenter, "SonicFlame Player")
+
+    if db_error:
+        painter.setPen(QColor("#ed6a02"))
+        painter.setFont(QFont("Segoe UI", 16))
+        painter.drawText(0, logo_y + logo_size + 60, W, 80, Qt.AlignCenter | Qt.TextWordWrap, db_error)
+
     painter.end()
 
     splash = AnimatedSplash(pixmap)
@@ -318,6 +329,12 @@ def _run_player_mode(app: QApplication):
     for _ in range(5):
         app.processEvents()
     time.sleep(0.15)
+
+    if db_error:
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(10000, app.quit)
+        sys.exit(app.exec())
+        return
 
     from musicplayer.ui.main_window import MainWindow
 
