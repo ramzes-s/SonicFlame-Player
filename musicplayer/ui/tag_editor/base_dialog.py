@@ -58,6 +58,7 @@ class BaseFramelessDialog(QDialog):
             QPushButton:hover { background-color: %s; }
         """ % accent)
         close_btn.clicked.connect(self.reject)
+        self._close_btn = close_btn
         title_layout.addWidget(close_btn)
 
         self._title_bar = title_bar
@@ -96,3 +97,10 @@ class BaseFramelessDialog(QDialog):
                 (geo.width() - self.width()) // 2,
                 (geo.height() - self.height()) // 2
             )
+
+    def apply_accent_color(self, color: str):
+        if hasattr(self, '_close_btn') and self._close_btn is not None:
+            self._close_btn.setStyleSheet(f"""
+                QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
+                QPushButton:hover {{ background-color: {color}; }}
+            """)

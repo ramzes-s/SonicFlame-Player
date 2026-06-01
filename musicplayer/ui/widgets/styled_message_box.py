@@ -17,7 +17,7 @@ class StyledMessageBox(FramelessDialog):
     }
 
     def __init__(self, parent=None, title="", text="", key="", icon="info",
-                 buttons=None, default_button=0, auto_close=0):
+                 buttons=None, default_button=0, auto_close=0, widths=None):
         super().__init__(parent)
         self._title = title
         self._text = text
@@ -31,6 +31,7 @@ class StyledMessageBox(FramelessDialog):
         if buttons is None:
             buttons = ["OK"]
         self._buttons = buttons
+        self._widths = widths if widths else [120] * len(buttons)
 
         self.setMinimumSize(540, 160)
         self.setMaximumWidth(780)
@@ -87,7 +88,7 @@ class StyledMessageBox(FramelessDialog):
         for i, btn_text in enumerate(self._buttons):
             btn = QPushButton(btn_text)
             btn.setFixedHeight(34)
-            btn.setFixedWidth(120)
+            btn.setFixedWidth(self._widths[i] if i < len(self._widths) else 120)
             btn.setCursor(Qt.PointingHandCursor)
 
             if i == len(self._buttons) - 1:
@@ -150,11 +151,11 @@ class StyledMessageBox(FramelessDialog):
         return self._result
 
     @staticmethod
-    def _run(parent, title, text, key, icon, buttons, default, auto_close):
+    def _run(parent, title, text, key, icon, buttons, default, auto_close, widths=None):
         dlg = StyledMessageBox(
             parent=parent, title=title, text=text, key=key,
             icon=icon, buttons=buttons, default_button=default,
-            auto_close=auto_close
+            auto_close=auto_close, widths=widths
         )
         return dlg.exec()
 

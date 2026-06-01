@@ -71,3 +71,15 @@ def apply_accent_to_main_window(window, settings_dialog=None):
     from musicplayer.ui.folder_browse.dialog import FolderBrowseDialog
     for dlg in window.findChildren(FolderBrowseDialog):
         dlg.apply_accent_color()
+
+    # TagEditorDialog (if open)
+    from musicplayer.ui.tag_editor.editor import TagEditorDialog
+    for dlg in window.findChildren(TagEditorDialog):
+        dlg.apply_accent_color(accent)
+
+    # TrackSearchResultsDialog / CoverSearchResultsDialog (if open)
+    from musicplayer.ui.tag_editor.dialogs import TrackSearchResultsDialog, CoverSearchResultsDialog
+    for dlg in window.findChildren(TrackSearchResultsDialog):
+        dlg.apply_accent_color(accent)
+    for dlg in window.findChildren(CoverSearchResultsDialog):
+        dlg.apply_accent_color(accent)

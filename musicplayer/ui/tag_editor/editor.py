@@ -7,8 +7,8 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QFileDialog,
                               QMessageBox, QWidget, QScrollArea, QFrame)
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt, QUrl
+from PySide6.QtGui import QPixmap, QDesktopServices
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +105,7 @@ class TagEditorDialog(BaseFramelessDialog):
         title_row = QHBoxLayout()
         title_row.setSpacing(0)
         self.title_edit = self._text_input()
+        self._text_inputs = [self.title_edit]
         title_row.addWidget(self.title_edit)
         self.title_from_fname_btn = self._action_button("Из имени файла", width=120)
         self.title_from_fname_btn.clicked.connect(self._apply_title_from_filename)
@@ -114,6 +115,7 @@ class TagEditorDialog(BaseFramelessDialog):
         artist_row = QHBoxLayout()
         artist_row.setSpacing(0)
         self.artist_edit = self._text_input()
+        self._text_inputs.append(self.artist_edit)
         artist_row.addWidget(self.artist_edit)
         self.artist_from_fname_btn = self._action_button("Из имени файла", width=120)
         self.artist_from_fname_btn.clicked.connect(self._apply_artist_from_filename)
@@ -124,9 +126,11 @@ class TagEditorDialog(BaseFramelessDialog):
         self.artist_edit.textChanged.connect(self._update_fname_buttons)
 
         self.album_edit = self._text_input()
+        self._text_inputs.append(self.album_edit)
         form.addRow("Альбом:", self.album_edit)
 
         self.year_edit = self._text_input()
+        self._text_inputs.append(self.year_edit)
         form.addRow("Год:", self.year_edit)
 
         genre_container = QWidget()
@@ -143,6 +147,7 @@ class TagEditorDialog(BaseFramelessDialog):
         self.genre_container = genre_container
 
         self.track_edit = self._text_input()
+        self._text_inputs.append(self.track_edit)
         form.addRow("Трек №:", self.track_edit)
 
         fname_col = QVBoxLayout()
@@ -150,6 +155,7 @@ class TagEditorDialog(BaseFramelessDialog):
         fname_row = QHBoxLayout()
         fname_row.setSpacing(0)
         self.filename_edit = self._text_input()
+        self._text_inputs.append(self.filename_edit)
         fname_row.addWidget(self.filename_edit)
         self.filename_from_tags_btn = self._action_button("Из тегов", width=100)
         self.filename_from_tags_btn.clicked.connect(self._apply_title_from_tags)
@@ -537,7 +543,16 @@ class TagEditorDialog(BaseFramelessDialog):
     def _on_cover_search_done(self, covers):
         self.loading_bar.stop()
         if not covers:
-            QMessageBox.information(self, "Результат", "Обложка не найдена.")
+            result = StyledMessageBox._run(
+                self, "Результат", "Обложка не найдена.",
+                "", "info", ["Закрыть", "Искать в интернете"], 0, 0,
+                widths=[120, 170]
+            )
+            if result == 1:
+                artist = self.artist_edit.text().strip()
+                title = self.title_edit.text().strip()
+                query = f"{artist} {title} cover".replace(' ', '+')
+                QDesktopServices.openUrl(QUrl(f"https://www.google.com/images?q={query}"))
             return
         artist = self.artist_edit.text().strip()
         title = self.title_edit.text().strip()
@@ -557,7 +572,8 @@ class TagEditorDialog(BaseFramelessDialog):
             self.cover_label.setText("")
 
     def _load_cover(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Выберите обложку", "", "Images (*.png *.jpg *.jpeg *.bmp)")
+        start_dir = os.path.dirname(self.file_path) if self.file_path else ""
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите обложку", start_dir, "Images (*.png *.jpg *.jpeg *.bmp)")
         if path:
             with open(path, "rb") as f:
                 cover_data_from_file = f.read()
@@ -745,6 +761,19 @@ class TagEditorDialog(BaseFramelessDialog):
         self.cancel_btn.setEnabled(True)
         self.delete_btn.setEnabled(True)
         QMessageBox.critical(self, "Ошибка", message)
+
+    def apply_accent_color(self, color: str):
+        super().apply_accent_color(color)
+        for edit in self._text_inputs:
+            edit.setStyleSheet(f"""
+                QLineEdit {{ background-color: #1a1a1a; border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; padding: 0 10px; color: #FFFFFF; font-size: 13px; }}
+                QLineEdit:focus {{ border-color: {color}; }}
+            """)
+        self.save_btn.setStyleSheet(f"""
+            QPushButton {{ background-color: {color}; border: none; border-radius: 0; color: #FFFFFF; font-size: 13px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: #FFFFFF; color: {color}; }}
+        """)
+        self._refresh_genre_tags()
 
     def _cleanup_threads(self):
         """Remove references to threads so they aren't kept alive by the dialog."""

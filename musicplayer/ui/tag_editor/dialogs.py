@@ -66,10 +66,12 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         card_layout = QVBoxLayout(card_container)
         card_layout.setContentsMargins(4, 4, 4, 4)
         card_layout.setSpacing(8)
+        self._card_frames = []
 
         for score, track_data in self.track_results:
             card = self._build_card(track_data, score, self._artist, self._title, self._duration)
             card_layout.addWidget(card)
+            self._card_frames.append(card)
 
         card_layout.addStretch()
         scroll.setWidget(card_container)
@@ -201,6 +203,24 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         self.selected_track = track_data
         self.accept()
 
+    def apply_accent_color(self, color: str):
+        super().apply_accent_color(color)
+        for card in self._card_frames:
+            for btn in card.findChildren(QPushButton):
+                if btn.text() == "✓ Подходит":
+                    btn.setStyleSheet(f"""
+                        QPushButton {{ background-color: {color}; color: #FFFFFF; border: none; border-radius: 0; font-size: 12px; font-weight: bold; }}
+                    """)
+            for lbl in card.findChildren(QLabel):
+                if "Совпадение:" in lbl.text():
+                    pct_text = lbl.text().replace("Совпадение: ", "").replace("%", "")
+                    try:
+                        pct = int(pct_text)
+                    except ValueError:
+                        pct = 0
+                    score_color = color if pct == 100 else ("#FFFFFF" if pct > 70 else "#444444" if pct < 40 else "#888888")
+                    lbl.setStyleSheet(f"color: {score_color}; font-size: 11px;")
+
 
 class CoverTile(QWidget):
     selected = Signal(bytes)
@@ -315,3 +335,8 @@ class CoverSearchResultsDialog(BaseFramelessDialog):
     def _select_cover(self, cover_data: bytes):
         self.selected_cover = cover_data
         self.accept()
+
+    def apply_accent_color(self, color: str):
+        super().apply_accent_color(color)
+        for tile in self.findChildren(CoverTile):
+            tile.update()
