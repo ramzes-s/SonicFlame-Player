@@ -26,10 +26,11 @@ MusicPlayer2\
 │   │   ├── db/                         # SQLite библиотека
 │   │   │   ├── __init__.py             # Обратная совместимость — экспорт всех функций
 │   │   │   ├── cache.py                # Кэширование обложек
-│   │   │   ├── connection.py           # Подключение к БД (пути из config)
-│   │   │   ├── favorites.py            # Операции с избранным
+│   │   │   ├── connection.py           # Подключение к БД (пути из config), миграция
+│   │   │   ├── favorites.py            # Операции с избранным (column-based, is_favorite)
 │   │   │   ├── folders.py              # Операции с папками
 │   │   │   ├── queries.py              # Фильтрация, сортировка, сложные запросы
+│   │   │   ├── system.py               # Key-value store (db_version_compare и т.д.)
 │   │   │   └── tracks.py               # CRUD операции с треками, извлечение метаданных
 │   │   ├── audio_device_manager.py     # Управление устройствами вывода + автофолбэк
 │   │   ├── db.py                       # Обратная совместимость (импорт из пакета db/)
@@ -244,12 +245,16 @@ MusicPlayer2\
 | spectral_flux | REAL | Spectral flux (изменчивость) |
 | hpss_ratio | REAL | HPSS-ratio (percussive vs harmonic, 0-1) |
 | language | TEXT | ISO 639-1 код языка (из метатегов TLAN/Vorbis LANGUAGE или unicode-детекции по кириллице, CJK, арабскому, ивриту, греческому, тайскому, деванагари) |
+| is_favorite | INTEGER | Флаг избранного (0/1, DEFAULT 0) |
 
-**Таблица `favorites`**:
+**Таблица `system_data`** (key-value store):
 
 | Колонка | Тип | Описание |
 |---------|-----|----------|
-| filepath | TEXT PK | Путь к избранному треку |
+| key | TEXT PK | Ключ |
+| value | TEXT | Значение |
+
+**Зарезервированные ключи**: `db_version_compare` — версия схемы БД, сравнивается с `config.DB_VERSION` при запуске.
 
 **Таблица `folders`**:
 
@@ -269,9 +274,10 @@ MusicPlayer2\
 **Обложки** хранятся отдельно в `.cache/covers/{md5_пути}.webp` (конвертация через Pillow, quality=85). 
 
 **Ключевые функции**:
-- `init_db()` — инициализация/миграция схемы
-- `upsert_track(track, mtime)` — вставка/обновление трека (сохраняет play_count)
-- `delete_track(filepath)` — удаление трека + избранного + файла обложки
+- `init_db()` — инициализация/миграция схемы (создаёт `system_data`, добавляет `is_favorite`, дропает `favorites`)
+- `check_db_version()` — проверка совместимости версии БД с `config.DB_VERSION`
+- `upsert_track(track, mtime)` — вставка/обновление трека (сохраняет play_count + is_favorite)
+- `delete_track(filepath)` — удаление трека + файла обложки
 - `get_track(filepath)` — получение трека с загрузкой обложки
 - `get_all_library_tracks()` / `get_all_library_tracks_light()` — все треки
 - `get_tracks_by_folder(folder_path)` — треки конкретной папки
@@ -279,7 +285,7 @@ MusicPlayer2\
 - `get_folder_filepaths(folder_path)` — множества путей папки (для sync)
 - `delete_folder_tracks(folder_path)` — очистка папки
 - `increment_play_count(filepath)` — инкремент счётчика
-- `is_favorite()` / `toggle_favorite()` / `get_favorite_tracks()` / `get_favorite_filepaths()`
+- `is_favorite(filepath)` / `toggle_favorite(filepath)` / `get_favorite_filepaths()` — column-based, читают/пишут `is_favorite` в `library`
 - `get_top_tracks(limit=100)` — топ по play_count
 - `ensure_cover_for_track(filepath)` — гарантирует наличие обложки (извлекает если нет)
 - `upsert_folder(folder_path, track_count)` — запись папки в `folders` (путь нормализуется через `normalize_path`)
@@ -289,6 +295,7 @@ MusicPlayer2\
 - `update_artists_cache(artists_data)` — пакетное обновление кеша исполнителей
 - `get_cached_artists()` — получение всех исполнителей из кеша
 - `get_artists_cache_status()` — проверка актуальности кеша исполнителей (сравнение mtime БД и файла кеша)
+- `set_system_value(key, value)` / `get_system_value(key)` — key-value доступ к `system_data`
 
 **Безопасность БД**:
 - Валидация параметров `offset`/`limit`: ограничение диапазона (1-500 для limit, 0-1000000 для offset)
@@ -424,7 +431,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - `web_template.py` — загрузчик HTML/CSS/JS из `res/web_templates/` (вынесены из inline-строк)
 
 **Особенности**:
-- HTTP-сервер на aiohttp (порт настраивается, по умолчанию 8080)
+- HTTP-сервер на aiohttp в daemon-потоке, порт настраивается (по умолчанию 8080)
+- `stop()` — корректно останавливает event loop через `loop.call_soon_threadsafe(loop.stop)` вместо создания временного цикла
 - Синхронизация состояния плеера каждые 1000мс
 - Раздельные API: `/api/playing_data` (только статус) + `/api/track` (информация о треке)
 - Обложка загружается отдельно при смене трека (оптимизация трафика)
@@ -527,6 +535,15 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Qt-колбеки через сигналы
 - Новый сигнал `play_similar_requested` для загрузки похожих треков
 - Сигнал `shutdown_requested` для удалённого закрытия программы через `POST /api/shutdown`
+
+### Запуск и проверка версии БД
+
+При запуске (`main.py:_run_player_mode()`) до создания сплеша вызывается `init_db()` и `check_db_version()`:
+- Если `db_version_compare` в `system_data` отсутствует — считается равным 0
+- Если `db_version_compare < DB_VERSION` (код новее БД) или `db_version_compare > DB_VERSION` (код старше БД) — на сплеш оранжевым цветом `#ed6a02` выводится сообщение об ошибке
+- Сплеш с ошибкой висит 10 секунд, затем `app.quit()`
+
+При первом создании БД (fresh install) в `system_data` сразу пишется `db_version_compare = DB_VERSION`.
 
 ### UI модули
 
@@ -798,6 +815,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **`page_about.py`** — AboutPage:
 - **Заголовок** — название приложения и версия акцентным цветом
+- **Версия БД** — строка с `db_version_compare` из `system_data` и требуемой версией (`cfg.DB_VERSION`)
 - **Описание "от автора"**
 - **Иконка** — музыкальная нота (128×128, прозрачный фон, акцентный цвет), расположена под текстом
 - **Ссылки внизу** — GitHub (белая плашка + чёрный текст) и Сайт проекта (оранжевая плашка `#ed6a02` + белый текст), в один ряд с отступом 100px
@@ -882,7 +900,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 ##### `track_mover.py` — move_track_to_folder
 Функция перемещения трека в другую папку:
 - Валидация: папка внутри `music_folder`, не совпадает с текущей, нет дубликата имени.
-- `shutil.move()` + обновление избранного (`toggle_favorite(new_path)`).
+- `shutil.move()` + сохранение is_favorite и всех аналитических полей (6 dims + play_count) через get_track до delete_track и восстановление на updated_track после extract_metadata.
 - Возвращает новый путь или `None`.
 
 ##### `base_dialog.py`, `dialogs.py` — Dialog classes
@@ -1040,7 +1058,8 @@ QThread для анализа одного аудиофайла через libro
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.1.0`                          | `musicplayer/config.py`|
+| APP_VERSION         | `1.4.0`                          | `musicplayer/config.py`|
+| DB_VERSION          | `1`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
 | DIVIDER_COLOR       | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
