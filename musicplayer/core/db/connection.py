@@ -19,32 +19,31 @@ def normalize_path(path_str: str) -> str:
 
 
 def is_safe_filepath(filepath: str, base_dir: Optional[str] = None) -> bool:
-    """Validate that a filepath is safe and doesn't contain path traversal.
-    
+    """Validate that a filepath is contained within base_dir.
+
+    Resolves symlinks/junctions and normalises case for case-insensitive
+    filesystems (Windows). Returns False if base_dir is not provided —
+    containment cannot be verified without it.
+
     Args:
         filepath: The path to validate
-        base_dir: Optional base directory to check containment against
-        
+        base_dir: Directory that filepath must be inside
+
     Returns:
-        True if path is safe, False otherwise
+        True if filepath is inside base_dir, False otherwise
     """
-    if not filepath:
+    if not filepath or not base_dir:
         return False
-    
-    # Check for path traversal attempts
-    normalized = os.path.normpath(filepath)
-    if '..' in normalized.split(os.sep):
+
+    try:
+        real_filepath = os.path.realpath(os.path.normcase(filepath))
+        real_base = os.path.realpath(os.path.normcase(base_dir))
+    except (OSError, ValueError):
         return False
-    
-    # Check for absolute path escaping (e.g., C:\..\..\)
-    abs_path = os.path.abspath(normalized)
-    if base_dir:
-        abs_base = os.path.abspath(base_dir)
-        # Ensure the path is within the base directory
-        if not abs_path.startswith(abs_base + os.sep) and abs_path != abs_base:
-            return False
-    
-    return True
+
+    if real_filepath == real_base:
+        return True
+    return real_filepath.startswith(real_base + os.sep)
 
 
 def get_music_folder() -> Optional[str]:
