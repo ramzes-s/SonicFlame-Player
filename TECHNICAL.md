@@ -82,7 +82,7 @@ MusicPlayer2\
 │   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, status bar)
 │   │   │   ├── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
-│   │   │   ├── page_main.py            # MainPage (папка + точность похожих)
+│   │   │   ├── page_main.py            # MainPage (папка, точность подбора, глубина анализа)
 │   │   │   ├── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
 │   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
 │   │   │   └── widgets.py              # ColorCircleButton, ClickableSlider, SpinnerWidget, TabButton
@@ -211,9 +211,10 @@ MusicPlayer2\
 
 Модуль управляет базой данных SQLite, а также содержит всю логику для извлечения метаданных из аудиофайлов (`extract_metadata`) и структуру данных `TrackInfo`. После рефакторинга разделён на специализированные модули:
 
-- `connection.py` — управление подключением, конфигурация, валидация путей
+- `connection.py` — управление подключением, конфигурация, миграция схемы, валидация путей
 - `tracks.py` — CRUD операции, извлечение метаданных, TrackInfo
-- `favorites.py` — работа с избранным
+- `favorites.py` — Column-based работа с избранным (`is_favorite` в `library`)
+- `system.py` — Key-value store для системных данных (`db_version_compare`)
 - `cache.py` — кэширование обложек и исполнителей
 - `folders.py` — операции с папками
 - `queries.py` — фильтрация, пагинация, сложные запросы
@@ -301,7 +302,7 @@ MusicPlayer2\
 - Валидация параметров `offset`/`limit`: ограничение диапазона (1-500 для limit, 0-1000000 для offset)
 - Валидация `ORDER BY`: whitelist для столбцов сортировки, защита от SQL-инъекций
 - Экранирование SQL LIKE: функция `_escape_like_pattern()` экранирует `%`, `_`, `\`
-- Валидация путей: `is_safe_filepath()` проверяет path traversal и containment в music_folder
+- Валидация путей: `is_safe_filepath()` проверяет containment в music_folder через `realpath` (раскрытие симлинков) + `normcase` (нормализация регистра на Windows)
 - Применяется ко всем функциям: `extract_metadata`, `upsert_track`, `delete_track`, `is_favorite`, `toggle_favorite` и др.
 
 **Умный sync при сканировании** (`audio_scanner.py` + `db/`):
@@ -348,7 +349,6 @@ MusicPlayer2\
 | language_filter_mode | str    | Режим фильтра языка: "off" / "penalty" / "exclude" (по умолч. "off") |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
 
-### Модуль для подбора похожих треков на основе различных критериев.
 #### `core/db_cleaner.py` — Database Cleaner
 Модуль для очистки базы данных от треков, файлы которых больше не существуют на диске.
 
@@ -358,7 +358,7 @@ MusicPlayer2\
 
 **Особенности**:
 - Использует `get_all_library_tracks_light()` для получения всех треков без загрузки обложек
-- Удаляет запись из БД через `delete_track()` (включает удаление из избранного и кеша обложек)
+- Удаляет запись из БД через `delete_track()` (включает удаление кеша обложек)
 - Логирует результат в формате `[DB Cleaner] Removed N missing tracks from database`
 
 #### `core/recommendations.py` — Recommendations
@@ -1058,7 +1058,7 @@ QThread для анализа одного аудиофайла через libro
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.4.0`                          | `musicplayer/config.py`|
+| APP_VERSION         | `1.1.5`                          | `musicplayer/config.py`|
 | DB_VERSION          | `1`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
