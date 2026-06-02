@@ -47,7 +47,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         inner.addWidget(title_bar)
 
         content = QWidget()
-        content.setStyleSheet("background-color: #000000;")
+        content.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(16, 16, 16, 16)
         content_layout.setSpacing(8)
@@ -56,10 +56,10 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.NoFrame)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("""
-            QScrollArea { background-color: transparent; border: none; }
-            QScrollBar:vertical { background-color: #000000; width: 5px; }
-            QScrollBar::handle:vertical { background-color: rgba(80,80,80,0.6); border-radius: 3px; min-height: 30px; }
+        scroll.setStyleSheet(f"""
+            QScrollArea {{ background-color: transparent; border: none; }}
+            QScrollBar:vertical {{ background-color: {cfg.BG_COLOR}; width: 5px; }}
+            QScrollBar::handle:vertical {{ background-color: rgba(80,80,80,0.6); border-radius: 3px; min-height: 30px; }}
         """)
 
         card_container = QWidget()
@@ -89,10 +89,10 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         is_artist_match = original_artist.strip().lower() == artist_name.strip().lower()
         is_title_match = original_title.strip().lower() == track_name.strip().lower()
         is_perfect_match = is_artist_match and is_title_match
-        title_color_style = f"color: {accent};" if is_perfect_match else "color: #FFFFFF;"
+        title_color_style = f"color: {accent};" if is_perfect_match else f"color: {cfg.TEXT_COLOR};"
 
         card.setStyleSheet(f"""
-            QFrame {{ background-color: #111111; border: 1px solid rgba(80,80,80,0.5); padding: 10px; }}
+            QFrame {{ background-color: #111111; border: 1px solid {cfg.INPUT_BORDER_COLOR}; padding: 10px; }}
         """)
         card_layout = QHBoxLayout(card)
         card_layout.setSpacing(12)
@@ -101,8 +101,8 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         cover_label = QLabel()
         cover_label.setFixedSize(COVER_SIZE, COVER_SIZE)
         cover_label.setAlignment(Qt.AlignCenter)
-        cover_label.setStyleSheet("""
-            QLabel { background-color: #1a1a1a; color: #666666; font-size: 11px; }
+        cover_label.setStyleSheet(f"""
+            QLabel {{ background-color: {cfg.INPUT_BG_COLOR}; color: #666666; font-size: 11px; }}
         """)
 
         art_url = track_data.get("artworkUrl100", "").replace("100x100", "300x300")
@@ -127,7 +127,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         pick_btn.setFixedHeight(28)
         pick_btn.setCursor(Qt.PointingHandCursor)
         pick_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: {accent}; color: #FFFFFF; border: none; border-radius: 0; font-size: 12px; font-weight: bold; }}
+            QPushButton {{ background-color: {accent}; color: {cfg.TEXT_COLOR}; border: none; border-radius: 0; font-size: 12px; font-weight: bold; }}
         """)
         pick_btn.clicked.connect(lambda checked=False, td=track_data: self._select_track(td))
 
@@ -172,7 +172,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
 
         if meta_parts:
             meta_lbl = QLabel("  •  ".join(meta_parts))
-            meta_lbl.setStyleSheet("color: #888888; font-size: 12px;")
+            meta_lbl.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 12px;")
             meta_lbl.setWordWrap(True)
             info_layout.addWidget(meta_lbl)
 
@@ -180,7 +180,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         bottom_row = QHBoxLayout()
         bottom_row.setSpacing(8)
         if source:
-            source_color = "#888888" if source == "iTunes" else "#1EC65E"
+            source_color = cfg.SECONDARY_TEXT_COLOR if source == "iTunes" else "#1EC65E"
             if source == "iTunes":
                 source_color = "#d563a1"
             source_lbl = QLabel(source)
@@ -189,7 +189,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         bottom_row.addStretch()
 
         pct = min(int(score * 100 / 270), 100)
-        score_label_color = cfg.get_accent_color() if pct == 100 else "#FFFFFF" if pct > 70 else "#444444" if pct < 40 else "#888888"
+        score_label_color = cfg.get_accent_color() if pct == 100 else cfg.TEXT_COLOR if pct > 70 else "#444444" if pct < 40 else cfg.SECONDARY_TEXT_COLOR
         score_label = QLabel(f"Совпадение: {pct}%")
         score_label.setStyleSheet(f"color: {score_label_color}; font-size: 11px;")
         bottom_row.addWidget(score_label)
@@ -209,7 +209,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
             for btn in card.findChildren(QPushButton):
                 if btn.text() == "✓ Подходит":
                     btn.setStyleSheet(f"""
-                        QPushButton {{ background-color: {color}; color: #FFFFFF; border: none; border-radius: 0; font-size: 12px; font-weight: bold; }}
+                        QPushButton {{ background-color: {color}; color: {cfg.TEXT_COLOR}; border: none; border-radius: 0; font-size: 12px; font-weight: bold; }}
                     """)
             for lbl in card.findChildren(QLabel):
                 if "Совпадение:" in lbl.text():
@@ -218,7 +218,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
                         pct = int(pct_text)
                     except ValueError:
                         pct = 0
-                    score_color = color if pct == 100 else ("#FFFFFF" if pct > 70 else "#444444" if pct < 40 else "#888888")
+                    score_color = color if pct == 100 else (cfg.TEXT_COLOR if pct > 70 else "#444444" if pct < 40 else cfg.SECONDARY_TEXT_COLOR)
                     lbl.setStyleSheet(f"color: {score_color}; font-size: 11px;")
 
 
@@ -259,7 +259,7 @@ class CoverTile(QWidget):
             y = (self.TILE_SIZE - scaled.height()) // 2
             painter.drawPixmap(x, y, scaled)
         else:
-            painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, QColor("#1a1a1a"))
+            painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, QColor(cfg.INPUT_BG_COLOR))
             pix = _music_note_pixmap(80, "#666666")
             nx = (self.TILE_SIZE - pix.width()) // 2
             ny = (self.TILE_SIZE - pix.height()) // 2
@@ -275,7 +275,7 @@ class CoverTile(QWidget):
             painter.drawText(self.rect(), Qt.AlignCenter, "✓")
         else:
             painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, self._overlay_color)
-            painter.setPen(QColor("#FFFFFF"))
+            painter.setPen(QColor(cfg.TEXT_COLOR))
             font = painter.font()
             font.setPointSize(12)
             font.setBold(True)
@@ -308,13 +308,13 @@ class CoverSearchResultsDialog(BaseFramelessDialog):
         inner.addWidget(title_bar)
 
         content = QWidget()
-        content.setStyleSheet("background-color: #000000;")
+        content.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(12, 8, 12, 8)
         content_layout.setSpacing(0)
 
         card_container = QWidget()
-        card_container.setStyleSheet("background-color: #000000;")
+        card_container.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         card_layout = QGridLayout(card_container)
         card_layout.setContentsMargins(8, 4, 8, 4)
         card_layout.setSpacing(8)

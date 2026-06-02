@@ -3,13 +3,24 @@ Blink animation for scanning status label.
 """
 
 from PySide6.QtCore import QVariantAnimation, QEasingCurve
+from musicplayer import config as cfg
+
+def _parse_hex(c: str) -> int:
+    return int(c.lstrip("#"), 16)
+
+_R1 = (_parse_hex(cfg.SECONDARY_TEXT_COLOR) >> 16) & 0xFF
+_G1 = (_parse_hex(cfg.SECONDARY_TEXT_COLOR) >> 8) & 0xFF
+_B1 = _parse_hex(cfg.SECONDARY_TEXT_COLOR) & 0xFF
+_R2 = (_parse_hex(cfg.TEXT_COLOR) >> 16) & 0xFF
+_G2 = (_parse_hex(cfg.TEXT_COLOR) >> 8) & 0xFF
+_B2 = _parse_hex(cfg.TEXT_COLOR) & 0xFF
 
 def update_status_blink_color(phase: float, title_bar) -> str:
     """Calculate blink color and apply to title bar."""
     t = abs(0.5 - phase) * 2
-    r = int(136 + (255 - 136) * t)
-    g = int(136 + (255 - 136) * t)
-    b = int(136 + (255 - 136) * t)
+    r = int(_R1 + (_R2 - _R1) * t)
+    g = int(_G1 + (_G2 - _G1) * t)
+    b = int(_B1 + (_B2 - _B1) * t)
     color = f"#{r:02x}{g:02x}{b:02x}"
     title_bar.set_scanning_status_style(f"color: {color}; font-size: 11px;")
     return color

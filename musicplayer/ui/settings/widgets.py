@@ -121,7 +121,7 @@ class TabButton(QPushButton):
         super().__init__(text, parent)
         self._initializing = True
         self._accent = accent
-        self._current_color = QColor("#888888")
+        self._current_color = QColor(cfg.SECONDARY_TEXT_COLOR)
         self._anim = QVariantAnimation(self)
         self._anim.setDuration(150)
         self._anim.valueChanged.connect(self._on_anim_value)
@@ -160,20 +160,20 @@ class TabButton(QPushButton):
 
     def _on_toggled(self, checked):
         if self._initializing:
-            self._current_color = QColor(self._accent if checked else "#888888")
+            self._current_color = QColor(self._accent if checked else cfg.SECONDARY_TEXT_COLOR)
             self._apply_style()
             return
         self._anim.stop()
         self._anim.setStartValue(self._current_color)
-        self._anim.setEndValue(QColor(self._accent if checked else "#888888"))
+        self._anim.setEndValue(QColor(self._accent if checked else cfg.SECONDARY_TEXT_COLOR))
         self._anim.start()
 
     def enterEvent(self, e):
         if not self.isChecked():
-            self._animate_to("#FFFFFF")
+            self._animate_to(cfg.TEXT_COLOR)
         super().enterEvent(e)
 
     def leaveEvent(self, e):
         if not self.isChecked():
-            self._animate_to("#888888")
+            self._animate_to(cfg.SECONDARY_TEXT_COLOR)
         super().leaveEvent(e)

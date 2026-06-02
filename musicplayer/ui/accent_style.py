@@ -20,7 +20,7 @@ def apply_accent_to_main_window(window, settings_dialog=None):
         b = int(accent[5:7], 16)
         container.setStyleSheet(f"""
             #main_container {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid rgba({r}, {g}, {b}, 0.1);
             }}
         """)

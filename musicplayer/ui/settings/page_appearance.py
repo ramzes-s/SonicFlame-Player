@@ -32,7 +32,7 @@ class AppearancePage(QWidget):
 
         # Accent color
         accent_label = QLabel("Акцентный цвет")
-        accent_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        accent_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         lo.addWidget(accent_label)
         color_row = QHBoxLayout()
         color_row.setSpacing(8)
@@ -64,7 +64,7 @@ class AppearancePage(QWidget):
         self._opacity_combo = QComboBox()
         self._opacity_combo.setItemDelegate(TallItemDelegate(self._opacity_combo))
         opacity_label = QLabel("Прозрачность мини-виджета")
-        opacity_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        opacity_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         for val in range(0, 81, 10):
             self._opacity_combo.addItem(str(val), None)
         self._opacity_combo.setCurrentText(str(self._settings.mini_widget_opacity))
@@ -108,7 +108,7 @@ class AppearancePage(QWidget):
         accent = cfg.get_accent_color()
         style = f"""
             QCheckBox {{
-                color: #CCCCCC;
+                color: {cfg.TERTIARY_TEXT_COLOR};
                 font-size: 13px;
                 spacing: 8px;
             }}
@@ -137,11 +137,11 @@ class AppearancePage(QWidget):
         accent = cfg.get_accent_color()
         combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 border-bottom: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 font-size: 14px;
                 padding: 1px 8px 1px 8px;
             }}
@@ -151,9 +151,9 @@ class AppearancePage(QWidget):
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 outline: none;
                 margin: 0px;
             }}
@@ -164,7 +164,7 @@ class AppearancePage(QWidget):
                 background-color: {accent};
             }}
             QComboBox QAbstractItemView::viewport {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
             }}
         """)

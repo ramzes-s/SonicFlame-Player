@@ -75,7 +75,7 @@ class SeekSlider(ClickableSlider):
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
-                background: rgba(80, 80, 80, 0.5);
+                background: {cfg.DIVIDER_COLOR};
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
@@ -86,7 +86,7 @@ class SeekSlider(ClickableSlider):
                 border-radius: 7px;
             }}
             QSlider::handle:horizontal:hover {{
-                background: #FFFFFF;
+                background: {cfg.TEXT_COLOR};
             }}
             QSlider::sub-page:horizontal {{
                 background: {cfg.get_accent_color()};
@@ -119,7 +119,7 @@ class VolumeSlider(ClickableSlider):
             }}
             QSlider::groove:horizontal {{
                 height: 4px;
-                background: rgba(80, 80, 80, 0.5);
+                background: {cfg.DIVIDER_COLOR};
                 border-radius: 2px;
             }}
             QSlider::handle:horizontal {{

@@ -33,7 +33,7 @@ class BaseFramelessDialog(QDialog):
     def _build_title_bar(self, title_text: str) -> QWidget:
         title_bar = QWidget()
         title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
+        title_bar.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         title_layout = QHBoxLayout(title_bar)
         title_layout.setContentsMargins(15, 0, 10, 0)
         title_layout.setSpacing(10)
@@ -45,7 +45,7 @@ class BaseFramelessDialog(QDialog):
         title_layout.addWidget(title_icon)
 
         title_label = QLabel(title_text)
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
         title_layout.addWidget(title_label)
         title_layout.addStretch()
 
@@ -53,10 +53,10 @@ class BaseFramelessDialog(QDialog):
         close_btn.setFixedSize(36, 30)
         close_btn.setCursor(Qt.PointingHandCursor)
         accent = cfg.get_accent_color()
-        close_btn.setStyleSheet("""
-            QPushButton { background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }
-            QPushButton:hover { background-color: %s; }
-        """ % accent)
+        close_btn.setStyleSheet(f"""
+            QPushButton {{ background-color: transparent; border: none; color: {cfg.TEXT_COLOR}; font-size: 14px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {accent}; }}
+        """)
         close_btn.clicked.connect(self.reject)
         self._close_btn = close_btn
         title_layout.addWidget(close_btn)
@@ -75,7 +75,7 @@ class BaseFramelessDialog(QDialog):
         layout.setSpacing(0)
         container = QWidget()
         container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: #000000; }")
+        container.setStyleSheet(f"#container {{ background-color: {cfg.BG_COLOR}; }}")
         inner = QVBoxLayout(container)
         inner.setContentsMargins(0, 0, 0, 0)
         inner.setSpacing(0)
@@ -101,6 +101,6 @@ class BaseFramelessDialog(QDialog):
     def apply_accent_color(self, color: str):
         if hasattr(self, '_close_btn') and self._close_btn is not None:
             self._close_btn.setStyleSheet(f"""
-                QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
+                QPushButton {{ background-color: transparent; border: none; color: {cfg.TEXT_COLOR}; font-size: 14px; font-weight: bold; }}
                 QPushButton:hover {{ background-color: {color}; }}
             """)

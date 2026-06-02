@@ -145,7 +145,7 @@ class SettingsDialog(QDialog):
             if i < len(tab_names) - 1:
                 sep_tab = QWidget()
                 sep_tab.setFixedHeight(1)
-                sep_tab.setStyleSheet("background-color: rgba(80, 80, 80, 0.2);")
+                sep_tab.setStyleSheet(f"background-color: {cfg.DIVIDER_ITEM_COLOR};")
                 sidebar_layout.addWidget(sep_tab)
 
             # Create and wire page
@@ -158,7 +158,7 @@ class SettingsDialog(QDialog):
         # Separator
         sep = QWidget()
         sep.setFixedWidth(1)
-        sep.setStyleSheet("background-color: rgba(80,80,80,0.2);")
+        sep.setStyleSheet(f"background-color: {cfg.DIVIDER_ITEM_COLOR};")
         body.addWidget(sep)
 
         # Stacked content

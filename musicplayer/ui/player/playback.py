@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QTimer
 from PySide6.QtMultimedia import QMediaPlayer
 from PySide6.QtWidgets import QDialog
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+from musicplayer import config as cfg
 
 from musicplayer.core.db import (
     ensure_cover_for_track,
@@ -90,7 +91,6 @@ class PlaybackManager(PlayerManagerBase):
         from musicplayer.utils.color_extractor import extract_accent_color
 
         new_color = extract_accent_color(track.cover_data) if track.cover_data else "#ed6a02"
-        from musicplayer import config as cfg
         cfg.ACCENT_COLOR = new_color
         self._mw.settings._data["accent_color"] = new_color
         apply_accent_to_main_window(self._mw, settings_dialog=getattr(self._mw, '_settings_dialog', None))
@@ -149,7 +149,7 @@ class PlaybackManager(PlayerManagerBase):
         self._reset_sidebar_state()
         self._mw.title_bar.set_playlist_title(os.path.basename(folder_path))
         self._mw.title_bar.set_show_separator(True)
-        self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
 
@@ -172,7 +172,7 @@ class PlaybackManager(PlayerManagerBase):
 
     def _on_scan_finished_and_play(self, tracks: list, target_filepath: str):
         self._mw._blink_animation.stop()
-        self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
 
         removed = self._mw._removed_tracks_count
         status = f"Загружено: {len(tracks)} треков"

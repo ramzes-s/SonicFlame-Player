@@ -21,7 +21,7 @@ class TitleBarWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedHeight(40)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         self._setup_ui()
 
     def _setup_ui(self):
@@ -35,30 +35,30 @@ class TitleBarWidget(QWidget):
         title_layout.addWidget(self.title_icon_widget)
 
         title_label = QLabel("SonicFlame Player")
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
         title_layout.addWidget(title_label)
 
         self.playlist_title_label = QLabel("")
-        self.playlist_title_label.setStyleSheet("color: #888888; font-size: 12px; margin-left: 4px;")
+        self.playlist_title_label.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 12px; margin-left: 4px;")
         title_layout.addWidget(self.playlist_title_label)
 
         self.sep_label = QLabel("•")
-        self.sep_label.setStyleSheet("color: #555555; font-size: 12px;")
+        self.sep_label.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 12px;")
         self.sep_label.setVisible(False)
         title_layout.addWidget(self.sep_label)
 
         self.scanning_status_label = QLabel("")
-        self.scanning_status_label.setStyleSheet("color: #AAAAAA; font-size: 11px;")
+        self.scanning_status_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
         self.scanning_status_label.setVisible(False)
         title_layout.addWidget(self.scanning_status_label)
 
         title_layout.addStretch()
 
         self._sort_combo = QComboBox()
-        self._sort_combo.setStyleSheet("""
-            QComboBox { background: #000000; border: none; color: #CCCCCC; font-size: 12px; }
-            QComboBox::drop-down { border: none; }
-            QComboBox QAbstractItemView { background: #000000; color: #CCCCCC; selection-background-color: #333333; }
+        self._sort_combo.setStyleSheet(f"""
+            QComboBox {{ background: {cfg.BG_COLOR}; border: none; color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; }}
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox QAbstractItemView {{ background: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; selection-background-color: {cfg.SECONDARY_BG_COLOR}; }}
         """)
         self._sort_combo.setFixedSize(170, 26)
         self._sort_combo.addItems(["По исполнителю", "По названию", "По новизне", "Перемешать"])
@@ -139,9 +139,11 @@ class TitleBarWidget(QWidget):
     def sort_combo(self):
         return self._sort_combo
 
-    def _get_title_button_style(self, hover_color: str = "#333333") -> str:
+    def _get_title_button_style(self, hover_color: str = None) -> str:
+        if hover_color is None:
+            hover_color = cfg.SECONDARY_BG_COLOR
         return f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF; font-size: 14px; font-weight: bold; }}
+            QPushButton {{ background-color: transparent; border: none; color: {cfg.TEXT_COLOR}; font-size: 14px; font-weight: bold; }}
             QPushButton:hover {{ background-color: {hover_color}; }}
-            QPushButton:pressed {{ background-color: #555555; }}
+            QPushButton:pressed {{ background-color: {cfg.SECONDARY_TEXT_COLOR}; }}
         """

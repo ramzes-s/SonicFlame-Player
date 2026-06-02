@@ -4,6 +4,7 @@ Playlist operations: favorites, top, artist, similar tracks.
 
 from PySide6.QtCore import QTimer
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+from musicplayer import config as cfg
 
 from musicplayer.core.db import (
     get_favorite_tracks,
@@ -25,7 +26,7 @@ class PlaylistManager(PlayerManagerBase):
     def load_favorites(self, enabled: bool):
         self._mw.title_bar.set_playlist_title("Избранное")
         self._mw.title_bar.set_show_separator(True)
-        self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
         self._mw.controls_widget.set_action_buttons_enabled(False)
@@ -50,7 +51,7 @@ class PlaylistManager(PlayerManagerBase):
             self._mw.controls_widget.set_current_track_favorite("", False)
 
         self._mw._blink_animation.stop()
-        self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
 
@@ -58,7 +59,7 @@ class PlaylistManager(PlayerManagerBase):
         self._mw.title_bar.set_playlist_title("Топ прослушиваний")
         self._mw.title_bar.set_show_separator(True)
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
-        self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self._mw._blink_animation.start()
         self._mw.controls_widget.set_action_buttons_enabled(False)
 
@@ -82,14 +83,14 @@ class PlaylistManager(PlayerManagerBase):
             self._mw.controls_widget.set_current_track_favorite("", False)
 
         self._mw._blink_animation.stop()
-        self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
         self._mw.title_bar.set_scanning_status(f"{self._mw.playlist.get_track_count()}", True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
 
     def load_artist(self, artist_name: str, bring_to_front: bool = True):
         self._mw.title_bar.set_playlist_title(artist_name)
         self._mw.title_bar.set_show_separator(True)
-        self._mw.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
         self._mw.controls_widget.set_action_buttons_enabled(False)
@@ -109,7 +110,7 @@ class PlaylistManager(PlayerManagerBase):
 
         track_count = self._mw.playlist.get_track_count()
         self._mw._blink_animation.stop()
-        self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
 
         if bring_to_front:
             QTimer.singleShot(200, self._bring_to_front)

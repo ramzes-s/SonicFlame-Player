@@ -24,7 +24,7 @@ from musicplayer.ui.svg_icons import get_crown_svg, get_heart_svg
 
 
 from musicplayer import config as cfg
-from musicplayer.config import TEXT_COLOR, DIVIDER_COLOR
+from musicplayer.config import TEXT_COLOR, DIVIDER_COLOR, DIVIDER_ITEM_RGB, DIVIDER_ITEM_ALPHA
 
 HEART_SIZE = 16
 HEART_SPACING = 6  # px between heart and adjacent badges/icons
@@ -137,7 +137,7 @@ class PlaylistDelegate(QStyledItemDelegate):
             painter.fillRect(option.rect, QColor(80, 80, 80, 80))
 
         # Divider line at bottom
-        painter.setPen(QColor(60, 60, 60, 50))
+        painter.setPen(QColor(*DIVIDER_ITEM_RGB, DIVIDER_ITEM_ALPHA))
         painter.drawLine(option.rect.left(), option.rect.bottom() - 1,
                         option.rect.right(), option.rect.bottom() - 1)
 
@@ -572,6 +572,12 @@ class PlaylistWidget(QWidget):
             if track.filepath == filepath:
                 self.set_current_track(i)
                 return
+
+    def scroll_to_current_track(self):
+        """Scroll playlist to the currently playing track."""
+        fp = self.delegate._playing_filepath
+        if fp:
+            self.set_current_track_by_filepath(fp)
 
     def set_current_track(self, view_index: int):
         """

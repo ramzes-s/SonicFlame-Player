@@ -43,7 +43,7 @@ class SystemPage(QWidget):
         idle_row = QHBoxLayout()
         idle_row.setSpacing(10)
         idle_label = QLabel("Закрывать программу после простоя")
-        idle_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        idle_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         idle_row.addWidget(idle_label)
         idle_row.addStretch()
         self._idle_combo = QComboBox()
@@ -80,7 +80,7 @@ class SystemPage(QWidget):
         device_row = QHBoxLayout()
         device_row.setSpacing(10)
         device_label = QLabel("Устройство вывода звука")
-        device_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        device_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         device_row.addWidget(device_label)
         device_row.addStretch()
         self._device_combo = QComboBox()
@@ -136,11 +136,11 @@ class SystemPage(QWidget):
         accent = cfg.get_accent_color()
         self._idle_combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 border-bottom: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 font-size: 13px;
                 padding: 1px 8px 1px 8px;
             }}
@@ -150,9 +150,9 @@ class SystemPage(QWidget):
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 outline: none;
                 margin: 0px;
             }}
@@ -163,7 +163,7 @@ class SystemPage(QWidget):
                 background-color: {accent};
             }}
             QComboBox QAbstractItemView::viewport {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
             }}
         """)
@@ -172,11 +172,11 @@ class SystemPage(QWidget):
         accent = cfg.get_accent_color()
         self._device_combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 border-bottom: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 font-size: 14px;
                 padding: 1px 8px 1px 8px;
             }}
@@ -186,9 +186,9 @@ class SystemPage(QWidget):
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 outline: none;
                 margin: 0px;
             }}
@@ -199,7 +199,7 @@ class SystemPage(QWidget):
                 background-color: {accent};
             }}
             QComboBox QAbstractItemView::viewport {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
             }}
         """)
@@ -232,7 +232,7 @@ class SystemPage(QWidget):
         self._cleanup_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent; border: 1px solid rgba(80,80,80,0.5);
-                color: #CCCCCC; font-size: 13px; text-align: center;
+                color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; text-align: center;
             }}
             QPushButton:hover {{ color: {accent}; }}
         """)
@@ -241,7 +241,7 @@ class SystemPage(QWidget):
         accent = cfg.get_accent_color()
         style = f"""
             QCheckBox {{
-                color: #CCCCCC;
+                color: {cfg.TERTIARY_TEXT_COLOR};
                 font-size: 13px;
                 spacing: 8px;
             }}

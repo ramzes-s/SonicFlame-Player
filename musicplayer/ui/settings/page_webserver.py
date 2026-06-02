@@ -75,7 +75,7 @@ class WebServerPage(QWidget):
         port_row = QHBoxLayout()
         port_row.setSpacing(10)
         port_label = QLabel("Порт:")
-        port_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        port_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         self.port_input = QLineEdit()
         initial_port = self._settings.web_server_port
         if initial_port in FORBIDDEN_PORTS or not (1024 <= initial_port <= 65535):
@@ -229,7 +229,7 @@ class WebServerPage(QWidget):
         accent = cfg.get_accent_color()
         style = f"""
             QCheckBox {{
-                color: #CCCCCC;
+                color: {cfg.TERTIARY_TEXT_COLOR};
                 font-size: 13px;
                 spacing: 8px;
             }}

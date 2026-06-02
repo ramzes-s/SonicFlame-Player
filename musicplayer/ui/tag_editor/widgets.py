@@ -66,13 +66,13 @@ class CoverDisplayLabel(QLabel):
         self._is_generated_cover = False
         self.setAlignment(Qt.AlignCenter)
         self.setText("Нет обложки")
-        self.setStyleSheet("""
-            QLabel {
+        self.setStyleSheet(f"""
+            QLabel {{
                 background-color: #111111;
-                border: 1px solid rgba(80, 80, 80, 0.5);
+                border: 1px solid {cfg.INPUT_BORDER_COLOR};
                 color: #666666;
                 font-size: 11px;
-            }
+            }}
         """)
 
     def setPixmap(self, pixmap: QPixmap):

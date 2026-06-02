@@ -71,7 +71,7 @@ MusicPlayer2\
 │   │   │   ├── animation.py            # BlinkAnimation — мигание статуса при сканировании
 │   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
 │   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
-│   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов
+│   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов, сканирование при переключении папок
 │   │   │   ├── playlist_ops.py         # PlaylistManager — избранное, топ, артист, похожие треки
 │   │   │   ├── scanning.py             # ScanningManager — логика сканирования папок
 │   │   │   ├── title_bar.py            # Кастомный заголовок окна (с кнопками и сортировкой)
@@ -121,7 +121,7 @@ MusicPlayer2\
 │   │   ├── color_extractor.py          # Извлечение доминантного цвета из обложки
 │   │   └── helpers.py                  # Утилиты форматирования
 │   ├── __init__.py
-│   └── config.py                       # Глобальные константы: APP_VERSION, ACCENT_COLOR, CACHE_DIR, пути кэша
+│   └── config.py                       # Глобальные константы: APP_VERSION, ACCENT_COLOR, BG_COLOR, TEXT_COLOR, все цвета UI, CACHE_DIR, пути кэша
 ├── .cache/                             # Данные приложения (создаются при первом запуске)
 │   ├── artist_collages/                # Кеш коллажей Артистов для библиотеки
 │   ├── covers/                         # Обложки в формате WebP
@@ -432,7 +432,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **Особенности**:
 - HTTP-сервер на aiohttp в daemon-потоке, порт настраивается (по умолчанию 8080)
-- `stop()` — корректно останавливает event loop через `loop.call_soon_threadsafe(loop.stop)` вместо создания временного цикла
+- `stop()` — асинхронно очищает aiohttp runner (`runner.cleanup()`), отменяет все asyncio-задачи (в т.ч. `IocpProactor.accept`), затем останавливает event loop. Блокирует main thread до завершения очистки (`fut.result(timeout=5)`).
 - Синхронизация состояния плеера каждые 1000мс
 - Раздельные API: `/api/playing_data` (только статус) + `/api/track` (информация о треке)
 - Обложка загружается отдельно при смене трека (оптимизация трафика)
@@ -597,7 +597,9 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Системный трей**: `QSystemTrayIcon` с контекстным меню (Показать/Выход)
 - **Мини-виджет**: `MiniPlayerWidget` при сворачивании в трей (если включено в настройках)
 - **Обработка удаления трека**: использует `remove_track_from_library` из `ui/remove_track_dialog.py`
-- **Сброс базы данных**: удаляет `musicplayer.db` + `-wal` + `-shm`, очищает кеш обложек, переинициализирует БД, сбрасывает UI и запускает полное пересканирование
+- **Клик по обложке** → `playlist_widget.scroll_to_current_track()`: соединён в `_connect_signals` через `track_info_widget.album_art_widget.clicked`
+- **closeEvent**: останавливает плеер, отменяет оба сканера (`self.scanner` из `PlaybackManager` + `self.__scanning` из `ScanningManager`), отменяет анализ аудио, закрывает SMTC, IPC, веб-сервер с очисткой aiohttp runner и отменой asyncio-задач, библиотеку-субпроцесс, медиа-клавиши
+- **Сброс базы данных**: переименовывает `musicplayer.db` в `backup.db` (старый `backup.db` удаляется), удаляет `-wal`/`-shm`, очищает кеш обложек, переинициализирует БД, сбрасывает UI и запускает полное пересканирование
 - **Библиотека-субпроцесс**: запуск `main.py --library` через `subprocess.Popen`
 - **Idle shutdown timer**: `_idle_timer` (`QTimer`) запускается при паузе/стопе, сбрасывается при возобновлении воспроизведения. По истечении таймера вызывает `QApplication.quit()` (не `self.close()`, т.к. окно может быть скрыто в трее). Интервал из `settings.idle_shutdown_minutes`.
 
@@ -718,7 +720,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **`AlbumArtWidget`**:
 - Размер: 375x375–525x525px
 - `paintEvent()`: чёрный фон → размытая копия с градиентной маской → чёткая обложка (opacity 0.85) → внутренняя чёрная тень (60px)
-- SVG-плейсхолдер (музыкальная нота) когда нет обложки
+- SVG-плейсхолдер (музыкальная нота) когда нет обложки (`WA_TransparentForMouseEvents` — клик проходит сквозь)
+- `clicked` сигнал — эмитируется в `mousePressEvent`; подключён в `MainWindow._connect_signals` к `scroll_to_current_track()` для скролла плейлиста к играющему треку при клике на обложку
 - **Звезда настроения**: `QLabel` с иконкой звезды накладывается поверх `AlbumArtWidget`. Цвет (HSV: Hue от tempo, Sat от energy, Val от mood) вычисляется в `utils/helpers.py`. Диапазон: slow→зелёный (120°), medium→оранжевый (30°), fast→красный (0°), где slow/fast = TEMPO_MIN(60)/TEMPO_MAX(180) из config.
 
 **`TrackInfoWidget`**:
@@ -743,6 +746,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - `_view_tracks` — текущий отображаемый набор (может быть отфильтрован — избранное, топ)
 - `show_favorites_only()` / `show_full_playlist()`
 - `update_track_data(old_fp, new_track)` — обновление метаданных без пересканирования
+- `scroll_to_current_track()` — универсальный метод, находит текущий играющий трек по `delegate._playing_filepath` и плавно скроллит к нему через `set_current_track_by_filepath()`
 
 **Метод `resort_current_view(mode)`** (`playlist_view.py:631`):
 - Пересортировка текущего вида по режиму (`artist`/`title`/`newest`)
@@ -1042,17 +1046,28 @@ QThread для анализа одного аудиофайла через libro
 
 ## Цветовая схема
 
-| Элемент            | Цвет                    |
-|--------------------|-------------------------|
-| Фон                | `#000000`               |
-| Основной текст     | `#FFFFFF`               |
-| Акцентный цвет     | `#ed6a02` (настраиваемый) |
-| Разделители        | `rgba(80, 80, 80, 0.5)` |
-| Бейджи фон         | `rgba(60, 60, 60, 140)` |
-| Бейджи текст       | `#BEBEBE`               |
-| Корона             | `#FFD700`               |
-| Hover фон кнопок   | `rgba(80, 80, 80, 0.4)`|
-| Тень окна          | `rgba(200, 200, 200, 100)` |
+Все цвета интерфейса стандартизированы через единые константы в `config.py`. Замена хардкода проведена по всему проекту (июнь 2026).
+
+| Элемент                    | Константа              | Цвет/Значение                    |
+|----------------------------|------------------------|----------------------------------|
+| Фон                        | `BG_COLOR`             | `#000000`                        |
+| Вторичный фон              | `SECONDARY_BG_COLOR`   | `#1a1a1a`                        |
+| Основной текст             | `TEXT_COLOR`           | `#FFFFFF`                        |
+| Вторичный текст            | `SECONDARY_TEXT_COLOR` | `#888888`                        |
+| Третичный текст            | `TERTIARY_TEXT_COLOR`  | `#CCCCCC`                        |
+| Акцентный цвет             | `ACCENT_COLOR`         | `#ed6a02` (настраиваемый)        |
+| Разделители                | `DIVIDER_COLOR`        | `rgba(80, 80, 80, 0.5)`         |
+| Разделители строк/таблиц   | `DIVIDER_ITEM_COLOR`   | `rgba(60, 60, 60, 0.2)` + `rgb/alpha` для paintEvent |
+| Фон кнопок                 | `BUTTON_BG_COLOR`      | `rgba(40, 40, 40, 0.8)`         |
+| Hover фон кнопок           | `BUTTON_HOVER_BG_COLOR`| `rgba(60, 60, 60, 0.8)`         |
+| Фон полей ввода            | `INPUT_BG_COLOR`       | `#1a1a1a`                        |
+| Рамка полей ввода          | `INPUT_BORDER_COLOR`   | `rgba(80, 80, 80, 0.5)`         |
+| Текст полей ввода          | `INPUT_TEXT_COLOR`     | `#FFFFFF`                        |
+| Бейджи фон                 | — (хардкод)            | `rgba(60, 60, 60, 140)`         |
+| Бейджи текст               | — (хардкод)            | `#BEBEBE`                        |
+| Корона                     | — (хардкод)            | `#FFD700`                        |
+| Hover фон кнопок (иконки)  | — (хардкод)            | `rgba(80, 80, 80, 0.4)`         |
+| Тень окна                  | — (хардкод)            | `rgba(200, 200, 200, 100)`      |
 
 ## Глобальные константы
 
@@ -1061,8 +1076,20 @@ QThread для анализа одного аудиофайла через libro
 | APP_VERSION         | `1.1.5`                          | `musicplayer/config.py`|
 | DB_VERSION          | `1`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
+| BG_COLOR            | `#000000`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
+| SECONDARY_TEXT_COLOR| `#888888`                        | `musicplayer/config.py`|
+| TERTIARY_TEXT_COLOR | `#CCCCCC`                        | `musicplayer/config.py`|
+| SECONDARY_BG_COLOR  | `#1a1a1a`                        | `musicplayer/config.py`|
 | DIVIDER_COLOR       | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
+| DIVIDER_ITEM_COLOR  | `rgba(60,60,60,0.2)`             | `musicplayer/config.py`|
+| DIVIDER_ITEM_RGB    | `(60,60,60)` (tuple для paintEvent)| `musicplayer/config.py`|
+| DIVIDER_ITEM_ALPHA  | `50` (int для paintEvent)        | `musicplayer/config.py`|
+| BUTTON_BG_COLOR     | `rgba(40,40,40,0.8)`             | `musicplayer/config.py`|
+| BUTTON_HOVER_BG_COLOR| `rgba(60,60,60,0.8)`             | `musicplayer/config.py`|
+| INPUT_BG_COLOR      | `#1a1a1a`                        | `musicplayer/config.py`|
+| INPUT_BORDER_COLOR  | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
+| INPUT_TEXT_COLOR    | `#FFFFFF`                        | `musicplayer/config.py`|
 | ANALYSIS_DURATION   | `30` (сек)                       | `musicplayer/config.py`|
 | PROJECT_DIR         | корень проекта                   | `musicplayer/config.py`|
 | CACHE_DIR           | `.cache/`                        | `musicplayer/config.py`|
@@ -1082,6 +1109,8 @@ QThread для анализа одного аудиофайла через libro
 | Мин. размер окна    | 1100×600                         | `ui/main_window.py`    |
 
 Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.
+
+**Стандартизация цветов (июнь 2026)**: Все цвета интерфейса вынесены в единые константы `config.py` (`BG_COLOR`, `TEXT_COLOR`, `SECONDARY_TEXT_COLOR`, `TERTIARY_TEXT_COLOR`, `SECONDARY_BG_COLOR`, `DIVIDER_COLOR`, `DIVIDER_ITEM_COLOR`, `DIVIDER_ITEM_RGB`, `DIVIDER_ITEM_ALPHA`, `BUTTON_BG_COLOR`, `BUTTON_HOVER_BG_COLOR`, `INPUT_BG_COLOR`, `INPUT_BORDER_COLOR`, `INPUT_TEXT_COLOR`). Хардкод-цвета заменены константами во всех UI-файлах: `playlist_view.py`, `settings/`, `library/dialog.py`, `tag_editor/`, `player/`, `track_info.py`, `controls.py`, `mini_widget.py`, `sliders.py`, `sidebar.py`, `accent_style.py`, `frameless_dialog.py`. Новые цвета подключаются через `cfg.ИМЯ_КОНСТАНТЫ`.
 
 ## Поток данных при воспроизведении
 

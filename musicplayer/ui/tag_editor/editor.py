@@ -64,7 +64,7 @@ class TagEditorDialog(BaseFramelessDialog):
 
     def _content_widget(self):
         widget = QWidget()
-        widget.setStyleSheet("background-color: #000000;")
+        widget.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(20, 16, 20, 20)
         layout.setSpacing(20)
@@ -166,8 +166,8 @@ class TagEditorDialog(BaseFramelessDialog):
         fname_col.addWidget(self.filepath_hint)
         form.addRow("Имя файла:", fname_col)
 
-        badge_style = """
-            QLabel { background-color: rgba(40, 40, 40, 0.8); color: #BBBBBB; border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: bold; }
+        badge_style = f"""
+            QLabel {{ background-color: {cfg.BUTTON_BG_COLOR}; color: #BBBBBB; border: 1px solid {cfg.INPUT_BORDER_COLOR}; border-radius: 4px; padding: 4px 10px; font-size: 12px; font-weight: bold; }}
         """
         self.bitrate_lbl = QLabel("—")
         self.bitrate_lbl.setStyleSheet(badge_style)
@@ -222,7 +222,7 @@ class TagEditorDialog(BaseFramelessDialog):
         edit.setFixedHeight(32)
         edit.setMinimumWidth(350)
         edit.setStyleSheet(f"""
-            QLineEdit {{ background-color: #1a1a1a; border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; padding: 0 10px; color: #FFFFFF; font-size: 13px; }}
+            QLineEdit {{ background-color: {cfg.INPUT_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; border-radius: 0; padding: 0 10px; color: {cfg.INPUT_TEXT_COLOR}; font-size: 13px; }}
             QLineEdit:focus {{ border-color: {cfg.get_accent_color()}; }}
         """)
         return edit
@@ -233,9 +233,9 @@ class TagEditorDialog(BaseFramelessDialog):
         if width:
             btn.setFixedWidth(width)
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet("""
-            QPushButton { background-color: rgba(40, 40, 40, 0.8); border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; color: #FFFFFF; font-size: 12px; padding: 0 12px; }
-            QPushButton:hover { background-color: rgba(60, 60, 60, 0.8); }
+        btn.setStyleSheet(f"""
+            QPushButton {{ background-color: {cfg.BUTTON_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 12px; padding: 0 12px; }}
+            QPushButton:hover {{ background-color: {cfg.BUTTON_HOVER_BG_COLOR}; }}
         """)
         return btn
 
@@ -246,8 +246,8 @@ class TagEditorDialog(BaseFramelessDialog):
         btn.setCursor(Qt.PointingHandCursor)
         accent = cfg.get_accent_color()
         btn.setStyleSheet(f"""
-            QPushButton {{ background-color: {accent}; border: none; border-radius: 0; color: #FFFFFF; font-size: 13px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: #FFFFFF; color: {accent}; }}
+            QPushButton {{ background-color: {accent}; border: none; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {cfg.TEXT_COLOR}; color: {accent}; }}
         """)
         return btn
 
@@ -256,9 +256,9 @@ class TagEditorDialog(BaseFramelessDialog):
         btn.setFixedHeight(34)
         btn.setFixedWidth(120)
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet("""
-            QPushButton { background-color: rgba(40, 40, 40, 0.8); border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; color: #FFFFFF; font-size: 13px; }
-            QPushButton:hover { background-color: rgba(60, 60, 60, 0.8); }
+        btn.setStyleSheet(f"""
+            QPushButton {{ background-color: {cfg.BUTTON_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; }}
+            QPushButton:hover {{ background-color: {cfg.BUTTON_HOVER_BG_COLOR}; }}
         """)
         return btn
 
@@ -307,7 +307,7 @@ class TagEditorDialog(BaseFramelessDialog):
         popup = QWidget(None)
         popup.setWindowFlags(Qt.Popup | Qt.FramelessWindowHint)
         popup.setAttribute(Qt.WA_DeleteOnClose)
-        popup.setStyleSheet("QWidget { background: #1a1a1a; border: 1px solid rgba(80,80,80,0.5); }")
+        popup.setStyleSheet(f"QWidget {{ background: {cfg.INPUT_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; }}")
 
         layout = QVBoxLayout(popup)
         layout.setContentsMargins(4, 4, 4, 4)
@@ -317,10 +317,10 @@ class TagEditorDialog(BaseFramelessDialog):
         scroll.setWidgetResizable(True)
         scroll.setMaximumHeight(350)
         scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setStyleSheet("""
-            QScrollArea { background-color: transparent; border: none; }
-            QScrollBar:vertical { background: #000; width: 4px; }
-            QScrollBar::handle:vertical { background: rgba(80,80,80,0.5); border-radius: 2px; min-height: 30px; }
+        scroll.setStyleSheet(f"""
+            QScrollArea {{ background-color: transparent; border: none; }}
+            QScrollBar:vertical {{ background: {cfg.BG_COLOR}; width: 4px; }}
+            QScrollBar::handle:vertical {{ background: {cfg.INPUT_BORDER_COLOR}; border-radius: 2px; min-height: 30px; }}
         """)
 
         container = QWidget()
@@ -332,8 +332,8 @@ class TagEditorDialog(BaseFramelessDialog):
             lbl = QLabel(f"  {genre}")
             lbl.setFixedHeight(26)
             lbl.setStyleSheet(f"""
-                QLabel {{ color: #FFFFFF; font-size: 12px; padding: 0 8px; }}
-                QLabel:hover {{ background: rgba(80, 80, 80, 0.5); color: {cfg.get_accent_color()}; }}
+                QLabel {{ color: {cfg.TEXT_COLOR}; font-size: 12px; padding: 0 8px; }}
+                QLabel:hover {{ background: {cfg.INPUT_BORDER_COLOR}; color: {cfg.get_accent_color()}; }}
             """)
             lbl.setAttribute(Qt.WA_Hover)
             lbl.mouseReleaseEvent = lambda event, g=genre: self._on_genre_select(g, popup)
@@ -367,7 +367,7 @@ class TagEditorDialog(BaseFramelessDialog):
             btn.setFixedHeight(26)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(f"""
-                QPushButton {{ background-color: #1a1a1a; border: 1px solid {accent}; border-radius: 0; padding: 0 8px; font-size: 11px; color: {accent}; }}
+                QPushButton {{ background-color: {cfg.INPUT_BG_COLOR}; border: 1px solid {accent}; border-radius: 0; padding: 0 8px; font-size: 11px; color: {accent}; }}
                 QPushButton:hover {{ background-color: #252525; }}
             """)
             btn.clicked.connect(lambda checked=False, t=tag: self._remove_genre_tag(t))
@@ -766,12 +766,12 @@ class TagEditorDialog(BaseFramelessDialog):
         super().apply_accent_color(color)
         for edit in self._text_inputs:
             edit.setStyleSheet(f"""
-                QLineEdit {{ background-color: #1a1a1a; border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; padding: 0 10px; color: #FFFFFF; font-size: 13px; }}
+                QLineEdit {{ background-color: {cfg.INPUT_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; border-radius: 0; padding: 0 10px; color: {cfg.INPUT_TEXT_COLOR}; font-size: 13px; }}
                 QLineEdit:focus {{ border-color: {color}; }}
             """)
         self.save_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: {color}; border: none; border-radius: 0; color: #FFFFFF; font-size: 13px; font-weight: bold; }}
-            QPushButton:hover {{ background-color: #FFFFFF; color: {color}; }}
+            QPushButton {{ background-color: {color}; border: none; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold; }}
+            QPushButton:hover {{ background-color: {cfg.TEXT_COLOR}; color: {color}; }}
         """)
         self._refresh_genre_tags()
 

@@ -7,7 +7,7 @@ along with track title and artist name.
 
 import math
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QSizePolicy
-from PySide6.QtCore import Qt, QByteArray
+from PySide6.QtCore import Qt, QByteArray, Signal
 from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QImage, QPainterPath
 from PySide6.QtWidgets import QGraphicsScene, QGraphicsPixmapItem
 from PySide6.QtWidgets import QGraphicsBlurEffect
@@ -27,7 +27,9 @@ class AlbumArtWidget(QWidget):
     The blurred background is most vibrant at top-left corner and fades
     out towards bottom-right using a transparency gradient mask.
     """
-    
+
+    clicked = Signal()
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMinimumSize(300, 300)
@@ -47,6 +49,7 @@ class AlbumArtWidget(QWidget):
         svg_data = get_music_note_svg(200).encode('utf-8')
         self.svg_placeholder.renderer().load(QByteArray(svg_data))
         self.svg_placeholder.setVisible(True)  # Visible by default
+        self.svg_placeholder.setAttribute(Qt.WA_TransparentForMouseEvents)
         layout.addWidget(self.svg_placeholder)
 
         # Star label - positioned manually on top
@@ -64,6 +67,10 @@ class AlbumArtWidget(QWidget):
         self._spectral_flux = 0.0
         self._hpss_ratio = 0.0
     
+    def mousePressEvent(self, event):
+        self.clicked.emit()
+        super().mousePressEvent(event)
+
     def set_album_art(self, cover_data: bytes):
         """Load and display album cover from bytes."""
         if cover_data:
@@ -285,7 +292,7 @@ class TrackInfoWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         self.setMaximumWidth(self.FIXED_MAX_WIDTH)
 
         # Create layout
@@ -322,7 +329,7 @@ class TrackInfoWidget(QWidget):
         self.artist_label = QLabel("Unknown Artist")
         self.artist_label.setMinimumHeight(ARTIST_HEIGHT)
         self.artist_label.setStyleSheet(
-            "color: #FFFFFF; font-size: 20px; font-weight: 600;"
+            f"color: {cfg.TEXT_COLOR}; font-size: 20px; font-weight: 600;"
         )
         self.artist_label.setAlignment(Qt.AlignCenter)
         self.artist_label.setWordWrap(True)
@@ -332,7 +339,7 @@ class TrackInfoWidget(QWidget):
         self.album_label = QLabel("")
         self.album_label.setFixedHeight(ALBUM_HEIGHT)
         self.album_label.setStyleSheet(
-            "color: #AAAAAA; font-size: 14px;"
+            f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 14px;"
         )
         self.album_label.setAlignment(Qt.AlignCenter)
         self.album_label.setSizePolicy(text_policy)
@@ -380,10 +387,10 @@ class TrackInfoWidget(QWidget):
                 f"color: {accent}; font-size: {title_size}px; font-weight: bold;"
             )
             self.artist_label.setStyleSheet(
-                f"color: #FFFFFF; font-size: {artist_size}px; font-weight: 600;"
+                f"color: {cfg.TEXT_COLOR}; font-size: {artist_size}px; font-weight: 600;"
             )
             self.album_label.setStyleSheet(
-                f"color: #AAAAAA; font-size: {album_size}px;"
+                f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: {album_size}px;"
             )
 
             self.title_label.setText(track.title)

@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setWindowTitle("SonicFlame Player")
         self.setMinimumSize(1100, 600)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
 
         icon_path = _get_icon_path()
         if icon_path.exists():
@@ -231,6 +231,7 @@ class MainWindow(QMainWindow):
         self._tray.hide()
         if self.scanner and self.scanner.isRunning():
             self.scanner.cancel()
+        self.__scanning.cancel()
         if self.analysis_manager:
             self.analysis_manager.cancel_analysis()
         self.player.stop()
@@ -256,7 +257,7 @@ class MainWindow(QMainWindow):
         r = int(accent[1:3], 16)
         g = int(accent[3:5], 16)
         b = int(accent[5:7], 16)
-        container.setStyleSheet(f"#main_container {{ background-color: #000000; border: 2px solid rgba({r}, {g}, {b}, 0.1); }}")
+        container.setStyleSheet(f"#main_container {{ background-color: {cfg.BG_COLOR}; border: 2px solid rgba({r}, {g}, {b}, 0.1); }}")
         self.setCentralWidget(container)
 
         main_layout = QVBoxLayout(container)
@@ -301,6 +302,8 @@ class MainWindow(QMainWindow):
         self.playlist_widget.favorite_clicked.connect(self._playback.on_favorite_clicked)
         self.playlist_widget.badge_clicked.connect(self._playback.on_badge_clicked)
 
+        self.track_info_widget.album_art_widget.clicked.connect(self._on_cover_clicked)
+
         self.controls_widget.play_pause_clicked.connect(self._on_play_pause)
         self.controls_widget.next_clicked.connect(self._on_next)
         self.controls_widget.previous_clicked.connect(self._on_previous)
@@ -337,7 +340,7 @@ class MainWindow(QMainWindow):
         self.settings.playlist_type = "Folder"
         self.title_bar.set_playlist_title(Path(folder).name)
         self.title_bar.set_show_separator(True)
-        self.title_bar.set_scanning_status_style("color: #888888; font-size: 11px;")
+        self.title_bar.set_scanning_status_style(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self.title_bar.set_scanning_status("Сканирование...", True)
         self._blink_animation.start()
         self._scanning.scan(folder)
@@ -352,6 +355,9 @@ class MainWindow(QMainWindow):
             if current_fp:
                 self.playlist_widget.set_current_track_by_filepath(current_fp)
                 self.playlist_widget.set_playing_track(current_fp)
+
+    def _on_cover_clicked(self):
+        self.playlist_widget.scroll_to_current_track()
 
     def _on_play_pause(self):
         self.player.toggle_play_pause()
@@ -445,8 +451,14 @@ class MainWindow(QMainWindow):
         self.player.stop()
         self._current_playing_filepath = None
 
-        # Delete DB file + WAL/SHM
-        for suffix in ('', '-wal', '-shm'):
+        # Backup DB file (rename to backup.db), delete old backup first
+        backup_path = DB_PATH.parent / "backup.db"
+        if backup_path.exists():
+            backup_path.unlink()
+        if DB_PATH.exists():
+            DB_PATH.rename(backup_path)
+        # Clean up WAL/SHM artifacts
+        for suffix in ('-wal', '-shm'):
             p = Path(str(DB_PATH) + suffix)
             if p.exists():
                 p.unlink()

@@ -8,20 +8,44 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.1.5"
+APP_VERSION = "1.1.6"
+# Database version for schema compatibility checking
+DB_VERSION = 1
 
 # Debug logging toggle — set False to disable file logging
 LOG_DEBUG = True
 
+
+
 # Global accent color — change here to update the entire app
 ACCENT_COLOR = "#ed6a02"
 
-# Database version for schema compatibility checking
-DB_VERSION = 1
-
 # Global colors
 TEXT_COLOR = "#FFFFFF"
-DIVIDER_COLOR = "rgba(80, 80, 80, 0.5)"
+BG_COLOR = "#000000"
+DIVIDER_COLOR = "rgba(80, 80, 80, 0.5)"               # основные разделители (sidebar, панели)
+
+# Item-level divider (playlist items, table rows) — rgba(60,60,60,50) в QColor paintEvent
+DIVIDER_ITEM_COLOR = "rgba(80, 80, 80, 0.2)"          # для QSS (border-bottom)
+DIVIDER_ITEM_RGB = (80, 80, 80)                       # для paintEvent: QColor(*DIVIDER_ITEM_RGB, DIVIDER_ITEM_ALPHA)
+DIVIDER_ITEM_ALPHA = 50                               # alpha 0-255 для paintEvent
+
+# Secondary / gray colors
+SECONDARY_TEXT_COLOR = "#888888"
+SECONDARY_BG_COLOR = "#1a1a1a"
+TERTIARY_TEXT_COLOR = "#CCCCCC"
+
+# Button colors
+BUTTON_BG_COLOR = "rgba(40, 40, 40, 0.8)"
+BUTTON_HOVER_BG_COLOR = "rgba(60, 60, 60, 0.8)"
+
+# Input field colors
+INPUT_BG_COLOR = "#1a1a1a"
+INPUT_BORDER_COLOR = "rgba(80, 80, 80, 0.5)"
+INPUT_TEXT_COLOR = "#FFFFFF"
+
+
+
 
 # Audio analysis duration (seconds)
 ANALYSIS_DURATION = 30
@@ -36,7 +60,6 @@ FLUX_MIN = 0.0
 FLUX_MAX = 140.0
 HPSS_NORM_MIN = 0.5
 HPSS_NORM_MAX = 1.0
-
 
 
 # Tolerance baseline — единая константа чувствительности для всех 6 измерений.
@@ -61,6 +84,7 @@ AUDIO_WEIGHT_HPSS   = 0.22  # harmonic-percussive ratio — ритмичност
 PARTIAL_GENRE_BOOST_FACTOR = 1.15
 MAX_GENRES_FOR_COMPARISON = 2
 SIMILARITY_THRESHOLD_BASE = 0.9
+
 
 # Project root directory (resolves correctly in dev and frozen modes)
 if getattr(sys, 'frozen', False):

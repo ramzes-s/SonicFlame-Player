@@ -250,19 +250,19 @@ class ControlsWidget(QWidget):
     
     def _get_play_button_style(self) -> str:
         """Get circular stylesheet for play/pause button."""
-        return """
-            QPushButton {
+        return f"""
+            QPushButton {{
                 background-color: transparent;
                 border: none;
                 border-radius: 29px;
                 padding: 6px;
-            }
-            QPushButton:hover {
-                background-color: rgba(80, 80, 80, 0.3);
-            }
-            QPushButton:pressed {
-                background-color: rgba(80, 80, 80, 0.5);
-            }
+            }}
+            QPushButton:hover {{
+                background-color: {cfg.DIVIDER_ITEM_COLOR};
+            }}
+            QPushButton:pressed {{
+                background-color: {cfg.DIVIDER_COLOR};
+            }}
         """
     
     def _on_volume_changed(self, value: int):

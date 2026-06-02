@@ -163,7 +163,7 @@ class SideBarWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedWidth(SIDEBAR_WIDTH)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
 
         self._favorites_active = False
         self._top_active = False

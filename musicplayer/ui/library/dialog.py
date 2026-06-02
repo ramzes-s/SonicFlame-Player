@@ -95,7 +95,7 @@ class LibraryDialog(QDialog):
         bar = QWidget()
         bar.setObjectName("integrated_title_bar")
         bar.setFixedHeight(40)
-        bar.setStyleSheet("background-color: #000000; border-bottom: 1px solid #000000;")
+        bar.setStyleSheet(f"background-color: {cfg.BG_COLOR}; border-bottom: 1px solid {cfg.BG_COLOR};")
 
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(15, 0, 10, 0)
@@ -107,7 +107,7 @@ class LibraryDialog(QDialog):
         lay.addWidget(icon_w)
 
         lbl = QLabel("Библиотека")
-        lbl.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
+        lbl.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
         lay.addWidget(lbl)
         lay.addStretch()
 
@@ -126,7 +126,7 @@ class LibraryDialog(QDialog):
         btn.setCursor(Qt.PointingHandCursor)
         btn.setObjectName("close_btn")
         accent = cfg.get_accent_color()
-        btn.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: #FFF; font-size: 14px; font-weight: bold; }} QPushButton:hover {{ background-color: {accent}; }}")
+        btn.setStyleSheet(f"QPushButton {{ background: transparent; border: none; color: {cfg.TEXT_COLOR}; font-size: 14px; font-weight: bold; }} QPushButton:hover {{ background-color: {accent}; }}")
         btn.clicked.connect(self.close)
         lay.addWidget(btn)
 
@@ -329,13 +329,13 @@ class LibraryDialog(QDialog):
         event.accept()
 
     def _input_style(self):
-        return f"QLineEdit {{ background: transparent; border: none; border-bottom: 1px solid rgba(80,80,80,0.5); padding: 0 10px 0 4px; color: #FFF; font-size: 12px; }} QLineEdit:focus {{ border-bottom-color: {cfg.get_accent_color()}; }}"
+        return f"QLineEdit {{ background: transparent; border: none; border-bottom: 1px solid {cfg.INPUT_BORDER_COLOR}; padding: 0 10px 0 4px; color: {cfg.INPUT_TEXT_COLOR}; font-size: 12px; }} QLineEdit:focus {{ border-bottom-color: {cfg.get_accent_color()}; }}"
 
     def _combo_style(self):
-        return f"QComboBox {{ background: #1a1a1a; border: 1px solid rgba(80,80,80,0.5); padding: 0 8px; color: #FFF; font-size: 12px; }} QComboBox::drop-down {{ border: none; width: 20px; }} QComboBox QAbstractItemView::item:selected {{ background-color: {cfg.get_accent_color()}33; outline: none; }}"
+        return f"QComboBox {{ background: {cfg.INPUT_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; padding: 0 8px; color: {cfg.INPUT_TEXT_COLOR}; font-size: 12px; }} QComboBox::drop-down {{ border: none; width: 20px; }} QComboBox QAbstractItemView::item:selected {{ background-color: {cfg.get_accent_color()}33; outline: none; }}"
 
     def _btn_style(self):
-        return f"QPushButton {{ background: #1a1a1a; border: 1px solid rgba(80,80,80,0.5); color: #AAA; font-size: 11px; }} QPushButton:hover {{ color: {cfg.get_accent_color()};}}"
+        return f"QPushButton {{ background: {cfg.INPUT_BG_COLOR}; border: 1px solid {cfg.INPUT_BORDER_COLOR}; color: #AAA; font-size: 11px; }} QPushButton:hover {{ color: {cfg.get_accent_color()};}}"
 
     def _tab_style(self):
         accent = cfg.get_accent_color()
@@ -345,7 +345,7 @@ class LibraryDialog(QDialog):
             }}
             QTabBar::tab {{
                 background: transparent;
-                color: #888;
+                color: {cfg.SECONDARY_TEXT_COLOR};
                 font-weight: bold;
                 padding: 6px 25px;
                 width: 150px;
@@ -353,13 +353,13 @@ class LibraryDialog(QDialog):
                 border-bottom: none;
             }}
             QTabBar::tab:selected {{
-                background: #000000;
+                background: {cfg.BG_COLOR};
                 color: {accent};
                 border: none;
                 border-bottom: none;
             }}
             QTabBar::tab:hover {{
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 background: transparent;
                 border: none;
                 border-bottom: none;
@@ -370,7 +370,7 @@ class LibraryDialog(QDialog):
         accent = cfg.get_accent_color()
         r, g, b = int(accent[1:3], 16), int(accent[3:5], 16), int(accent[5:7], 16)
         sel = f"rgba({r},{g},{b},40)"
-        return f"QTableView {{ background: #000; border: none; gridline-color: rgba(60,60,60,20); color: #FFF; font-size: 12px; }} QTableView::item {{ padding: 4px 8px; border-bottom: 1px solid rgba(60,60,60,20); }} QTableView::item:selected {{ background: {sel}; color: #FFF; }} QHeaderView::section {{ background: #0a0a0a; color: #AAA; padding: 6px 8px; border: none; border-bottom: 1px solid rgba(80,80,80,0.3); font-size: 11px; font-weight: bold; }} QHeaderView::section:hover {{ color: #FFF; background: #151515; }} QScrollBar:vertical {{ background: #000; width: 6px; }} QScrollBar::handle:vertical {{ background: rgba(80,80,80,0.5); min-height: 30px; }} QScrollBar:horizontal {{ background: #000; height: 6px; }}"
+        return f"QTableView {{ background: {cfg.BG_COLOR}; border: none; gridline-color: rgba({cfg.DIVIDER_ITEM_RGB[0]},{cfg.DIVIDER_ITEM_RGB[1]},{cfg.DIVIDER_ITEM_RGB[2]},{cfg.DIVIDER_ITEM_ALPHA}); color: {cfg.TEXT_COLOR}; font-size: 12px; }} QTableView::item {{ padding: 4px 8px; border-bottom: 1px solid rgba({cfg.DIVIDER_ITEM_RGB[0]},{cfg.DIVIDER_ITEM_RGB[1]},{cfg.DIVIDER_ITEM_RGB[2]},{cfg.DIVIDER_ITEM_ALPHA}); }} QTableView::item:selected {{ background: {sel}; color: {cfg.TEXT_COLOR}; }} QHeaderView::section {{ background: #0a0a0a; color: #AAA; padding: 6px 8px; border: none; border-bottom: 1px solid rgba(80,80,80,0.3); font-size: 11px; font-weight: bold; }} QHeaderView::section:hover {{ color: {cfg.TEXT_COLOR}; background: #151515; }} QScrollBar:vertical {{ background: {cfg.BG_COLOR}; width: 6px; }} QScrollBar::handle:vertical {{ background: {cfg.DIVIDER_COLOR}; min-height: 30px; }} QScrollBar:horizontal {{ background: {cfg.BG_COLOR}; height: 6px; }}"
 
     def _show_context_menu(self, pos):
         idx = self.table.indexAt(pos)
@@ -380,7 +380,7 @@ class LibraryDialog(QDialog):
         if not track:
             return
         menu = QMenu(self)
-        menu.setStyleSheet(f"QMenu {{ background: #111; border: 1px solid #505050; padding: 4px 0; color: #FFF; }} QMenu::item:selected {{ background: {cfg.get_accent_color()}66; }}")
+        menu.setStyleSheet(f"QMenu {{ background: {cfg.SECONDARY_BG_COLOR}; border: 1px solid #505050; padding: 4px 0; color: {cfg.TEXT_COLOR}; }} QMenu::item:selected {{ background: {cfg.get_accent_color()}66; }}")
         act_play = QAction("Воспроизвести", menu)
         act_play.triggered.connect(lambda: self.track_selected.emit(track.filepath))
         menu.addAction(act_play)

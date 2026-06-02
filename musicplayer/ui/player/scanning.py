@@ -2,6 +2,7 @@
 Scanning logic: folder scanning, progress, callbacks.
 """
 
+from musicplayer import config as cfg
 from musicplayer.core.db import upsert_folder
 from musicplayer.core.settings import get_playlist_sort_mode
 from musicplayer.utils.audio_scanner import AudioScanner
@@ -61,7 +62,7 @@ class ScanningManager(PlayerManagerBase):
         from PySide6.QtCore import QTimer
 
         self._mw._blink_animation.stop()
-        self._mw.title_bar.set_scanning_status_style("color: #AAAAAA; font-size: 11px;")
+        self._mw.title_bar.set_scanning_status_style(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 11px;")
 
         removed = self._removed_count
         track_count = len(tracks)

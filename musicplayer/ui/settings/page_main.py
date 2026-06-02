@@ -44,7 +44,7 @@ class MainPage(QWidget):
         sim_row = QHBoxLayout()
         sim_row.setSpacing(10)
         sim_label = QLabel("Точность подбора похожих треков")
-        sim_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        sim_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         sim_row.addWidget(sim_label)
         sim_row.addStretch()
         self._sim_slider = ClickableSlider(Qt.Horizontal)
@@ -61,7 +61,7 @@ class MainPage(QWidget):
         dur_row = QHBoxLayout()
         dur_row.setSpacing(10)
         dur_label = QLabel("Длительность анализа треков")
-        dur_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        dur_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         dur_row.addWidget(dur_label)
         dur_row.addStretch()
         self._dur_slider = ClickableSlider(Qt.Horizontal)
@@ -75,7 +75,7 @@ class MainPage(QWidget):
         self._dur_slider.valueChanged.connect(self._on_duration_changed)
         self._apply_slider_style(self._dur_slider)
         dur_value = QLabel(f"{self._settings.analysis_duration}с")
-        dur_value.setStyleSheet("color: #FFFFFF; font-size: 13px;")
+        dur_value.setStyleSheet("color: {cfg.TEXT_COLOR}; font-size: 13px;")
         dur_row.addWidget(dur_value)
         self._dur_value_label = dur_value
         dur_row.addWidget(self._dur_slider)
@@ -85,7 +85,7 @@ class MainPage(QWidget):
         lang_row = QHBoxLayout()
         lang_row.setSpacing(10)
         lang_label = QLabel("Фильтр языка при подборе")
-        lang_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        lang_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         lang_row.addWidget(lang_label)
         lang_row.addStretch()
         self._lang_combo = QComboBox()
@@ -116,7 +116,7 @@ class MainPage(QWidget):
         self._update_reset_btn_style()
         reset_row.addWidget(self.reset_db_btn)
         reset_label = QLabel("Все данные кроме настроек будут удалены!")
-        reset_label.setStyleSheet("color: #FFFFFF; font-size: 14px;")
+        reset_label.setStyleSheet("color: {cfg.TEXT_COLOR}; font-size: 14px;")
         reset_row.addWidget(reset_label)
         reset_row.addStretch()
         lo.addLayout(reset_row)
@@ -125,11 +125,11 @@ class MainPage(QWidget):
         accent = cfg.get_accent_color()
         self._lang_combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 border-bottom: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 font-size: 13px;
                 padding: 1px 8px 1px 8px;
             }}
@@ -139,9 +139,9 @@ class MainPage(QWidget):
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 outline: none;
                 margin: 0px;
             }}
@@ -152,7 +152,7 @@ class MainPage(QWidget):
                 background-color: {accent};
             }}
             QComboBox QAbstractItemView::viewport {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
             }}
         """)
@@ -254,7 +254,7 @@ class MainPage(QWidget):
                 width: 14px; height: 14px; margin: -5px 0;
                 background: {accent}; border-radius: 7px;
             }}
-            QSlider::handle:horizontal:hover {{ background: #FFFFFF; }}
+            QSlider::handle:horizontal:hover {{ background: {cfg.TEXT_COLOR}; }}
             QSlider::sub-page:horizontal {{ background: {accent}; border-radius: 2px; }}
         """)
 

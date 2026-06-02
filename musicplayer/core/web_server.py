@@ -163,7 +163,15 @@ class WebServer(QObject):
         if loop is None:
             return
         try:
-            loop.call_soon_threadsafe(loop.stop)
+            async def _cleanup():
+                if hasattr(self, '_runner'):
+                    await self._runner.cleanup()
+                for task in asyncio.all_tasks(loop):
+                    task.cancel()
+                loop.stop()
+
+            fut = asyncio.run_coroutine_threadsafe(_cleanup(), loop)
+            fut.result(timeout=5)
         except Exception:
             pass
 
