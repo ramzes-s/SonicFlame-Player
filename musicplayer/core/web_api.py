@@ -49,38 +49,47 @@ class APIHandlers:
         self._server = server
 
     async def handle_status(self, request: web.Request) -> web.Response:
+        srv = self._server
         return web.json_response({
-            "playing": self._server._playing,
-            "position": self._server._position,
-            "duration": self._server._duration,
-            "volume": self._server._volume,
-            "repeat": self._server._repeat,
-            "sort_mode": self._server._sort_mode
+            "playing": srv._playing,
+            "position": srv._position,
+            "duration": srv._duration,
+            "volume": srv._volume,
+            "repeat": srv._repeat,
+            "sort_mode": srv._sort_mode
         })
 
     async def handle_track(self, request: web.Request) -> web.Response:
-        if not self._server._current_track:
+        track = self._server._current_track
+        if not track:
             return web.json_response(None)
 
         cover_b64 = None
-        if self._server._current_track.cover_data:
-            cover_b64 = base64.b64encode(self._server._current_track.cover_data).decode()
+        if track.filepath:
+            from musicplayer.core.db.cache import _load_cover
+            cover_data = _load_cover(track.filepath)
+            if cover_data:
+                try:
+                    cover_b64 = base64.b64encode(cover_data).decode()
+                except Exception:
+                    cover_b64 = None
 
         return web.json_response({
-            "title": self._server._current_track.title,
-            "artist": self._server._current_track.artist,
-            "album": self._server._current_track.album,
-            "duration": self._server._current_track.duration,
-            "genre": self._server._current_track.genre,
-            "bitrate": self._server._current_track.bitrate,
-            "is_favorite": self._server._current_track.filepath in self._server._favorite_filepaths,
+            "title": track.title,
+            "artist": track.artist,
+            "album": track.album,
+            "duration": track.duration,
+            "genre": track.genre,
+            "bitrate": track.bitrate,
+            "is_favorite": track.filepath in self._server._favorite_filepaths,
             "cover": cover_b64,
             "playlist_title": self._server._playlist_title
         })
 
     async def handle_playlist(self, request: web.Request) -> web.Response:
+        playlist = self._server._playlist
         tracks = []
-        for t in self._server._playlist:
+        for t in playlist:
             tracks.append({
                 "title": t.title,
                 "artist": t.artist,
@@ -93,6 +102,7 @@ class APIHandlers:
         return web.json_response({"color": cfg.get_accent_color()})
 
     async def handle_playing_data(self, request: web.Request) -> web.Response:
+        track = self._server._current_track
         return web.json_response({
             "status": {
                 "playing": self._server._playing,
@@ -102,8 +112,8 @@ class APIHandlers:
                 "repeat": self._server._repeat
             },
             "current_index": self._server._current_index,
-            "current_track_filepath": self._server._current_track.filepath if self._server._current_track else None,
-            "is_favorite": self._server._current_track.filepath in self._server._favorite_filepaths if self._server._current_track else False,
+            "current_track_filepath": track.filepath if track else None,
+            "is_favorite": track.filepath in self._server._favorite_filepaths if track else False,
             "accent_color": cfg.get_accent_color(),
             "sort_mode": self._server._sort_mode
         })

@@ -11,11 +11,11 @@ function getPlaylistHash(tracks) {
     return tracks.map(t => t.filepath).join('|');
 }
 
-async function fetchWithTimeout(url, timeout = 3000) {
+async function fetchWithTimeout(url, options = {}, timeout = 3000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(id);
         return res;
     } catch (e) {
@@ -67,7 +67,7 @@ let initialLoad = true;
 
 async function updateStatus() {
     if (isOffline) return;
-    const res = await fetchWithTimeout('/api/playing_data');
+    const res = await fetchWithTimeout('/api/playing_data', {method: 'POST'}, 3000);
     if (!res || !res.ok) {
         if (!isOffline) showOffline();
         return;
@@ -139,7 +139,7 @@ async function updateStatus() {
 
 async function updatePlaylist() {
     try {
-        const res = await fetch('/api/playlist');
+        const res = await fetch('/api/playlist', {method: 'POST'});
         if (!res.ok) return;
         const tracks = await res.json();
         const container = document.getElementById('playlist');
@@ -156,7 +156,7 @@ async function updatePlaylist() {
 
 async function updateTrackInfo() {
     try {
-        const res = await fetch('/api/track');
+        const res = await fetch('/api/track', {method: 'POST'});
         if (!res.ok) return;
         const track = await res.json();
 
@@ -196,10 +196,10 @@ document.getElementById('playBtn').onclick = () => {
     fetch(isPlaying ? '/api/pause' : '/api/play', {method: 'POST'}).then(() => updateTrackInfo());
 };
 document.getElementById('prevBtn').onclick = () => {
-    fetch('/api/previous').then(() => updateTrackInfo());
+    fetch('/api/previous', {method: 'POST'}).then(() => updateTrackInfo());
 };
 document.getElementById('nextBtn').onclick = () => {
-    fetch('/api/next').then(() => updateTrackInfo());
+    fetch('/api/next', {method: 'POST'}).then(() => updateTrackInfo());
 };
 document.getElementById('heartBtn').onclick = () => {
     fetch('/api/toggle_favorite', {method: 'POST'}).then(updateStatus);
@@ -224,7 +224,7 @@ document.getElementById('playlist').onclick = (e) => {
 let folderDropdownVisible = false;
 
 async function loadFolders() {
-    const res = await fetch('/api/folders');
+    const res = await fetch('/api/folders', {method: 'POST'});
     if (!res.ok) return;
     const folders = await res.json();
     const container = document.getElementById('folderList');
