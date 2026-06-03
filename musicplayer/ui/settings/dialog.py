@@ -68,7 +68,7 @@ class SettingsDialog(QDialog):
 
         container = QWidget()
         container.setObjectName("container")
-        container.setStyleSheet("#container { background-color: #000000; }")
+        container.setStyleSheet(f"#container {{ background-color: {cfg.BG_COLOR}; }}")
 
         inner = QVBoxLayout(container)
         inner.setContentsMargins(0, 0, 0, 0)
@@ -91,7 +91,7 @@ class SettingsDialog(QDialog):
     def _build_title_bar(self, inner: QVBoxLayout):
         title_bar = QWidget()
         title_bar.setFixedHeight(40)
-        title_bar.setStyleSheet("background-color: #000000;")
+        title_bar.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         title_layout = QHBoxLayout(title_bar)
         title_layout.setContentsMargins(15, 0, 10, 0)
         title_layout.setSpacing(10)
@@ -101,7 +101,7 @@ class SettingsDialog(QDialog):
         title_icon.renderer().load(QByteArray(get_music_note_svg(60).encode('utf-8')))
         title_layout.addWidget(title_icon)
         title_label = QLabel("Настройки")
-        title_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
+        title_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
         title_layout.addWidget(title_label)
 
         accent = cfg.get_accent_color()
@@ -109,7 +109,7 @@ class SettingsDialog(QDialog):
         close_btn.setFixedSize(36, 30)
         close_btn.setCursor(Qt.PointingHandCursor)
         close_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF;
+            QPushButton {{ background-color: transparent; border: none; color: {cfg.TEXT_COLOR};
                 font-size: 14px; font-weight: bold; }}
             QPushButton:hover {{ background-color: {accent}; }}
             QPushButton:pressed {{ background-color: #555555; }}
@@ -128,7 +128,7 @@ class SettingsDialog(QDialog):
         self._tab_btns = []
         sidebar = QWidget()
         sidebar.setFixedWidth(140)
-        sidebar.setStyleSheet("background-color: #000000;")
+        sidebar.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setContentsMargins(0, 8, 0, 8)
         sidebar_layout.setSpacing(0)
@@ -163,7 +163,7 @@ class SettingsDialog(QDialog):
 
         # Stacked content
         self._stack = QStackedWidget()
-        self._stack.setStyleSheet("background-color: #000000;")
+        self._stack.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         for page in self._pages:
             self._stack.addWidget(page)
         body.addWidget(self._stack, 1)
@@ -294,7 +294,7 @@ class SettingsDialog(QDialog):
     def apply_accent_color(self, color: str):
         self._update_tab_style()
         self._close_btn.setStyleSheet(f"""
-            QPushButton {{ background-color: transparent; border: none; color: #FFFFFF;
+            QPushButton {{ background-color: transparent; border: none; color: {cfg.TEXT_COLOR};
                 font-size: 14px; font-weight: bold; }}
             QPushButton:hover {{ background-color: {color}; }}
             QPushButton:pressed {{ background-color: #555555; }}

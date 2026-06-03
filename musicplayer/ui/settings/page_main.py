@@ -75,7 +75,7 @@ class MainPage(QWidget):
         self._dur_slider.valueChanged.connect(self._on_duration_changed)
         self._apply_slider_style(self._dur_slider)
         dur_value = QLabel(f"{self._settings.analysis_duration}с")
-        dur_value.setStyleSheet("color: {cfg.TEXT_COLOR}; font-size: 13px;")
+        dur_value.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px;")
         dur_row.addWidget(dur_value)
         self._dur_value_label = dur_value
         dur_row.addWidget(self._dur_slider)
@@ -116,7 +116,7 @@ class MainPage(QWidget):
         self._update_reset_btn_style()
         reset_row.addWidget(self.reset_db_btn)
         reset_label = QLabel("Все данные кроме настроек будут удалены!")
-        reset_label.setStyleSheet("color: {cfg.TEXT_COLOR}; font-size: 14px;")
+        reset_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 14px;")
         reset_row.addWidget(reset_label)
         reset_row.addStretch()
         lo.addLayout(reset_row)
@@ -198,7 +198,7 @@ class MainPage(QWidget):
 
     def _update_folder_button_style(self, has_folder: bool):
         accent = cfg.get_accent_color()
-        border_color = "rgba(80, 80, 80, 0.5)" if has_folder else "#FF4444"
+        border_color = cfg.DIVIDER_COLOR if has_folder else "#FF4444"
         self.folder_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
@@ -212,7 +212,7 @@ class MainPage(QWidget):
                 background-color: rgba(80, 80, 80, 0.3);
             }}
             QPushButton:pressed {{
-                background-color: rgba(60, 60, 60, 0.4);
+                background-color: {cfg.BUTTON_PRESSED_BG_COLOR};
             }}
         """)
 
@@ -230,7 +230,7 @@ class MainPage(QWidget):
         self.reset_db_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: transparent;
-                border: 1px solid rgba(80, 80, 80, 0.5);
+                border: 1px solid {cfg.DIVIDER_COLOR};
                 color: {accent};
                 font-size: 13px;
                 text-align: left;
@@ -240,7 +240,7 @@ class MainPage(QWidget):
                 background-color: rgba(80, 80, 80, 0.3);
             }}
             QPushButton:pressed {{
-                background-color: rgba(60, 60, 60, 0.4);
+                background-color: {cfg.BUTTON_PRESSED_BG_COLOR};
             }}
         """)
 
@@ -248,7 +248,7 @@ class MainPage(QWidget):
         accent = cfg.get_accent_color()
         slider.setStyleSheet(f"""
             QSlider::groove:horizontal {{
-                height: 4px; background: rgba(80,80,80,0.5); border-radius: 2px;
+                height: 4px; background: {cfg.DIVIDER_COLOR}; border-radius: 2px;
             }}
             QSlider::handle:horizontal {{
                 width: 14px; height: 14px; margin: -5px 0;

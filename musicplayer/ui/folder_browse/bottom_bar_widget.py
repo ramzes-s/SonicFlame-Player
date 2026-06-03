@@ -3,6 +3,7 @@ from PySide6.QtWidgets import (QHBoxLayout, QLabel, QPushButton, QWidget,
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
 
+from musicplayer import config as cfg
 from .helpers import (_folder_count_str, _track_count_str, _get_track_count,
                       _get_subfolder_count)
 
@@ -16,7 +17,7 @@ class BottomBarWidget(QWidget):
 
     def _build_ui(self):
         self.setFixedHeight(44)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(12)
@@ -28,11 +29,11 @@ class BottomBarWidget(QWidget):
         left_layout.setSpacing(20)
 
         self._breadcrumb_label = QLabel()
-        self._breadcrumb_label.setStyleSheet("color: #888888; font-size: 12px;")
+        self._breadcrumb_label.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 12px;")
         left_layout.addWidget(self._breadcrumb_label)
 
         self._breadcrumb_count = QLabel()
-        self._breadcrumb_count.setStyleSheet("color: #666666; font-size: 12px;")
+        self._breadcrumb_count.setStyleSheet(f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 12px;")
         left_layout.addWidget(self._breadcrumb_count)
 
         layout.addWidget(left_widget)
@@ -59,23 +60,23 @@ class BottomBarWidget(QWidget):
         self._select_btn.setStyleSheet(f"""
             QPushButton {{
                 background-color: {accent}; border: none; border-radius: 0;
-                color: #FFFFFF; font-size: 13px; font-weight: bold;
+                color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;
             }}
-            QPushButton:hover {{ background-color: #FFFFFF; color: {accent}; }}
-            QPushButton:disabled {{ background-color: rgba(80,80,80,0.3); color: #666666; }}
+            QPushButton:hover {{ background-color: {cfg.TEXT_COLOR}; color: {accent}; }}
+            QPushButton:disabled {{ background-color: rgba(80,80,80,0.3); color: {cfg.DISABLED_TEXT_COLOR}; }}
         """)
 
     def _update_breadcrumb(self, path: str):
         try:
             track_count = _get_track_count(path)
             folder_count = _get_subfolder_count(path)
-            self._breadcrumb_label.setText(f'<span style="color:#FFFFFF;">{path}</span>')
+            self._breadcrumb_label.setText(f'<span style="color:{cfg.TEXT_COLOR};">{path}</span>')
             parts = []
             if folder_count:
-                parts.append(f'<span style="color:#888888; font-size: 13px;">{_folder_count_str(folder_count)}  \u0438 </span>')
+                parts.append(f'<span style="color:{cfg.SECONDARY_TEXT_COLOR}; font-size: 13px;">{_folder_count_str(folder_count)}  \u0438 </span>')
             if track_count:
-                parts.append(f'<span style="color:#888888; font-size: 13px;">{_track_count_str(track_count)}</span>')
-            self._breadcrumb_count.setText(" ".join(parts) if parts else '<span style="color:#666666; font-size: 13px;">\u041f\u0430\u043f\u043a\u0430 \u043f\u0443\u0441\u0442\u0430</span>')
+                parts.append(f'<span style="color:{cfg.SECONDARY_TEXT_COLOR}; font-size: 13px;">{_track_count_str(track_count)}</span>')
+            self._breadcrumb_count.setText(" ".join(parts) if parts else '<span style="color:{cfg.DISABLED_TEXT_COLOR}; font-size: 13px;">\u041f\u0430\u043f\u043a\u0430 \u043f\u0443\u0441\u0442\u0430</span>')
         except Exception:
             self._breadcrumb_label.setText(path)
             self._breadcrumb_count.clear()

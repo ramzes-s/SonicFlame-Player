@@ -43,7 +43,7 @@ class FolderBrowseDialog(FramelessDialog):
 
         sep = QWidget()
         sep.setFixedWidth(1)
-        sep.setStyleSheet("background-color: rgba(80,80,80,0.2);")
+        sep.setStyleSheet(f"background-color: {cfg.DIVIDER_ITEM_COLOR};")
         body.addWidget(sep)
 
         self._tree_widget = FolderTreeWidget(

@@ -15,6 +15,7 @@ from PySide6.QtGui import QColor
 from musicplayer.core import db
 from musicplayer.ui.library.artist_worker import ArtistProcessingWorker
 from musicplayer.ui.library.artist_card import ArtistCardWidget
+from musicplayer import config as cfg
 from musicplayer.config import ACCENT_COLOR
 
 
@@ -55,27 +56,27 @@ class ArtistViewWidget(QWidget):
         self._scroll_area = QScrollArea(self)
         self._scroll_area.setWidgetResizable(True)
         self._scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self._scroll_area.setStyleSheet("""
-            QScrollArea {
-                background-color: #000000;
+        self._scroll_area.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {cfg.BG_COLOR};
                 border: none;
-            }
-            QScrollBar:vertical {
-                background: #000;
+            }}
+            QScrollBar:vertical {{
+                background: {cfg.BG_COLOR};
                 width: 6px;
                 margin: 0;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(80,80,80,0.5);
+            }}
+            QScrollBar::handle:vertical {{
+                background: {cfg.DIVIDER_COLOR};
                 min-height: 30px;
-            }
-            QScrollBar:add-line:vertical, QScrollBar:sub-line:vertical {
+            }}
+            QScrollBar:add-line:vertical, QScrollBar:sub-line:vertical {{
                 height: 0px;
-            }
+            }}
         """)
 
         self._grid_container = QWidget()
-        self._grid_container.setStyleSheet("background-color: #000000;")
+        self._grid_container.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         self._grid_layout = QGridLayout(self._grid_container)
         self._grid_layout.setSpacing(8)
         self._grid_layout.setContentsMargins(8, 8, 8, 8)

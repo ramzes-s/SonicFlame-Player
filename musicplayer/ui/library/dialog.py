@@ -86,7 +86,7 @@ class LibraryDialog(QDialog):
         layout.addWidget(self._build_table(), stretch=1)
 
         self.status_label = QLabel("Загрузка...")
-        self.status_label.setStyleSheet("color: #666666; font-size: 11px; padding: 6px 16px;")
+        self.status_label.setStyleSheet(f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; padding: 6px 16px;")
         layout.addWidget(self.status_label)
 
         return container
@@ -176,7 +176,7 @@ class LibraryDialog(QDialog):
         clear_btn.setFixedHeight(30)
         clear_btn.setFixedWidth(100)
         clear_btn.setCursor(Qt.PointingHandCursor)
-        clear_btn.setStyleSheet(f"QPushButton {{ border: 1px solid rgba(60,60,60,0.5); font-size: 11px; font-weight: bold; }} QPushButton:hover {{ color: {cfg.get_accent_color()}; }}")
+        clear_btn.setStyleSheet(f"QPushButton {{ border: 1px solid {cfg.BUTTON_BORDER_COLOR}; font-size: 11px; font-weight: bold; }} QPushButton:hover {{ color: {cfg.get_accent_color()}; }}")
         clear_btn.clicked.connect(self._clear_filters)
         lay.addWidget(clear_btn)
 
@@ -300,10 +300,10 @@ class LibraryDialog(QDialog):
 
         integrated_title_bar = self.findChild(QWidget, "integrated_title_bar")
         if integrated_title_bar:
-            integrated_title_bar.setStyleSheet("background-color: #000000;")
+            integrated_title_bar.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         clear_btn = self.findChild(QPushButton, "clear_btn")
         if clear_btn:
-            clear_btn.setStyleSheet(f"QPushButton {{ border: 1px solid rgba(60,60,60,0.5); font-size: 11px; font-weight: bold; }} QPushButton:hover {{ color: {cfg.get_accent_color()}; }}")
+            clear_btn.setStyleSheet(f"QPushButton {{ border: 1px solid {cfg.BUTTON_BORDER_COLOR}; font-size: 11px; font-weight: bold; }} QPushButton:hover {{ color: {cfg.get_accent_color()}; }}")
         self._on_fav_filter_toggled(self.fav_btn.isChecked())
 
     def _on_double_click(self, index: QModelIndex):

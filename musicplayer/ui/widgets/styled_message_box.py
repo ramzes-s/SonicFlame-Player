@@ -43,7 +43,7 @@ class StyledMessageBox(FramelessDialog):
         inner.addWidget(title_bar)
 
         content = QWidget()
-        content.setStyleSheet("background-color: #000000;")
+        content.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(24, 24, 24, 20)
         content_layout.setSpacing(16)
@@ -63,17 +63,17 @@ class StyledMessageBox(FramelessDialog):
 
         self._text_label = QLabel(self._text)
         self._text_label.setWordWrap(True)
-        self._text_label.setStyleSheet("color: #CCCCCC; font-size: 13px;")
+        self._text_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         text_col.addWidget(self._text_label)
 
         self._key_label = QLabel(self._key)
         self._key_label.setWordWrap(True)
-        self._key_label.setStyleSheet("color: #FFFFFF; font-size: 13px; font-weight: bold;")
+        self._key_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
         self._key_label.setVisible(bool(self._key))
         text_col.addWidget(self._key_label)
 
         self._auto_close_label = QLabel()
-        self._auto_close_label.setStyleSheet("color: #888888; font-size: 11px;")
+        self._auto_close_label.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         self._auto_close_label.setVisible(False)
         text_col.addWidget(self._auto_close_label)
 
@@ -94,13 +94,21 @@ class StyledMessageBox(FramelessDialog):
             if i == len(self._buttons) - 1:
                 accent = cfg.get_accent_color()
                 btn.setStyleSheet(f"""
-                    QPushButton {{ background-color: {accent}; border: none; border-radius: 0; color: #FFFFFF; font-size: 13px; font-weight: bold; }}
-                    QPushButton:hover {{ background-color: #FFFFFF; color: {accent}; }}
+                    QPushButton {{ background-color: {accent}; border: none; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold; }}
+                    QPushButton:hover {{ background-color: {cfg.TEXT_COLOR}; color: {accent}; }}
                 """)
             else:
-                btn.setStyleSheet("""
-                    QPushButton { background-color: rgba(40, 40, 40, 0.8); border: 1px solid rgba(80, 80, 80, 0.5); border-radius: 0; color: #FFFFFF; font-size: 13px; }
-                    QPushButton:hover { background-color: rgba(60, 60, 60, 0.8); }
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        background-color: {cfg.BUTTON_BG_COLOR};
+                        border: 1px solid {cfg.DIVIDER_COLOR};
+                        border-radius: 0;
+                        color: {cfg.TEXT_COLOR};
+                        font-size: 13px;
+                    }}
+                    QPushButton:hover {{
+                        background-color: {cfg.BUTTON_HOVER_BG_COLOR};
+                    }}
                 """)
 
             btn.clicked.connect(lambda checked=False, idx=i: self._on_button(idx))

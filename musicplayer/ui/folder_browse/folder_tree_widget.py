@@ -31,7 +31,7 @@ class FolderTreeWidget(QWidget):
         self._build_ui()
 
     def _build_ui(self):
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -56,12 +56,12 @@ class FolderTreeWidget(QWidget):
         self._filter_input = QLineEdit()
         self._filter_input.setPlaceholderText("\U0001F50D  \u0411\u044b\u0441\u0442\u0440\u044b\u0439 \u043f\u043e\u0438\u0441\u043a...")
         self._filter_input.setClearButtonEnabled(True)
-        self._filter_input.setStyleSheet("""
-            QLineEdit {
-                background-color: #000000; color: #FFFFFF;
-                border: none; border-bottom: 1px solid rgba(80,80,80,0.5);
+        self._filter_input.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {cfg.BG_COLOR}; color: {cfg.TEXT_COLOR};
+                border: none; border-bottom: 1px solid {cfg.DIVIDER_COLOR};
                 padding: 4px 8px; font-size: 12px;
-            }
+            }}
         """)
         self._filter_input.textChanged.connect(self._on_filter_text_changed)
         bar.addWidget(self._filter_input, 1)
@@ -75,17 +75,17 @@ class FolderTreeWidget(QWidget):
         self._tree.setIndentation(16)
         self._tree.setIconSize(QPixmap(22, 22).size())
         self._tree.setSelectionMode(QTreeWidget.SingleSelection)
-        self._tree.setStyleSheet("""
-            QTreeWidget {
-                background-color: #000000; color: #CCCCCC; border: none;
+        self._tree.setStyleSheet(f"""
+            QTreeWidget {{
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
                 font-size: 13px; outline: none;
-            }
-            QTreeWidget::item {
+            }}
+            QTreeWidget::item {{
                 padding: 6px 4px 6px 2px; border-bottom: 1px solid rgba(80,80,80,0.05);
-            }
-            QTreeWidget::item:hover {
-                background-color: rgba(80,80,80,0.2);
-            }
+            }}
+            QTreeWidget::item:hover {{
+                background-color: {cfg.SECONDARY_BG_COLOR};
+            }}
         """ + _SCROLLBAR_STYLE)
         self._tree.itemClicked.connect(self._on_item_clicked)
         self._tree.itemDoubleClicked.connect(self._on_item_double_clicked)
@@ -169,11 +169,11 @@ class FolderTreeWidget(QWidget):
     def _style_sort_combo(self, accent):
         self._sort_combo.setStyleSheet(f"""
             QComboBox {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 border-bottom: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 font-size: 14px;
                 padding: 1px 8px 1px 8px;
             }}
@@ -183,9 +183,9 @@ class FolderTreeWidget(QWidget):
                 width: 20px;
             }}
             QComboBox QAbstractItemView {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: 1px solid {accent};
-                color: #FFFFFF;
+                color: {cfg.TEXT_COLOR};
                 outline: none;
                 margin: 0px;
             }}
@@ -196,7 +196,7 @@ class FolderTreeWidget(QWidget):
                 background-color: {accent};
             }}
             QComboBox QAbstractItemView::viewport {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
             }}
         """)
@@ -210,8 +210,8 @@ class FolderTreeWidget(QWidget):
 
         self._filter_input.setStyleSheet(f"""
             QLineEdit {{
-                background-color: #000000; color: #FFFFFF;
-                border: none; border-bottom: 1px solid rgba(80,80,80,0.5);
+                background-color: {cfg.BG_COLOR}; color: {cfg.TEXT_COLOR};
+                border: none; border-bottom: 1px solid {cfg.DIVIDER_COLOR};
                 padding: 4px 8px; font-size: 12px;
             }}
             QLineEdit:focus {{ border: none; border-bottom: 1px solid {accent}; }}
@@ -219,17 +219,17 @@ class FolderTreeWidget(QWidget):
 
         self._tree.setStyleSheet(f"""
             QTreeWidget {{
-                background-color: #000000; color: #CCCCCC; border: none;
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
                 font-size: 13px; outline: none;
             }}
             QTreeWidget::item {{
-                padding: 6px 4px 6px 2px; border-bottom: 1px solid rgba(80,80,80,0.05);
+                padding: 6px 4px 6px 2px; border-bottom: 1px solid {cfg.DIVIDER_ITEM_COLOR};
             }}
             QTreeWidget::item:hover {{
-                background-color: rgba(80,80,80,0.2);
+                background-color: {cfg.DIVIDER_ITEM_COLOR};
             }}
             QTreeWidget::item:selected {{
-                background-color: {accent}; color: #000000;
+                background-color: {accent}; color: {cfg.BG_COLOR};
             }}
         {_SCROLLBAR_STYLE}""")
 

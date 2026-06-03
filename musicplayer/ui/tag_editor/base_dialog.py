@@ -15,6 +15,20 @@ class BaseFramelessDialog(QDialog):
         self._title_bar = None
         self.hide()
 
+    def paintEvent(self, event: QPaintEvent):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        accent = cfg.get_accent_color()
+        color = QColor(accent)
+        color.setAlpha(26)
+        pen = painter.pen()
+        pen.setColor(color)
+        pen.setWidth(2)
+        painter.setPen(pen)
+        painter.setBrush(Qt.NoBrush)
+        rect = self.rect().adjusted(1, 1, -2, -2)
+        painter.drawRect(rect)
+
     def eventFilter(self, obj, event):
         if event.type() == QEvent.MouseButtonPress:
             if event.button() == Qt.LeftButton:

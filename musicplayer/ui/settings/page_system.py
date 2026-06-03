@@ -231,7 +231,7 @@ class SystemPage(QWidget):
         accent = cfg.get_accent_color()
         self._cleanup_btn.setStyleSheet(f"""
             QPushButton {{
-                background-color: transparent; border: 1px solid rgba(80,80,80,0.5);
+                background-color: transparent; border: 1px solid {cfg.DIVIDER_COLOR};
                 color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; text-align: center;
             }}
             QPushButton:hover {{ color: {accent}; }}
@@ -248,9 +248,9 @@ class SystemPage(QWidget):
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid rgba(80, 80, 80, 0.8);
+                border: 2px solid {cfg.BUTTON_BORDER_COLOR};
                 border-radius: 4px;
-                background-color: #1a1a1a;
+                background-color: {cfg.SECONDARY_BG_COLOR};
             }}
             QCheckBox::indicator:hover {{
                 border-color: {accent};

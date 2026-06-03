@@ -9,7 +9,7 @@ from musicplayer.ui.svg_icons import get_music_note_svg
 from .base_dialog import BaseFramelessDialog
 
 
-def _music_note_pixmap(size=120, color="#666666"):
+def _music_note_pixmap(size=120, color=cfg.DISABLED_TEXT_COLOR):
     svg_bytes = get_music_note_svg(size, color=color).encode('utf-8')
     renderer = QSvgRenderer(QByteArray(svg_bytes))
     pixmap = QPixmap(size, size)
@@ -59,7 +59,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         scroll.setStyleSheet(f"""
             QScrollArea {{ background-color: transparent; border: none; }}
             QScrollBar:vertical {{ background-color: {cfg.BG_COLOR}; width: 5px; }}
-            QScrollBar::handle:vertical {{ background-color: rgba(80,80,80,0.6); border-radius: 3px; min-height: 30px; }}
+            QScrollBar::handle:vertical {{ background-color: {cfg.SCROLLBAR_HANDLE_COLOR}; border-radius: 3px; min-height: 30px; }}
         """)
 
         card_container = QWidget()
@@ -102,7 +102,7 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         cover_label.setFixedSize(COVER_SIZE, COVER_SIZE)
         cover_label.setAlignment(Qt.AlignCenter)
         cover_label.setStyleSheet(f"""
-            QLabel {{ background-color: {cfg.INPUT_BG_COLOR}; color: #666666; font-size: 11px; }}
+            QLabel {{ background-color: {cfg.INPUT_BG_COLOR}; color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; }}
         """)
 
         art_url = track_data.get("artworkUrl100", "").replace("100x100", "300x300")
@@ -260,7 +260,7 @@ class CoverTile(QWidget):
             painter.drawPixmap(x, y, scaled)
         else:
             painter.fillRect(0, 0, self.TILE_SIZE, self.TILE_SIZE, QColor(cfg.INPUT_BG_COLOR))
-            pix = _music_note_pixmap(80, "#666666")
+            pix = _music_note_pixmap(80, cfg.DISABLED_TEXT_COLOR)
             nx = (self.TILE_SIZE - pix.width()) // 2
             ny = (self.TILE_SIZE - pix.height()) // 2
             painter.drawPixmap(nx, ny, pix)

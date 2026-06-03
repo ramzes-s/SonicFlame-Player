@@ -87,12 +87,12 @@ class WebServerPage(QWidget):
         self.port_input.setEnabled(self._settings.web_server_enabled)
         self.port_input.setValidator(PortValidator())
         self.port_input.textChanged.connect(self._on_port_changed)
-        self._update_port_style("#FFFFFF")
+        self._update_port_style(cfg.TEXT_COLOR)
         port_row.addWidget(self.port_input)
         port_row.addWidget(port_label)
         port_row.addWidget(self._spinner)
         self._web_server_status = QLabel()
-        self._web_server_status.setStyleSheet("color: #888888; font-size: 11px;")
+        self._web_server_status.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
         port_row.addWidget(self._web_server_status)
         port_row.addStretch()
         left.addLayout(port_row)
@@ -141,7 +141,7 @@ class WebServerPage(QWidget):
         if port in FORBIDDEN_PORTS or not (1024 <= port <= 65535):
             self._update_port_style("#ff4444")
         else:
-            self._update_port_style("#FFFFFF")
+            self._update_port_style(cfg.TEXT_COLOR)
 
         self._spinner.start()
         self._port_debounce_timer.start(2000)
@@ -163,7 +163,7 @@ class WebServerPage(QWidget):
     def _update_port_style(self, text_color: str) -> str:
         style = f"""
             QLineEdit {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 border-bottom: 1px solid {cfg.get_accent_color()};
                 color: {text_color};
@@ -171,7 +171,7 @@ class WebServerPage(QWidget):
                 padding: 3px 4px 2px 4px;
             }}
             QLineEdit:disabled {{
-                background-color: #000000;
+                background-color: {cfg.BG_COLOR};
                 color: #555555;
                 border-bottom: 1px solid #333333;
             }}
@@ -236,9 +236,9 @@ class WebServerPage(QWidget):
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid rgba(80, 80, 80, 0.8);
+                border: 2px solid {cfg.BUTTON_BORDER_COLOR};
                 border-radius: 4px;
-                background-color: #1a1a1a;
+                background-color: {cfg.SECONDARY_BG_COLOR};
             }}
             QCheckBox::indicator:hover {{
                 border-color: {accent};
@@ -255,7 +255,7 @@ class WebServerPage(QWidget):
 
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
-        self._update_port_style("#FFFFFF")
+        self._update_port_style(cfg.TEXT_COLOR)
 
     def cleanup(self):
         self._port_debounce_timer.stop()

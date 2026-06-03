@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt, QByteArray, QRectF
 from PySide6.QtGui import QIcon, QPixmap, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
+from musicplayer import config as cfg
 from musicplayer.ui.svg_icons import get_folder_svg
 
 
@@ -50,26 +51,26 @@ def _folder_count_str(n: int) -> str:
     return f"{n} папок"
 
 
-_SCROLLBAR_STYLE = """
-    QScrollBar:vertical {
-        background-color: #000000;
+_SCROLLBAR_STYLE = f"""
+    QScrollBar:vertical {{
+        background-color: {cfg.BG_COLOR};
         width: 5px;
         margin: 0;
-    }
-    QScrollBar::handle:vertical {
-        background-color: rgba(80, 80, 80, 0.6);
+    }}
+    QScrollBar::handle:vertical {{
+        background-color: {cfg.SCROLLBAR_HANDLE_COLOR};
         border-radius: 3px;
         min-height: 30px;
-    }
-    QScrollBar::handle:vertical:hover {
-        background-color: rgba(120, 120, 120, 0.8);
-    }
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    }}
+    QScrollBar::handle:vertical:hover {{
+        background-color: {cfg.SCROLLBAR_HANDLE_HOVER_COLOR};
+    }}
+    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
         height: 0;
-    }
-    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+    }}
+    QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
         background: none;
-    }
+    }}
 """
 
 _FOLDER_ICON = None

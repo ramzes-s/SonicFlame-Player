@@ -202,9 +202,9 @@ class PlaylistDelegate(QStyledItemDelegate):
             x -= dur_w
             rect_d = QRectF(x, badge_y, dur_w, 18)
             painter.setPen(Qt.NoPen)
-            painter.setBrush(QColor(60, 60, 60, 140))
+            painter.setBrush(QColor(*cfg.BADGE_BG_RGB, cfg.BADGE_BG_ALPHA))
             painter.drawRoundedRect(rect_d, 4, 4)
-            painter.setPen(QColor(190, 190, 190))
+            painter.setPen(QColor(*cfg.BADGE_TEXT_COLOR))
             painter.drawText(rect_d, Qt.AlignCenter, duration_text)
 
             # 2) Genre badges (each genre in its own badge)
@@ -235,9 +235,9 @@ class PlaylistDelegate(QStyledItemDelegate):
                     x -= genre_w + 4
                     rect_g = QRectF(x, badge_y, genre_w, 18)
                     painter.setPen(Qt.NoPen)
-                    painter.setBrush(QColor(60, 60, 60, 140))
+                    painter.setBrush(QColor(*cfg.BADGE_BG_RGB, cfg.BADGE_BG_ALPHA))
                     painter.drawRoundedRect(rect_g, 4, 4)
-                    painter.setPen(QColor(190, 190, 190))
+                    painter.setPen(QColor(*cfg.BADGE_TEXT_COLOR))
                     painter.setFont(badge_font)
                     painter.drawText(rect_g, Qt.AlignCenter, genre_text)
 
@@ -406,10 +406,10 @@ class PlaylistWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #000000;
-            }
+        self.setStyleSheet(f"""
+            QWidget {{
+                background-color: {cfg.BG_COLOR};
+            }}
         """)
 
         # Favorites manager
@@ -445,37 +445,37 @@ class PlaylistWidget(QWidget):
 
     def _get_list_style(self) -> str:
         """Generate QSS for the playlist."""
-        return """
-            QListWidget {
-                background-color: #000000;
+        return f"""
+            QListWidget {{
+                background-color: {cfg.BG_COLOR};
                 border: none;
                 outline: none;
                 padding: 0;
-            }
-            QListWidget::item {
+            }}
+            QListWidget::item {{
                 background-color: transparent;
                 padding: 0;
                 margin: 0;
-            }
-            QScrollBar:vertical {
-                background-color: #000000;
+            }}
+            QScrollBar:vertical {{
+                background-color: {cfg.BG_COLOR};
                 width: 5px;
                 margin: 0;
-            }
-            QScrollBar::handle:vertical {
-                background-color: rgba(80, 80, 80, 0.6);
+            }}
+            QScrollBar::handle:vertical {{
+                background-color: {cfg.SCROLLBAR_HANDLE_COLOR};
                 border-radius: 3px;
                 min-height: 30px;
-            }
-            QScrollBar::handle:vertical:hover {
-                background-color: rgba(120, 120, 120, 0.8);
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            }}
+            QScrollBar::handle:vertical:hover {{
+                background-color: {cfg.SCROLLBAR_HANDLE_HOVER_COLOR};
+            }}
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
                 height: 0;
-            }
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            }}
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
                 background: none;
-            }
+            }}
         """
 
     def _on_track_selected(self, view_index: int):

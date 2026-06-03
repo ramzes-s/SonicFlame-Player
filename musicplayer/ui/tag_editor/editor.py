@@ -267,9 +267,13 @@ class TagEditorDialog(BaseFramelessDialog):
         btn.setFixedHeight(34)
         btn.setFixedWidth(120)
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet("""
-            QPushButton { background-color: #501010; border: 1px solid #802020; border-radius: 0; color: #FFFFFF; font-size: 13px; font-weight: bold; }
-            QPushButton:hover { background-color: #801010; border-color: #A02020; }
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #501010; border: 1px solid #802020; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #801010; border-color: #A02020;
+            }}
         """)
         return btn
 
@@ -688,7 +692,8 @@ class TagEditorDialog(BaseFramelessDialog):
     def _apply_track_search_result(self, track):
         self.title_edit.setText(track.get("trackName", ""))
         self.artist_edit.setText(track.get("artistName", ""))
-        self.album_edit.setText(track.get("collectionName", ""))
+        if not self.album_edit.text().strip():
+            self.album_edit.setText(track.get("collectionName", ""))
 
         new_genres = track.get("genres", [])
         if not new_genres:

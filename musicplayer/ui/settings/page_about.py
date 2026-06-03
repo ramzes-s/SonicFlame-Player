@@ -33,7 +33,7 @@ class AboutPage(QWidget):
         db_ver = get_system_value('db_version_compare')
         db_ver_str = db_ver if db_ver is not None else "не установлена"
         ver_label = QLabel(f"Версия БД: {db_ver_str}.   Требуемая версия БД: {cfg.DB_VERSION}")
-        ver_label.setStyleSheet("color: #ffffff; font-size: 12px;")
+        ver_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 12px;")
         ver_label.setAlignment(Qt.AlignCenter)
         lo.addWidget(ver_label)
         lo.addSpacing(20)
@@ -60,8 +60,8 @@ class AboutPage(QWidget):
         links_row = QHBoxLayout()
         links_row.addStretch()
 
-        gh_link = QLabel('<a href="https://github.com/ramzes-s/SonicFlame-Player" '
-                         'style="color: #000000; text-decoration: none; font-weight: bold; font-size: 14px;">GitHub</a>')
+        gh_link = QLabel(f'<a href="https://github.com/ramzes-s/SonicFlame-Player" '
+                         f'style="color: {cfg.BG_COLOR}; text-decoration: none; font-weight: bold; font-size: 14px;">GitHub</a>')
         gh_link.setOpenExternalLinks(True)
         gh_link.setCursor(Qt.PointingHandCursor)
         gh_link.setAlignment(Qt.AlignCenter)
@@ -72,17 +72,17 @@ class AboutPage(QWidget):
         gh_lo.setContentsMargins(0, 0, 0, 0)
         gh_lo.addWidget(gh_link)
         gh_frame.setFixedSize(120, 36)
-        gh_frame.setStyleSheet("""
-            QWidget {
-                background-color: #FFFFFF;
+        gh_frame.setStyleSheet(f"""
+            QWidget {{
+                background-color: {cfg.TEXT_COLOR};
                 border-radius: 6px;
-            }
+            }}
         """)
         links_row.addWidget(gh_frame)
         links_row.addSpacing(100)
 
-        site_link = QLabel('<a href="https://sonicflame.pro/" '
-                           'style="color: #FFFFFF; text-decoration: none; font-weight: bold; font-size: 14px;">Сайт проекта</a>')
+        site_link = QLabel(f'<a href="https://sonicflame.pro/" '
+                           f'style="color: {cfg.TEXT_COLOR}; text-decoration: none; font-weight: bold; font-size: 14px;">Сайт проекта</a>')
         site_link.setOpenExternalLinks(True)
         site_link.setCursor(Qt.PointingHandCursor)
         site_link.setAlignment(Qt.AlignCenter)

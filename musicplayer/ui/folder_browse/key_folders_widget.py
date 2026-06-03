@@ -23,27 +23,27 @@ class KeyFoldersWidget(QWidget):
 
     def _build_ui(self):
         self.setFixedWidth(264)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
         layout.setSpacing(4)
 
         header = QLabel("\u041a\u043b\u044e\u0447\u0435\u0432\u044b\u0435 \u043f\u0430\u043f\u043a\u0438")
-        header.setStyleSheet("color: #888888; font-size: 11px; font-weight: bold; padding: 4px 2px;")
+        header.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px; font-weight: bold; padding: 4px 2px;")
         layout.addWidget(header)
 
         self._key_list = QListWidget()
-        self._key_list.setStyleSheet("""
-            QListWidget {
-                background-color: #000000; color: #CCCCCC; border: none;
+        self._key_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
                 font-size: 12px; outline: none;
-            }
-            QListWidget::item {
+            }}
+            QListWidget::item {{
                 padding: 10px 4px 10px 2px; border-bottom: 1px solid rgba(80,80,80,0.1);
-            }
-            QListWidget::item:hover {
+            }}
+            QListWidget::item:hover {{
                 background-color: rgba(80,80,80,0.2);
-            }
+            }}
         """ + _SCROLLBAR_STYLE)
         self._key_list.itemClicked.connect(self._on_item_clicked)
         self._key_list.currentItemChanged.connect(self._on_selection_changed)
@@ -72,11 +72,11 @@ class KeyFoldersWidget(QWidget):
 
             name_lbl = QLabel(name)
             name_lbl.setObjectName("key_name")
-            name_lbl.setStyleSheet("color: #CCCCCC; font-size: 12px;")
+            name_lbl.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px;")
             hl.addWidget(name_lbl, 1)
 
             cnt_lbl = QLabel(str(count))
-            cnt_lbl.setStyleSheet("color: #666666; font-size: 11px;")
+            cnt_lbl.setStyleSheet(f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px;")
             hl.addWidget(cnt_lbl)
 
             item = QListWidgetItem()
@@ -108,6 +108,7 @@ class KeyFoldersWidget(QWidget):
         hl.addWidget(icon_lbl)
 
         name_lbl = QLabel(root_name)
+        name_lbl.setText("\u0412\u0441\u044f \u043c\u0443\u0437\u044b\u043a\u0430")
         name_lbl.setObjectName("root_name")
         name_lbl.setStyleSheet(f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
         hl.addWidget(name_lbl, 1)
@@ -115,7 +116,7 @@ class KeyFoldersWidget(QWidget):
         cnt = _get_track_count(root_path)
         cnt_lbl = QLabel(str(cnt) if cnt else "")
         cnt_lbl.setObjectName("root_count")
-        cnt_lbl.setStyleSheet(f"color: #666666; font-size: 11px; margin-bottom: 12px;")
+        cnt_lbl.setStyleSheet(f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; margin-bottom: 12px;")
         hl.addWidget(cnt_lbl)
 
         item = QListWidgetItem()
@@ -132,7 +133,7 @@ class KeyFoldersWidget(QWidget):
     def apply_accent_color(self, accent: str):
         self._key_list.setStyleSheet(f"""
             QListWidget {{
-                background-color: #000000; color: #CCCCCC; border: none;
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
                 font-size: 12px; outline: none;
             }}
             QListWidget::item {{
@@ -142,7 +143,7 @@ class KeyFoldersWidget(QWidget):
                 background-color: rgba(80,80,80,0.2);
             }}
             QListWidget::item:selected {{
-                background-color: {accent}; color: #000000;
+                background-color: {accent}; color: {cfg.BG_COLOR};
             }}
         {_SCROLLBAR_STYLE}""")
         self._update_root_item_accent(accent)
@@ -155,7 +156,7 @@ class KeyFoldersWidget(QWidget):
                 widget = self._key_list.itemWidget(item)
                 if widget is None:
                     return
-                icon_color = "#000000" if is_selected else accent
+                icon_color = cfg.BG_COLOR if is_selected else accent
                 icon_lbl = widget.findChild(QLabel)
                 if icon_lbl:
                     svg = get_all_music_svg(22, icon_color)
@@ -168,11 +169,11 @@ class KeyFoldersWidget(QWidget):
                     icon_lbl.setPixmap(pixmap)
                 root_lbl = widget.findChild(QLabel, "root_name")
                 if root_lbl:
-                    root_color = "#000000" if is_selected else accent
+                    root_color = cfg.BG_COLOR if is_selected else accent
                     root_lbl.setStyleSheet(f"color: {root_color}; font-size: 14px; font-weight: 600; margin-bottom: 12px;")
                 cnt_lbl = widget.findChild(QLabel, "root_count")
                 if cnt_lbl:
-                    cnt_color = "#000000" if is_selected else "#666666"
+                    cnt_color = cfg.BG_COLOR if is_selected else cfg.DISABLED_TEXT_COLOR
                     cnt_lbl.setStyleSheet(f"color: {cnt_color}; font-size: 11px; margin-bottom: 12px;")
                 return
 
@@ -194,7 +195,7 @@ class KeyFoldersWidget(QWidget):
             if item.data(Qt.UserRole + 1):
                 icon_lbl = widget.findChild(QLabel)
                 if icon_lbl:
-                    icon_color = "#000000" if is_selected else accent
+                    icon_color = cfg.BG_COLOR if is_selected else accent
                     svg = get_all_music_svg(22, icon_color)
                     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
                     pixmap = QPixmap(22, 22)
@@ -206,19 +207,19 @@ class KeyFoldersWidget(QWidget):
                 root_lbl = widget.findChild(QLabel, "root_name")
                 if root_lbl:
                     root_lbl.setStyleSheet(
-                        f"color: #000000; font-size: 14px; font-weight: 600; margin-bottom: 12px;" if is_selected
+                        f"color: {cfg.BG_COLOR}; font-size: 14px; font-weight: 600; margin-bottom: 12px;" if is_selected
                         else f"color: {accent}; font-size: 14px; font-weight: 600; margin-bottom: 12px;"
                     )
                 cnt_lbl = widget.findChild(QLabel, "root_count")
                 if cnt_lbl:
                     cnt_lbl.setStyleSheet(
-                        f"color: #000000; font-size: 11px; margin-bottom: 12px;" if is_selected
-                        else f"color: #666666; font-size: 11px; margin-bottom: 12px;"
+                        f"color: {cfg.BG_COLOR}; font-size: 11px; margin-bottom: 12px;" if is_selected
+                        else f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; margin-bottom: 12px;"
                     )
             else:
                 name_lbl = widget.findChild(QLabel, "key_name")
                 if name_lbl:
                     name_lbl.setStyleSheet(
-                        f"color: #000000; font-size: 12px;" if is_selected
-                        else "color: #CCCCCC; font-size: 12px;"
+                        f"color: {cfg.BG_COLOR}; font-size: 12px;" if is_selected
+                        else f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px;"
                     )

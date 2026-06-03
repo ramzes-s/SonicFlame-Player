@@ -70,7 +70,7 @@ class CoverDisplayLabel(QLabel):
             QLabel {{
                 background-color: #111111;
                 border: 1px solid {cfg.INPUT_BORDER_COLOR};
-                color: #666666;
+                color: {cfg.DISABLED_TEXT_COLOR};
                 font-size: 11px;
             }}
         """)

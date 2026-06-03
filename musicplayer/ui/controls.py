@@ -47,7 +47,7 @@ class ControlsWidget(QWidget):
     
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet("background-color: #000000;")
+        self.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         
         # State tracking
         self.is_playing = False

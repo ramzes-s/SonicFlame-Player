@@ -115,9 +115,9 @@ class AppearancePage(QWidget):
             QCheckBox::indicator {{
                 width: 18px;
                 height: 18px;
-                border: 2px solid rgba(80, 80, 80, 0.8);
+                border: 2px solid {cfg.BUTTON_BORDER_COLOR};
                 border-radius: 4px;
-                background-color: #1a1a1a;
+                background-color: {cfg.SECONDARY_BG_COLOR};
             }}
             QCheckBox::indicator:hover {{
                 border-color: {accent};

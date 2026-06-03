@@ -32,7 +32,7 @@ class ArtistCardWidget(QWidget):
         self._track_count = track_count
         self._collage = QPixmap(collage_path)
         self._accent_color = QColor(cfg.get_accent_color())
-        self._white_color = QColor("#FFFFFF")
+        self._white_color = QColor(cfg.TEXT_COLOR)
         self._border_default_color = QColor(40, 40, 40)
 
         self._text_color = self._white_color

@@ -376,24 +376,24 @@ score = GENRE_WEIGHT × genre + tempo×w_t + energy×w_e + mood×w_m + zcr×w_z 
 | Измерение | Вес | Физический смысл |
 |-----------|-----|------------------|
 | tempo | 0.30 | BPM (normalise 60–180) |
-| energy | 0.20 | Onset strength / 3.0 |
-| mood | 0.20 | Spectral centroid / (sr/2) × 2.5 |
-| zcr | 0.15 | Zero-crossing rate × 2.5 |
-| flux | 0.30 | Spectral flux |
-| hpss | 0.15 | Spectral flatness → percussive ratio |
-| genre | 0.30 | Exact match → 1.0, group → 0.9, partial → boost 1.15 |
+| energy | 0.25 | Onset strength / 3.0 |
+| mood | 0.22 | Spectral centroid / (sr/2) × 2.5 |
+| zcr | 0.20 | Zero-crossing rate × 2.5 |
+| flux | 0.25 | Spectral flux |
+| hpss | 0.22 | Spectral flatness → percussive ratio |
+| genre | 0.40 | Exact match → 1.0, group → 0.9, partial → boost 1.15 |
 
 **Допуск** — единый для всех 6 измерений:
 ```
 tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 ```
-`TOL_BASELINE=0.30`, scale от 0.5 (prec=0) до 0.25 (prec=40).
+`TOL_BASELINE=0.36`, scale от 0.5 (prec=0) до 0.25 (prec=40).
 
 **Порог отбора**: `0.5 + precision/100`. precision 0–40, по умолч. 20 → порог 0.70.
 
 **Штраф за артиста**: −0.08 при совпадении исполнителя.
 
-**Штраф за язык** (если `language_filter_mode = "penalty"`): −0.20 при несовпадении языка.
+**Штраф за язык** (если `language_filter_mode = "penalty"`): −0.30 при несовпадении языка.
 
 **Исключение по языку** (если `language_filter_mode = "exclude"`): score = 0 при несовпадении языка (ранний выход, анализ не выполняется).
 
@@ -432,7 +432,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **Особенности**:
 - HTTP-сервер на aiohttp в daemon-потоке, порт настраивается (по умолчанию 8080)
-- `stop()` — асинхронно очищает aiohttp runner (`runner.cleanup()`), отменяет все asyncio-задачи (в т.ч. `IocpProactor.accept`), затем останавливает event loop. Блокирует main thread до завершения очистки (`fut.result(timeout=5)`).
+- `stop()` — асинхронно очищает aiohttp runner (`runner.cleanup()`), отменяет все asyncio-задачи (в т.ч. `IocpProactor.accept`), затем останавливает event loop. **Non-blocking** — очистка выполняется fire-and-forget в потоке asyncio, не затрагивая UI-поток (убрано `fut.result(timeout=5)`, добавлен guard `self._loop = None` от повторного вызова).
 - Синхронизация состояния плеера каждые 1000мс
 - Раздельные API: `/api/playing_data` (только статус) + `/api/track` (информация о треке)
 - Обложка загружается отдельно при смене трека (оптимизация трафика)
@@ -1055,38 +1055,51 @@ QThread для анализа одного аудиофайла через libro
 | Основной текст             | `TEXT_COLOR`           | `#FFFFFF`                        |
 | Вторичный текст            | `SECONDARY_TEXT_COLOR` | `#888888`                        |
 | Третичный текст            | `TERTIARY_TEXT_COLOR`  | `#CCCCCC`                        |
+| Отключённый текст          | `DISABLED_TEXT_COLOR`  | `#666666`                        |
 | Акцентный цвет             | `ACCENT_COLOR`         | `#ed6a02` (настраиваемый)        |
 | Разделители                | `DIVIDER_COLOR`        | `rgba(80, 80, 80, 0.5)`         |
-| Разделители строк/таблиц   | `DIVIDER_ITEM_COLOR`   | `rgba(60, 60, 60, 0.2)` + `rgb/alpha` для paintEvent |
+| Разделители строк/таблиц   | `DIVIDER_ITEM_COLOR`   | `rgba(80, 80, 80, 0.2)` + `DIVIDER_ITEM_RGB` / `DIVIDER_ITEM_ALPHA` для paintEvent |
+| Полоса скролла (ручка)     | `SCROLLBAR_HANDLE_COLOR` | `rgba(80, 80, 80, 0.6)`        |
+| Полоса скролла (hover)     | `SCROLLBAR_HANDLE_HOVER_COLOR` | `rgba(120, 120, 120, 0.8)` |
 | Фон кнопок                 | `BUTTON_BG_COLOR`      | `rgba(40, 40, 40, 0.8)`         |
 | Hover фон кнопок           | `BUTTON_HOVER_BG_COLOR`| `rgba(60, 60, 60, 0.8)`         |
+| Pressed фон кнопок         | `BUTTON_PRESSED_BG_COLOR`| `rgba(60, 60, 60, 0.4)`        |
+| Рамка кнопок               | `BUTTON_BORDER_COLOR`  | `rgba(60, 60, 60, 0.5)`         |
 | Фон полей ввода            | `INPUT_BG_COLOR`       | `#1a1a1a`                        |
 | Рамка полей ввода          | `INPUT_BORDER_COLOR`   | `rgba(80, 80, 80, 0.5)`         |
 | Текст полей ввода          | `INPUT_TEXT_COLOR`     | `#FFFFFF`                        |
-| Бейджи фон                 | — (хардкод)            | `rgba(60, 60, 60, 140)`         |
-| Бейджи текст               | — (хардкод)            | `#BEBEBE`                        |
+| Бейджи фон (paintEvent)    | `BADGE_BG_RGB` + `BADGE_BG_ALPHA` | `(60,60,60)` + `140`   |
+| Бейджи текст (paintEvent)  | `BADGE_TEXT_COLOR`     | `(190,190,190)`                  |
 | Корона                     | — (хардкод)            | `#FFD700`                        |
-| Hover фон кнопок (иконки)  | — (хардкод)            | `rgba(80, 80, 80, 0.4)`         |
+| Hover фон иконок (icon_button.py) | — (хардкод)      | `rgba(80, 80, 80, 0.4)`         |
 | Тень окна                  | — (хардкод)            | `rgba(200, 200, 200, 100)`      |
 
 ## Глобальные константы
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.1.5`                          | `musicplayer/config.py`|
+| APP_VERSION         | `1.1.6`                          | `musicplayer/config.py`|
 | DB_VERSION          | `1`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | BG_COLOR            | `#000000`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|
 | SECONDARY_TEXT_COLOR| `#888888`                        | `musicplayer/config.py`|
 | TERTIARY_TEXT_COLOR | `#CCCCCC`                        | `musicplayer/config.py`|
+| DISABLED_TEXT_COLOR | `#666666`                        | `musicplayer/config.py`|
 | SECONDARY_BG_COLOR  | `#1a1a1a`                        | `musicplayer/config.py`|
 | DIVIDER_COLOR       | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
-| DIVIDER_ITEM_COLOR  | `rgba(60,60,60,0.2)`             | `musicplayer/config.py`|
-| DIVIDER_ITEM_RGB    | `(60,60,60)` (tuple для paintEvent)| `musicplayer/config.py`|
+| DIVIDER_ITEM_COLOR  | `rgba(80,80,80,0.2)`             | `musicplayer/config.py`|
+| DIVIDER_ITEM_RGB    | `(80,80,80)` (tuple для paintEvent)| `musicplayer/config.py`|
 | DIVIDER_ITEM_ALPHA  | `50` (int для paintEvent)        | `musicplayer/config.py`|
+| BADGE_BG_RGB        | `(60,60,60)` (tuple для paintEvent)| `musicplayer/config.py`|
+| BADGE_BG_ALPHA      | `140` (int для paintEvent)       | `musicplayer/config.py`|
+| BADGE_TEXT_COLOR    | `(190,190,190)` (tuple)          | `musicplayer/config.py`|
+| SCROLLBAR_HANDLE_COLOR| `rgba(80,80,80,0.6)`           | `musicplayer/config.py`|
+| SCROLLBAR_HANDLE_HOVER_COLOR| `rgba(120,120,120,0.8)`   | `musicplayer/config.py`|
 | BUTTON_BG_COLOR     | `rgba(40,40,40,0.8)`             | `musicplayer/config.py`|
 | BUTTON_HOVER_BG_COLOR| `rgba(60,60,60,0.8)`             | `musicplayer/config.py`|
+| BUTTON_PRESSED_BG_COLOR| `rgba(60,60,60,0.4)`           | `musicplayer/config.py`|
+| BUTTON_BORDER_COLOR | `rgba(60,60,60,0.5)`             | `musicplayer/config.py`|
 | INPUT_BG_COLOR      | `#1a1a1a`                        | `musicplayer/config.py`|
 | INPUT_BORDER_COLOR  | `rgba(80,80,80,0.5)`             | `musicplayer/config.py`|
 | INPUT_TEXT_COLOR    | `#FFFFFF`                        | `musicplayer/config.py`|
@@ -1103,14 +1116,20 @@ QThread для анализа одного аудиофайла через libro
 | MOOD_MIN / MOOD_MAX | 0.01 / 1.0                       | `musicplayer/config.py`|
 | FLUX_MIN / FLUX_MAX | 0.0 / 140.0                      | `musicplayer/config.py`|
 | HPSS_NORM_MIN / HPSS_NORM_MAX | 0.5 / 1.0                       | `musicplayer/config.py`|
-| TOL_BASELINE        | `0.30` (базовая чувствительность, scale 0.5→0.25) | `musicplayer/config.py`|
-| GENRE_WEIGHT        | `0.30` (вес жанра в weighted sum) | `musicplayer/config.py`|
-| AUDIO_WEIGHT_TEMPO…HPSS | 0.30/0.20/0.20/0.15/0.30/0.15 (веса 6 dims) | `musicplayer/config.py`|
+| TOL_BASELINE        | `0.36` (базовая чувствительность, scale 0.5→0.25) | `musicplayer/config.py`|
+| GENRE_WEIGHT        | `0.40` (вес жанра в weighted sum) | `musicplayer/config.py`|
+| PENALTY_LANGUAGE    | `-0.30` (штраф за несовпадение языка) | `musicplayer/config.py`|
+| AUDIO_WEIGHT_TEMPO  | `0.30` (вес BPM)                 | `musicplayer/config.py`|
+| AUDIO_WEIGHT_ENERGY | `0.25` (вес энергии)             | `musicplayer/config.py`|
+| AUDIO_WEIGHT_MOOD   | `0.22` (вес настроения)          | `musicplayer/config.py`|
+| AUDIO_WEIGHT_ZCR    | `0.20` (вес zero-crossing)       | `musicplayer/config.py`|
+| AUDIO_WEIGHT_FLUX   | `0.25` (вес spectral flux)       | `musicplayer/config.py`|
+| AUDIO_WEIGHT_HPSS   | `0.22` (вес percussive ratio)    | `musicplayer/config.py`|
 | Мин. размер окна    | 1100×600                         | `ui/main_window.py`    |
 
 Все пути кэша централизованы в `config.py` и используются всеми модулями вместо захардкоженных относительных путей.
 
-**Стандартизация цветов (июнь 2026)**: Все цвета интерфейса вынесены в единые константы `config.py` (`BG_COLOR`, `TEXT_COLOR`, `SECONDARY_TEXT_COLOR`, `TERTIARY_TEXT_COLOR`, `SECONDARY_BG_COLOR`, `DIVIDER_COLOR`, `DIVIDER_ITEM_COLOR`, `DIVIDER_ITEM_RGB`, `DIVIDER_ITEM_ALPHA`, `BUTTON_BG_COLOR`, `BUTTON_HOVER_BG_COLOR`, `INPUT_BG_COLOR`, `INPUT_BORDER_COLOR`, `INPUT_TEXT_COLOR`). Хардкод-цвета заменены константами во всех UI-файлах: `playlist_view.py`, `settings/`, `library/dialog.py`, `tag_editor/`, `player/`, `track_info.py`, `controls.py`, `mini_widget.py`, `sliders.py`, `sidebar.py`, `accent_style.py`, `frameless_dialog.py`. Новые цвета подключаются через `cfg.ИМЯ_КОНСТАНТЫ`.
+**Стандартизация цветов (июнь 2026)**: Все цвета интерфейса вынесены в единые константы `config.py` (`BG_COLOR`, `TEXT_COLOR`, `SECONDARY_TEXT_COLOR`, `TERTIARY_TEXT_COLOR`, `SECONDARY_BG_COLOR`, `DIVIDER_COLOR`, `DIVIDER_ITEM_COLOR`, `DIVIDER_ITEM_RGB`, `DIVIDER_ITEM_ALPHA`, `BUTTON_BG_COLOR`, `BUTTON_HOVER_BG_COLOR`, `BUTTON_PRESSED_BG_COLOR`, `BUTTON_BORDER_COLOR`, `INPUT_BG_COLOR`, `INPUT_BORDER_COLOR`, `INPUT_TEXT_COLOR`, `DISABLED_TEXT_COLOR`, `SCROLLBAR_HANDLE_COLOR`, `SCROLLBAR_HANDLE_HOVER_COLOR`, `BADGE_BG_RGB`, `BADGE_BG_ALPHA`, `BADGE_TEXT_COLOR`). Хардкод-цвета заменены константами во всех UI-файлах: `playlist_view.py`, `settings/`, `library/dialog.py`, `tag_editor/`, `player/`, `track_info.py`, `controls.py`, `mini_widget.py`, `sliders.py`, `sidebar.py`, `accent_style.py`, `frameless_dialog.py`, `folder_browse/`. Новые цвета подключаются через `cfg.ИМЯ_КОНСТАНТЫ`.
 
 ## Поток данных при воспроизведении
 

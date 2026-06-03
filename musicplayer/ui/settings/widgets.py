@@ -43,7 +43,7 @@ class ColorCircleButton(QPushButton):
             p = QPainter(ring)
             p.setRenderHint(QPainter.Antialiasing)
             p.setBrush(Qt.NoBrush)
-            p.setPen(QColor("#FFFFFF"))
+            p.setPen(QColor(cfg.TEXT_COLOR))
             p.drawEllipse(1, 1, self.width() - 2, self.height() - 2)
             p.end()
             combined = QPixmap(self._pixmap)
