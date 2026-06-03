@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.1.6"
+APP_VERSION = "1.1.6.2"
 # Database version for schema compatibility checking
 DB_VERSION = 1
 
@@ -30,14 +30,26 @@ DIVIDER_ITEM_COLOR = "rgba(80, 80, 80, 0.2)"          # для QSS (border-botto
 DIVIDER_ITEM_RGB = (80, 80, 80)                       # для paintEvent: QColor(*DIVIDER_ITEM_RGB, DIVIDER_ITEM_ALPHA)
 DIVIDER_ITEM_ALPHA = 50                               # alpha 0-255 для paintEvent
 
+# Badge colors (playlist — duration/genre badges, paintEvent)
+BADGE_BG_RGB = (60, 60, 60)                           # для paintEvent: QColor(*BADGE_BG_RGB, BADGE_BG_ALPHA)
+BADGE_BG_ALPHA = 140                                  # alpha 0-255 для paintEvent
+BADGE_TEXT_COLOR = (190, 190, 190)                    # для paintEvent: QColor(*BADGE_TEXT_COLOR)
+
 # Secondary / gray colors
 SECONDARY_TEXT_COLOR = "#888888"
 SECONDARY_BG_COLOR = "#1a1a1a"
 TERTIARY_TEXT_COLOR = "#CCCCCC"
+DISABLED_TEXT_COLOR = "#666666"
+
+# Scrollbar colors
+SCROLLBAR_HANDLE_COLOR = "rgba(80, 80, 80, 0.6)"
+SCROLLBAR_HANDLE_HOVER_COLOR = "rgba(120, 120, 120, 0.8)"
 
 # Button colors
 BUTTON_BG_COLOR = "rgba(40, 40, 40, 0.8)"
 BUTTON_HOVER_BG_COLOR = "rgba(60, 60, 60, 0.8)"
+BUTTON_PRESSED_BG_COLOR = "rgba(60, 60, 60, 0.4)"
+BUTTON_BORDER_COLOR = "rgba(60, 60, 60, 0.5)"
 
 # Input field colors
 INPUT_BG_COLOR = "#1a1a1a"
