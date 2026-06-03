@@ -157,11 +157,12 @@ class WebServer(QObject):
         self._app.router.add_post('/api/shutdown', api.handle_shutdown)
 
     def stop(self):
-        """Stop the web server."""
+        """Stop the web server asynchronously (non-blocking)."""
         self._is_running = False
         loop = getattr(self, '_loop', None)
         if loop is None:
             return
+        self._loop = None  # prevent double-stop
         try:
             async def _cleanup():
                 if hasattr(self, '_runner'):
@@ -169,9 +170,7 @@ class WebServer(QObject):
                 for task in asyncio.all_tasks(loop):
                     task.cancel()
                 loop.stop()
-
-            fut = asyncio.run_coroutine_threadsafe(_cleanup(), loop)
-            fut.result(timeout=5)
+            asyncio.run_coroutine_threadsafe(_cleanup(), loop)
         except Exception:
             pass
 
