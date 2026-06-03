@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QFileDialog,
-                              QMessageBox, QWidget, QScrollArea, QFrame)
+                              QMessageBox, QWidget, QScrollArea, QFrame, QComboBox)
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QPixmap, QDesktopServices
@@ -49,6 +49,35 @@ class TagEditorDialog(BaseFramelessDialog):
         else:
             self.center_on_screen()
         super().exec()
+
+    def _build_title_bar(self, title_text: str) -> QWidget:
+        title_bar = super()._build_title_bar(title_text)
+        layout = title_bar.layout()
+
+        # Remove close btn from its current position
+        layout.removeWidget(self._close_btn)
+
+        self._replace_combo = QComboBox()
+        self._replace_combo.addItems([
+            "Заменять только Название",
+            "Заменять Название и Исполнителя",
+            "Заменять Название, Исполнителя и Альбом",
+            "Заменять Название и Альбом"
+        ])
+        self._replace_combo.setCurrentIndex(1)
+        self._replace_combo.setFixedHeight(28)
+        self._replace_combo.setMinimumWidth(230)
+        accent = cfg.get_accent_color()
+        self._replace_combo.setStyleSheet(f"""
+            QComboBox {{ background: {cfg.BG_COLOR}; border: none; color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; }}
+            QComboBox::drop-down {{ border: none; }}
+            QComboBox QAbstractItemView {{ background: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; selection-background-color: {cfg.SECONDARY_BG_COLOR}; }}
+        """)
+        layout.addWidget(self._replace_combo)
+        layout.addSpacing(50)
+        layout.addWidget(self._close_btn)
+
+        return title_bar
 
     def _build_ui(self):
         inner = self._setup_ui()
@@ -690,9 +719,15 @@ class TagEditorDialog(BaseFramelessDialog):
             self._apply_track_search_result(dialog.selected_track)
 
     def _apply_track_search_result(self, track):
-        self.title_edit.setText(track.get("trackName", ""))
-        self.artist_edit.setText(track.get("artistName", ""))
-        if not self.album_edit.text().strip():
+        mode = self._replace_combo.currentIndex()
+
+        if not self.title_edit.text().strip() or mode in (0, 1, 2, 3):
+            self.title_edit.setText(track.get("trackName", ""))
+
+        if not self.artist_edit.text().strip() or mode in (1, 2):
+            self.artist_edit.setText(track.get("artistName", ""))
+
+        if not self.album_edit.text().strip() or mode in (2, 3):
             self.album_edit.setText(track.get("collectionName", ""))
 
         new_genres = track.get("genres", [])
@@ -778,6 +813,12 @@ class TagEditorDialog(BaseFramelessDialog):
             QPushButton {{ background-color: {color}; border: none; border-radius: 0; color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold; }}
             QPushButton:hover {{ background-color: {cfg.TEXT_COLOR}; color: {color}; }}
         """)
+        if hasattr(self, '_replace_combo'):
+            self._replace_combo.setStyleSheet(f"""
+                QComboBox {{ background: {cfg.BG_COLOR}; border: none; color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; }}
+                QComboBox::drop-down {{ border: none; }}
+                QComboBox QAbstractItemView {{ background: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; selection-background-color: {cfg.SECONDARY_BG_COLOR}; }}
+            """)
         self._refresh_genre_tags()
 
     def _cleanup_threads(self):
