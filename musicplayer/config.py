@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.1.6.2"
+APP_VERSION = "1.1.6.3"
 # Database version for schema compatibility checking
 DB_VERSION = 1
 
