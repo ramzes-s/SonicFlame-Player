@@ -29,6 +29,7 @@ class AudioPlayer(QObject):
     error_occurred = Signal(str)
     smtc_next_requested = Signal()
     smtc_previous_requested = Signal()
+    empty_play_requested = Signal()  # Play pressed but no source loaded
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -130,6 +131,9 @@ class AudioPlayer(QObject):
 
     def play(self):
         """Start or resume playback."""
+        if self._player.source().isEmpty():
+            self.empty_play_requested.emit()
+            return
         self._player.play()
         self._smtc.set_playback_status("playing")
 

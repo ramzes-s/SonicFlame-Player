@@ -403,19 +403,30 @@ def ensure_cover_for_track(filepath: str) -> Optional[bytes]:
     """
     Ensure cover art is available for a track.
     1. Check if cover exists in file cache — return it if so.
-    2. If not, extract cover from the audio file.
-    3. If found, save to cache and update DB.
-    4. Return cover bytes or None if no cover exists.
+    2. If not, check DB — if has_cover=0 skip mutagen.
+    3. If DB says cover exists, extract from file.
+    4. If found, save to cache and update DB.
+    5. Return cover bytes or None if no cover exists.
     """
     # Step 1: Check cache
     cached = _load_cover(filepath)
     if cached:
         return cached
 
-    # Step 2: Extract from file
+    # Step 2: Quick DB check — skip mutagen if DB already says no cover
+    try:
+        with get_connection() as conn:
+            cursor = conn.execute("SELECT has_cover FROM library WHERE filepath = ?", (filepath,))
+            row = cursor.fetchone()
+            if row is not None and not row[0]:
+                return None
+    except Exception:
+        pass
+
+    # Step 3: Extract from file
     track_info = extract_metadata(filepath)
     if track_info and track_info.has_cover and track_info.cover_data:
-        # Step 3: Save to cache and update DB
+        # Step 4: Save to cache and update DB
         _save_cover(filepath, track_info.cover_data)
         try:
             with get_connection() as conn:

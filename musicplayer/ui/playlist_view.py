@@ -8,7 +8,7 @@ smart auto-scroll to keep current track centered.
 import json
 from PySide6.QtWidgets import (QListWidget, QListWidgetItem, QVBoxLayout,
                                 QWidget, QLabel, QStyledItemDelegate, QStyleOptionViewItem, QStyle,
-                                QAbstractItemView)
+                                QAbstractItemView, QMenu)
 from PySide6.QtCore import Qt, Signal, QRect, QRectF, QSize, QEvent, QByteArray, QPropertyAnimation, QEasingCurve
 from PySide6.QtGui import QFont, QColor, QPainter, QFontMetrics, QPixmap, QCursor
 from PySide6.QtSvg import QSvgRenderer
@@ -414,6 +414,7 @@ class PlaylistWidget(QWidget):
 
         # Favorites manager
         self.favorites = FavoritesManager()
+        self._context_actions = []  # List of (text, callback) for plugin context menu
 
         # Track data — share same reference so add_track works during scanning
         self._full_tracks = []    # All tracks from folder
@@ -489,6 +490,39 @@ class PlaylistWidget(QWidget):
     def _on_badge_clicked(self, view_index: int):
         """Handle badge area click — emit signal for tag editor."""
         self.badge_clicked.emit(view_index)
+
+    def add_context_action(self, text: str, callback):
+        """Add an action to the right-click context menu."""
+        self._context_actions.append((text, callback))
+
+    def contextMenuEvent(self, event):
+        """Show context menu with plugin actions on right-click."""
+        if not self._context_actions:
+            return
+        list_pos = self.list_widget.mapFromGlobal(event.globalPos())
+        item = self.list_widget.itemAt(list_pos)
+        if not item:
+            return
+        view_index = item.data(Qt.UserRole + 1)
+        if view_index is None:
+            return
+        track = self.get_track_by_view_index(view_index)
+        if not track:
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet(f"""
+            QMenu {{ background-color: {cfg.SECONDARY_BG_COLOR}; color: {cfg.TEXT_COLOR};
+                border: 1px solid {cfg.DIVIDER_COLOR}; padding: 4px; font-size: 12px; }}
+            QMenu::item {{ padding: 6px 24px; border-radius: 3px; }}
+            QMenu::item:selected {{ background-color: {cfg.get_accent_color()}40; }}
+        """)
+        for text, cb in self._context_actions:
+            action = menu.addAction(text)
+            action.setData(view_index)
+            # Connect callback directly to this action
+            action.triggered.connect(lambda checked=False, c=cb: c())
+        menu.exec(event.globalPos())
 
     def load_tracks(self, tracks: list):
         """Load tracks into the playlist (full folder scan)."""
