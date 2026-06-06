@@ -102,7 +102,7 @@ self._plugin_manager.register_all()   # Шаг 2: загрузка и регис
 ```python
 hub.add_sidebar_button(
     lambda color="#FFFFFF": f'<svg>... fill="{color}" ...</svg>',
-    "Скачать с Yandex Music",
+    "Online Поиск музыкиЫ",
     on_download_clicked,
 )
 ```
