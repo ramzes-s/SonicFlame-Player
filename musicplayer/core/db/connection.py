@@ -107,6 +107,7 @@ def init_db():
                     zero_crossing_rate REAL DEFAULT 0,
                     spectral_flux REAL DEFAULT 0,
                     hpss_ratio REAL DEFAULT 0,
+                    language TEXT DEFAULT '',
                     is_favorite INTEGER DEFAULT 0
                 )
             """)
@@ -145,11 +146,13 @@ def init_db():
         # Drop old favorites table — now using is_favorite column in library
         conn.execute("DROP TABLE IF EXISTS favorites")
 
-        # Ensure is_favorite column exists in library
+        # Ensure columns exist in library
         cursor = conn.execute("PRAGMA table_info(library)")
         columns = {row[1] for row in cursor.fetchall()}
         if 'is_favorite' not in columns:
             conn.execute("ALTER TABLE library ADD COLUMN is_favorite INTEGER DEFAULT 0")
+        if 'language' not in columns:
+            conn.execute("ALTER TABLE library ADD COLUMN language TEXT DEFAULT ''")
 
         # Ensure folders table exists
         cursor = conn.execute(
