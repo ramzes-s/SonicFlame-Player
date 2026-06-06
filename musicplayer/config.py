@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.1.6.3"
+APP_VERSION = "1.2.0.0"
 # Database version for schema compatibility checking
 DB_VERSION = 1
 
@@ -82,7 +82,7 @@ TOL_BASELINE = 0.36
 # Recommendation weights and thresholds
 GENRE_WEIGHT = 0.4  # жанр
 PENALTY_ARTIST = -0.08
-PENALTY_LANGUAGE = -0.3
+PENALTY_LANGUAGE = -0.4
 
 # Веса измерений аудиопрофиля (взвешенное геометрическое среднее)
 AUDIO_WEIGHT_TEMPO  = 0.30  # BPM — базовый темпоритм
@@ -111,6 +111,13 @@ COVERS_DIR = CACHE_DIR / "covers"
 ARTIST_COLLAGES_DIR = CACHE_DIR / "artist_collages"
 SETTINGS_FILE = CACHE_DIR / "settings.json"
 COL_WIDTHS_FILE = CACHE_DIR / "library_col_widths.json"
+
+# Plugin system
+PLUGINS_DIR = PROJECT_DIR / "plugins"
+ENABLE_PLUGINS = True
+
+# Temporary directory for plugin downloads
+TEMP_DIR = CACHE_DIR / "temp"
 
 
 def get_accent_color() -> str:
