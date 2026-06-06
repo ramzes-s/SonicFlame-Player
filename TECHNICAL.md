@@ -26,7 +26,7 @@ MusicPlayer2\
 │   │   ├── db/                         # SQLite библиотека
 │   │   │   ├── __init__.py             # Обратная совместимость — экспорт всех функций
 │   │   │   ├── cache.py                # Кэширование обложек
-│   │   │   ├── connection.py           # Подключение к БД (пути из config), миграция
+│   │   │   ├── connection.py           # Подключение к БД (пути из config), миграция, добавление language
 │   │   │   ├── favorites.py            # Операции с избранным (column-based, is_favorite)
 │   │   │   ├── folders.py              # Операции с папками
 │   │   │   ├── queries.py              # Фильтрация, сортировка, сложные запросы
@@ -79,10 +79,11 @@ MusicPlayer2\
 │   │   ├── settings/                   # Диалог настроек (пакет)
 │   │   │   ├── __init__.py             # Реэкспорт SettingsDialog
 │   │   │   ├── constants.py            # ACCENT_PRESETS, FORBIDDEN_PORTS, format_size
-│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, status bar)
+│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar)
 │   │   │   ├── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
 │   │   │   ├── page_main.py            # MainPage (папка, точность подбора, глубина анализа)
+│   │   │   ├── page_plugins.py         # PluginsPage (список плагинов, вкл/выкл)
 │   │   │   ├── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
 │   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
 │   │   │   └── widgets.py              # ColorCircleButton, ClickableSlider, SpinnerWidget, TabButton
@@ -211,7 +212,7 @@ MusicPlayer2\
 
 Модуль управляет базой данных SQLite, а также содержит всю логику для извлечения метаданных из аудиофайлов (`extract_metadata`) и структуру данных `TrackInfo`. После рефакторинга разделён на специализированные модули:
 
-- `connection.py` — управление подключением, конфигурация, миграция схемы, валидация путей
+- `connection.py` — управление подключением, конфигурация, миграция схемы (включая добавление колонки `language`), валидация путей
 - `tracks.py` — CRUD операции, извлечение метаданных, TrackInfo
 - `favorites.py` — Column-based работа с избранным (`is_favorite` в `library`)
 - `system.py` — Key-value store для системных данных (`db_version_compare`)
@@ -275,7 +276,7 @@ MusicPlayer2\
 **Обложки** хранятся отдельно в `.cache/covers/{md5_пути}.webp` (конвертация через Pillow, quality=85). 
 
 **Ключевые функции**:
-- `init_db()` — инициализация/миграция схемы (создаёт `system_data`, добавляет `is_favorite`, дропает `favorites`)
+- `init_db()` — инициализация/миграция схемы (создаёт `system_data`, добавляет `is_favorite` и `language`, дропает `favorites`)
 - `check_db_version()` — проверка совместимости версии БД с `config.DB_VERSION`
 - `upsert_track(track, mtime)` — вставка/обновление трека (сохраняет play_count + is_favorite)
 - `delete_track(filepath)` — удаление трека + файла обложки
@@ -288,7 +289,7 @@ MusicPlayer2\
 - `increment_play_count(filepath)` — инкремент счётчика
 - `is_favorite(filepath)` / `toggle_favorite(filepath)` / `get_favorite_filepaths()` — column-based, читают/пишут `is_favorite` в `library`
 - `get_top_tracks(limit=100)` — топ по play_count
-- `ensure_cover_for_track(filepath)` — гарантирует наличие обложки (извлекает если нет)
+- `ensure_cover_for_track(filepath)` — гарантирует наличие обложки (извлекает если нет). Оптимизация: проверяет `has_cover` в БД перед вызовом mutagen — пропускает треки без обложек, экономя ~0.5с при старте воспроизведения
 - `upsert_folder(folder_path, track_count)` — запись папки в `folders` (путь нормализуется через `normalize_path`)
 - `get_all_folders()` — все папки с счётчиками треков
 - `get_db_mtime()` — mtime файла БД (для умного обновления библиотеки)
@@ -318,6 +319,12 @@ MusicPlayer2\
 #### `core/settings.py` — AppSettings
 Хранение настроек в `settings.json` (путь из `config.SETTINGS_FILE`).
 
+**Ключевые методы**:
+- `_save()` — пишет `self._data` напрямую (без чтения-слияния-записи), что позволяет удалять ключи
+- `batch_save()` — сохраняет `self._data` без вызова `_save()` для каждого изменения (групповые операции)
+- `get_plugin_enabled(name)` / `set_plugin_enabled(name, enabled)` — управление состоянием плагинов
+- `cleanup_plugin_settings(active_names)` — удаляет устаревшие `plugin_enabled_*` ключи для удалённых плагинов
+
 **Функции сортировки** (строки 44-64):
 - `ensure_default_playlist_sort_mode()` — создаёт `playlist_sort_mode: "artist"` при первом запуске
 - `get_playlist_sort_mode()` — возвращает текущий режим из конфига
@@ -346,8 +353,10 @@ MusicPlayer2\
 | allow_remote_shutdown | bool   | Разрешить удалённое закрытие программы |
 | prevent_sleep        | bool   | Блокировать спящий режим во время воспроизведения |
 | audio_output_device  | str    | ID выбранного устройства вывода (None = по умолчанию) |
+| use_language_filter | bool   | Включён ли фильтр языка (устаревшее, дублирует language_filter_mode) |
 | language_filter_mode | str    | Режим фильтра языка: "off" / "penalty" / "exclude" (по умолч. "off") |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
+| plugin_enabled_*  | bool   | Состояние каждого плагина (true/false), ключи удаляются при отсутствии плагина |
 
 #### `core/db_cleaner.py` — Database Cleaner
 Модуль для очистки базы данных от треков, файлы которых больше не существуют на диске.
@@ -784,7 +793,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **`dialog.py`** — `SettingsDialog` (координатор):
 - Title bar (иконка, заголовок, кнопка закрытия)
 - Sidebar с `TabButton` (анимированное переключение: серый → акцентный, ховер → белый)
-- Status bar (статистика библиотеки: треков, кеш обложек справа)
+- Размер 720×520
 - Создаёт 5 страниц-виджетов и соединяет их сигналы
 
 **`widgets.py`** — переиспользуемые виджеты:
@@ -815,7 +824,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Блокировать сон** — QCheckBox
 - **Таймер автовыключения** — QComboBox (Никогда / 15 мин / 30 мин / 1 ч / 3 ч / 6 ч / 12 ч), значение хранится в `idle_shutdown_minutes`
 - **Устройство вывода звука** — QComboBox со списком доступных устройств + "По умолчанию". Стилизован через `QAbstractItemView::item:selected/hover` с акцентным цветом. Использует `TallItemDelegate` для высоты элементов.
-- **Чистка мусора в БД** — кнопка, запускает `CleanupWorker` в отдельном потоке; результат (количество удалённых треков) выводится на самой кнопке на 3 секунды
+- **Статистика БД** — блок-карточка (`#0a0a0a`, `border: 1px solid DIVIDER_COLOR`, без нижней границы), показывает количество треков и размер кеша обложек; обновляется через `update_stats()`
+- **Чистка мусора в БД** — кнопка, расположенная вплотную к карточке статистики (без зазора), запускает `CleanupWorker` в отдельном потоке; результат (количество удалённых треков) выводится на самой кнопке на 3 секунды
 
 **`page_about.py`** — AboutPage:
 - **Заголовок** — название приложения и версия акцентным цветом
@@ -1078,7 +1088,7 @@ QThread для анализа одного аудиофайла через libro
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.1.6`                          | `musicplayer/config.py`|
+| APP_VERSION         | `1.2.0.0`                        | `musicplayer/config.py`|
 | DB_VERSION          | `1`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | BG_COLOR            | `#000000`                        | `musicplayer/config.py`|
