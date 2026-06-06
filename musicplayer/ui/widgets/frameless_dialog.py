@@ -58,6 +58,7 @@ class FramelessDialog(QDialog):
         title_layout.addStretch()
 
         self._close_btn = QPushButton("✕")
+        self._close_btn.setAutoDefault(False)
         self._close_btn.setFixedSize(36, 30)
         self._close_btn.setCursor(Qt.PointingHandCursor)
         self._apply_close_btn_accent()

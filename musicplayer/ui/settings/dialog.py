@@ -8,15 +8,16 @@ from PySide6.QtGui import QPainter, QColor, QPaintEvent
 from PySide6.QtSvgWidgets import QSvgWidget
 
 from musicplayer import config as cfg
-from musicplayer.core.db import get_filtered_library_track_count, get_covers_cache_size, get_analyzed_track_count
+from musicplayer.core.db import get_covers_cache_size, get_analyzed_track_count
 from musicplayer.ui.svg_icons import get_music_note_svg
 
-from .constants import ACCENT_PRESETS, format_size, get_library_track_count
+from .constants import ACCENT_PRESETS, get_library_track_count
 from .widgets import TabButton
 from .page_main import MainPage
 from .page_appearance import AppearancePage
 from .page_webserver import WebServerPage
 from .page_system import SystemPage
+from .page_plugins import PluginsPage
 from .page_about import AboutPage
 
 
@@ -32,14 +33,19 @@ class SettingsDialog(QDialog):
     prevent_sleep_toggled = Signal(bool)
     audio_device_changed = Signal(object)
 
-    def __init__(self, settings, parent=None):
+    def __init__(self, settings, parent=None, plugin_pages=None, plugin_infos=None):
         super().__init__(parent)
-        self.settings = settings
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setMinimumSize(620, 420)
+        #self.setAttribute(Qt.WA_OpaquePaintEvent, True)
+        #self.setAttribute(Qt.WA_NoSystemBackground, True)
+        self.setMinimumSize(720, 500)
         self.setModal(True)
+        self.resize(760, 520)
+        self.settings = settings
+        self._plugin_pages = plugin_pages or []
+        self._plugin_infos = plugin_infos or []
 
         self._build_ui()
         self._update_stats()
@@ -79,9 +85,6 @@ class SettingsDialog(QDialog):
 
         # --- Body: sidebar tabs + stacked content ---
         self._build_body(inner)
-
-        # --- Status bar ---
-        self._build_status_bar(inner)
 
         layout.addWidget(container)
 
@@ -133,24 +136,32 @@ class SettingsDialog(QDialog):
         sidebar_layout.setContentsMargins(0, 8, 0, 8)
         sidebar_layout.setSpacing(0)
 
-        tab_names = ["Основное", "Внешний вид", "Сервер и API", "Системные", "О программе"]
-        page_classes = [MainPage, AppearancePage, WebServerPage, SystemPage, AboutPage]
+        tab_names = ["Основное", "Внешний вид", "Сервер и API", "Плагины", "Системные"]
+        page_classes = [MainPage, AppearancePage, WebServerPage,
+                        lambda s: PluginsPage(s, self._plugin_infos), SystemPage]
         self._pages = []
-        for i, (name, page_cls) in enumerate(zip(tab_names, page_classes)):
+
+        def _add_tab(name, page_widget):
+            idx = len(self._pages)
             btn = TabButton(name, cfg.get_accent_color())
-            btn.setProperty("tab_index", i)
-            btn.clicked.connect(lambda checked=False, idx=i: self._switch_tab(idx))
+            btn.setProperty("tab_index", idx)
+            btn.clicked.connect(lambda checked=False, i=idx: self._switch_tab(i))
             self._tab_btns.append(btn)
             sidebar_layout.addWidget(btn)
-            if i < len(tab_names) - 1:
-                sep_tab = QWidget()
-                sep_tab.setFixedHeight(1)
-                sep_tab.setStyleSheet(f"background-color: {cfg.DIVIDER_ITEM_COLOR};")
-                sidebar_layout.addWidget(sep_tab)
+            sep_tab = QWidget()
+            sep_tab.setFixedHeight(1)
+            sep_tab.setStyleSheet(f"background-color: {cfg.DIVIDER_ITEM_COLOR};")
+            sidebar_layout.addWidget(sep_tab)
+            self._pages.append(page_widget)
 
-            # Create and wire page
-            page = page_cls(self.settings)
-            self._pages.append(page)
+        for name, page_cls in zip(tab_names, page_classes):
+            _add_tab(name, page_cls(self.settings))
+
+        for widget_factory, name in self._plugin_pages:
+            _add_tab(name, widget_factory())
+
+        # About page — always last
+        _add_tab("О программе", AboutPage(self.settings))
 
         sidebar_layout.addStretch()
         body.addWidget(sidebar)
@@ -176,7 +187,7 @@ class SettingsDialog(QDialog):
         main_page = self._pages[0]
         appearance_page = self._pages[1]
         webserver_page = self._pages[2]
-        system_page = self._pages[3]
+        system_page = self._pages[4]
 
         main_page.folder_browse_requested.connect(self._browse_folder)
         main_page.similarity_precision_changed.connect(self._on_similarity_precision_changed)
@@ -194,23 +205,6 @@ class SettingsDialog(QDialog):
         system_page.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         system_page.audio_device_changed.connect(self.audio_device_changed.emit)
 
-    def _build_status_bar(self, inner: QVBoxLayout):
-        status_bar = QWidget()
-        status_bar.setFixedHeight(32)
-        status_bar.setStyleSheet("background-color: #0a0a0a;")
-        status_layout = QHBoxLayout(status_bar)
-        status_layout.setContentsMargins(16, 0, 16, 0)
-
-        a = cfg.get_accent_color()
-        self.library_count_label = QLabel()
-        self.library_count_label.setStyleSheet(f"color: {a}; font-size: 13px;")
-        status_layout.addWidget(self.library_count_label)
-        status_layout.addStretch()
-        self.covers_size_label = QLabel()
-        self.covers_size_label.setStyleSheet(f"color: {a}; font-size: 13px;")
-        status_layout.addWidget(self.covers_size_label)
-        inner.addWidget(status_bar)
-
     def _switch_tab(self, idx: int):
         for i, btn in enumerate(self._tab_btns):
             btn.setChecked(i == idx)
@@ -227,7 +221,7 @@ class SettingsDialog(QDialog):
 
     def closeEvent(self, event):
         self._pages[2].cleanup()
-        self._pages[3].cleanup()
+        self._pages[4].cleanup()
         event.accept()
 
     # --- Signal handlers ---
@@ -282,11 +276,9 @@ class SettingsDialog(QDialog):
 
     def _update_stats(self):
         covers_size = get_covers_cache_size()
-        self.covers_size_label.setText(f"Кеш обложек:  {format_size(covers_size)}")
-
         track_count = get_library_track_count()
         analyzed_count = get_analyzed_track_count()
-        self.library_count_label.setText(f"Треков:  {track_count}  Проанализированно: {analyzed_count}")
+        self._pages[4].update_stats(track_count, analyzed_count, covers_size)
 
         current = self.settings._data.get("accent_color", ACCENT_PRESETS[0][0])
         self._pages[1].highlight_color(current)
@@ -299,9 +291,6 @@ class SettingsDialog(QDialog):
             QPushButton:hover {{ background-color: {color}; }}
             QPushButton:pressed {{ background-color: #555555; }}
         """)
-        self.library_count_label.setStyleSheet(f"color: {color}; font-size: 13px;")
-        self.covers_size_label.setStyleSheet(f"color: {color}; font-size: 13px;")
-
         for page in self._pages:
             page.apply_accent_color(color)
 

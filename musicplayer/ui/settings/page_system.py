@@ -5,6 +5,7 @@ from PySide6.QtGui import QFont
 from musicplayer import config as cfg
 from musicplayer.core.db_cleaner import cleanup_missing_tracks
 from musicplayer.core.audio_device_manager import AudioDeviceManager
+from .constants import format_size
 
 
 class CleanupWorker(QThread):
@@ -93,13 +94,21 @@ class SystemPage(QWidget):
 
         lo.addStretch()
 
-        # DB Cleanup
+        # Bottom group: stats card + cleanup button (no gap)
+        bottom = QVBoxLayout()
+        bottom.setSpacing(0)
+        bottom.setContentsMargins(0, 0, 0, 0)
+
+        self._build_stats_block(bottom)
+
         self._cleanup_btn = QPushButton("Чистка мусора в БД")
         self._cleanup_btn.setFixedHeight(36)
         self._cleanup_btn.setCursor(Qt.PointingHandCursor)
         self._cleanup_btn.clicked.connect(self._on_cleanup_clicked)
-        lo.addWidget(self._cleanup_btn)
+        bottom.addWidget(self._cleanup_btn)
         self._update_cleanup_btn_style()
+
+        lo.addLayout(bottom)
 
         self._apply_checkbox_style()
 
@@ -227,6 +236,41 @@ class SystemPage(QWidget):
             QTimer.singleShot(3000, lambda: self._cleanup_btn.setText("Чистка мусора в БД"))
             self.cleanup_finished.emit(removed)
 
+    def _build_stats_block(self, lo: QVBoxLayout):
+        self._stats_card = QWidget()
+        self._stats_card.setStyleSheet(f"""
+            QWidget {{
+                background-color: #0a0a0a;
+                border: 1px solid {cfg.DIVIDER_COLOR};
+                border-bottom: none;
+            }}
+        """)
+        inner = QVBoxLayout(self._stats_card)
+        inner.setContentsMargins(16, 10, 16, 10)
+        inner.setSpacing(4)
+
+        accent = cfg.get_accent_color()
+        self._stats_title = QLabel("Библиотека")
+        self._stats_title.setStyleSheet(f"color: {accent}; font-size: 13px; font-weight: bold; "
+                                        f"background: transparent; border: none;")
+        inner.addWidget(self._stats_title)
+
+        self._stats_tracks = QLabel()
+        self._stats_tracks.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; "
+                                         f"background: transparent; border: none;")
+        inner.addWidget(self._stats_tracks)
+
+        self._stats_covers = QLabel()
+        self._stats_covers.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; "
+                                         f"background: transparent; border: none;")
+        inner.addWidget(self._stats_covers)
+
+        lo.addWidget(self._stats_card)
+
+    def update_stats(self, track_count: int, analyzed_count: int, covers_size: int):
+        self._stats_tracks.setText(f"Треков: {track_count}  •  Проанализированно: {analyzed_count}")
+        self._stats_covers.setText(f"Кеш обложек:  {format_size(covers_size)}")
+
     def _update_cleanup_btn_style(self):
         accent = cfg.get_accent_color()
         self._cleanup_btn.setStyleSheet(f"""
@@ -263,11 +307,24 @@ class SystemPage(QWidget):
         self.prevent_sleep_cb.setStyleSheet(style)
         self.prevent_sleep_cb.setCursor(Qt.PointingHandCursor)
 
+    def _apply_stats_style(self, color: str):
+        divider = cfg.DIVIDER_COLOR
+        self._stats_card.setStyleSheet(f"""
+            QWidget {{
+                background-color: #0a0a0a;
+                border: 1px solid {divider};
+                border-bottom: none;
+            }}
+        """)
+        self._stats_title.setStyleSheet(f"color: {color}; font-size: 13px; font-weight: bold; "
+                                        f"background: transparent; border: none;")
+
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
         self._update_cleanup_btn_style()
         self._apply_combo_style()
         self._apply_idle_combo_style()
+        self._apply_stats_style(color)
 
     def cleanup(self):
         if hasattr(self, '_cleanup_worker') and self._cleanup_worker.isRunning():

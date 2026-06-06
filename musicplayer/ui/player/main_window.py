@@ -24,6 +24,7 @@ from musicplayer.ui.controls import ControlsWidget
 from musicplayer.ui.sidebar import SideBarWidget
 from musicplayer.ui.player.title_bar import TitleBarWidget
 from musicplayer.core.media_keys import create_media_keys_handler
+from musicplayer.core.plugin_manager import PluginManager
 
 from musicplayer import config as cfg
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
@@ -97,6 +98,21 @@ class MainWindow(QMainWindow):
         self._restore_audio_device()
         self._setup_ui()
         self._connect_signals()
+
+        # Ensure temp directory exists
+        cfg.TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+        # Ensure plugins directory and __init__.py exist
+        cfg.PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
+        init_py = cfg.PLUGINS_DIR / "__init__.py"
+        if not init_py.exists():
+            init_py.write_text("", encoding="utf-8")
+
+        # Plugin system
+        self._plugin_manager = PluginManager(self, self.settings)
+        self._plugin_pages = []  # Filled by plugins via PluginHub
+        self._plugin_manager.discover()
+        self._plugin_manager.register_all()
 
         has_music_folder = bool(self.settings.music_folder and os.path.isdir(self.settings.music_folder))
         self.sidebar.set_music_folder_configured(has_music_folder)
@@ -242,6 +258,10 @@ class MainWindow(QMainWindow):
         if self._media_keys_handler:
             self._media_keys_handler.uninstall()
         self._web_integration.stop()
+        # Clean up plugin temp files
+        import shutil
+        if cfg.TEMP_DIR.exists():
+            shutil.rmtree(str(cfg.TEMP_DIR), ignore_errors=True)
         event.accept()
 
     def _setup_ui(self):
@@ -297,6 +317,7 @@ class MainWindow(QMainWindow):
         self.player.media_status_changed.connect(self._playback.on_media_status_changed)
         self.player.volume_changed.connect(self._on_volume_changed_for_web)
         self.player.volume_changed.connect(self.controls_widget.set_volume)
+        self.player.empty_play_requested.connect(self._on_empty_play_requested)
 
         self.playlist_widget.track_selected.connect(self._playback.on_track_selected)
         self.playlist_widget.favorite_clicked.connect(self._playback.on_favorite_clicked)
@@ -363,6 +384,17 @@ class MainWindow(QMainWindow):
         self.player.toggle_play_pause()
         self._web_integration.update_state()
 
+    def _on_empty_play_requested(self):
+        """Play pressed but no source loaded — play focused or first track."""
+        tracks = self.playlist_widget.get_view_tracks()
+        if not tracks:
+            return
+        row = self.playlist_widget.list_widget.currentRow()
+        if 0 <= row < len(tracks):
+            self._play_track_at_view_index(row)
+        else:
+            self._play_track_at_view_index(0)
+
     def _on_next(self):
         self._playback.next()
 
@@ -424,7 +456,9 @@ class MainWindow(QMainWindow):
     def _on_settings_requested(self):
         from musicplayer.ui.settings import SettingsDialog
         from musicplayer.ui.accent_style import apply_accent_to_main_window
-        self._settings_dialog = SettingsDialog(self.settings, self)
+        self._settings_dialog = SettingsDialog(
+            self.settings, self, plugin_pages=self._plugin_pages,
+            plugin_infos=self._plugin_manager.get_discovered_plugins()) # get_discovered_plugins очень медленный метод, замедляет открытие окна Настроек, надо перенести внутрь вкладки плагинов в настройках
         dialog = self._settings_dialog
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))

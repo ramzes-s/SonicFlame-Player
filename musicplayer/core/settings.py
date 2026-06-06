@@ -163,26 +163,16 @@ class AppSettings:
     def _save(self):
         """Persist settings to disk."""
         try:
-            current_data = {}
-            if SETTINGS_FILE.exists():
-                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                    current_data = json.load(f)
-            current_data.update(self._data)
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(current_data, f, indent=2, ensure_ascii=False)
+                json.dump(self._data, f, indent=2, ensure_ascii=False)
         except IOError:
             pass
 
     def batch_save(self):
         """Persist multiple settings at once without triggering individual saves."""
         try:
-            current_data = {}
-            if SETTINGS_FILE.exists():
-                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                    current_data = json.load(f)
-            current_data.update(self._data)
             with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(current_data, f, indent=2, ensure_ascii=False)
+                json.dump(self._data, f, indent=2, ensure_ascii=False)
         except IOError:
             pass
 
@@ -376,4 +366,23 @@ class AppSettings:
     def language_filter_mode(self, value: str):
         if value in ("off", "penalty", "exclude"):
             self._data["language_filter_mode"] = value
+            self._save()
+
+    def get_plugin_enabled(self, name: str) -> bool:
+        return self._data.get(f"plugin_enabled_{name}", True)
+
+    def set_plugin_enabled(self, name: str, enabled: bool):
+        self._data[f"plugin_enabled_{name}"] = enabled
+        self._save()
+
+    def cleanup_plugin_settings(self, active_names: set):
+        """Remove stale plugin_enabled_* entries for plugins that no longer exist."""
+        keys = [k for k in self._data if k.startswith("plugin_enabled_")]
+        changed = False
+        for k in keys:
+            name = k[len("plugin_enabled_"):]
+            if name not in active_names:
+                del self._data[k]
+                changed = True
+        if changed:
             self._save()

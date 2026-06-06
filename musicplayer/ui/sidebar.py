@@ -168,6 +168,8 @@ class SideBarWidget(QWidget):
         self._favorites_active = False
         self._top_active = False
         self._music_folder_configured = False
+        self._plugin_buttons = []
+        self._plugin_section = None  # Container widget for plugin buttons
 
         self._setup_ui()
 
@@ -188,6 +190,14 @@ class SideBarWidget(QWidget):
         divider1.setFixedHeight(1)
         divider1.setStyleSheet(f"background-color: {DIVIDER_COLOR};")
         layout.addWidget(divider1)
+
+        # Plugin buttons section (added dynamically by add_plugin_button)
+        self._plugin_section = QWidget()
+        self._plugin_layout = QVBoxLayout(self._plugin_section)
+        self._plugin_layout.setContentsMargins(0, 4, 0, 4)
+        self._plugin_layout.setSpacing(4)
+        self._plugin_section.setVisible(False)
+        layout.addWidget(self._plugin_section)
 
         # Spacer — pushes bottom group down
         layout.addStretch()
@@ -237,6 +247,25 @@ class SideBarWidget(QWidget):
         if self._top_active:
             self.playlist_type_changed.emit("Top")
 
+    def add_plugin_button(self, svg_getter, tooltip: str, callback) -> object:
+        """
+        Add a plugin button to the sidebar.
+
+        Args:
+            svg_getter: callable(color) -> SVG string
+            tooltip: button tooltip text
+            callback: callable for click event
+
+        Returns:
+            The SidebarButton widget.
+        """
+        btn = SidebarButton(svg_getter, tooltip=tooltip)
+        btn.clicked.connect(callback)
+        self._plugin_layout.addWidget(btn, alignment=Qt.AlignTop)
+        self._plugin_buttons.append(btn)
+        self._plugin_section.setVisible(True)
+        return btn
+
     def set_music_folder_configured(self, configured: bool):
         """Enable folder button only when music_folder is set in config."""
         self._music_folder_configured = configured
@@ -264,6 +293,8 @@ class SideBarWidget(QWidget):
             self.folder_btn.setEnabled(enabled and self._music_folder_configured)
         self.favorites_btn.setEnabled(enabled)
         self.top_btn.setEnabled(enabled)
+        for btn in self._plugin_buttons:
+            btn.setEnabled(enabled)
 
         # Visual feedback: adjust opacity on disabled buttons
         alpha = 40 if not enabled else OPACITY_DEFAULT
