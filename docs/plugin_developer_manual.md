@@ -35,14 +35,14 @@ plugins/<plugin_name>/
 
 ```json
 {
-    "name": "ym_downloader",
-    "display_name": "Yandex Music Downloader",
+    "name": "duplicate_finder",
+    "display_name": "Поиск дублей в библиотеке",
     "version": "1.0.0",
-    "entry": "ym_downloader",
-    "description": "Поиск и скачивание треков с Yandex Music",
-    "settings_page": true,
-    "requires": ["yandex-music"]
+    "entry": "duplicate_finder",
+    "description": "Находит дубликаты треков по названию и исполнителю",
+    "settings_page": true
 }
+
 ```
 
 | Поле | Тип | Обязательное | Описание |
