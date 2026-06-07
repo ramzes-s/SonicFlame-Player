@@ -5,32 +5,77 @@ This module contains the main widget for the "Artists" tab, which handles
 loading, caching, and displaying artist cards.
 """
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QStackedWidget, QScrollArea, QGridLayout, QLabel,
-    QSizePolicy
+    QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QGridLayout, QLabel,
 )
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QPainter, QColor, QPen
 
 from musicplayer.core import db
 from musicplayer.ui.library.artist_worker import ArtistProcessingWorker
 from musicplayer.ui.library.artist_card import ArtistCardWidget
 from musicplayer import config as cfg
-from musicplayer.config import ACCENT_COLOR
 
 
-class LoadingSpinnerWidget(QWidget):
-    """A simple loading text widget."""
+class Spinner(QWidget):
+    """Animated spinning circle, shown during artist loading."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        layout = QVBoxLayout(self)
-        layout.setAlignment(Qt.AlignCenter)
-        self.label = QLabel("Загрузка исполнителей...", self)
-        font = self.label.font()
-        font.setPointSize(14)
-        self.label.setFont(font)
-        layout.addWidget(self.label)
+        self._angle = 0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._advance)
+        self.setFixedSize(14, 14)
+
+    def start(self):
+        self._angle = 0
+        if not self._timer.isActive():
+            self._timer.start(50)
+
+    def stop(self):
+        self._timer.stop()
+
+    def _advance(self):
+        self._angle = (self._angle + 30) % 360
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        pen = QPen(QColor(cfg.get_accent_color()), 2)
+        pen.setCapStyle(Qt.RoundCap)
+        painter.setPen(pen)
+        r = self.rect().adjusted(2, 2, -2, -2)
+        painter.drawArc(r, self._angle * 16, 270 * 16)
+
+
+class LoadingBar(QWidget):
+    """Bottom status bar with spinner + text during artist loading."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        lo = QHBoxLayout(self)
+        lo.setContentsMargins(12, 6, 12, 6)
+
+        self._spinner = Spinner(self)
+        lo.addWidget(self._spinner)
+
+        self._label = QLabel("Загрузка исполнителей...")
+        self._label.setStyleSheet(
+            f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; "
+            f"background: transparent;")
+        lo.addWidget(self._label)
+        lo.addStretch()
+
+        self.hide()
+
+    def start(self):
+        self._spinner.start()
+        self.show()
+
+    def stop(self):
+        self._spinner.stop()
+        self.hide()
 
 
 class ArtistViewWidget(QWidget):
@@ -46,12 +91,6 @@ class ArtistViewWidget(QWidget):
 
         self._layout = QVBoxLayout(self)
         self._layout.setContentsMargins(0, 0, 0, 0)
-
-        self._stack = QStackedWidget(self)
-        self._layout.addWidget(self._stack)
-
-        self._spinner = LoadingSpinnerWidget(self)
-        self._stack.addWidget(self._spinner)
 
         self._scroll_area = QScrollArea(self)
         self._scroll_area.setWidgetResizable(True)
@@ -82,7 +121,10 @@ class ArtistViewWidget(QWidget):
         self._grid_layout.setContentsMargins(8, 8, 8, 8)
 
         self._scroll_area.setWidget(self._grid_container)
-        self._stack.addWidget(self._scroll_area)
+        self._layout.addWidget(self._scroll_area, 1)
+
+        self._loading_bar = LoadingBar(self)
+        self._layout.addWidget(self._loading_bar)
 
         self._col_count = 0
         self.resizeEvent(None)
@@ -110,8 +152,6 @@ class ArtistViewWidget(QWidget):
         if self._is_loaded:
             return
 
-        self._stack.setCurrentWidget(self._spinner)
-
         if db.get_artists_cache_status():
             self._load_from_cache()
         else:
@@ -123,18 +163,15 @@ class ArtistViewWidget(QWidget):
             self._add_artist_card_to_grid(artist_data)
 
         self._is_loaded = True
-        self._stack.setCurrentWidget(self._scroll_area)
 
     def _rebuild_cache(self):
+        self._loading_bar.start()
         self.worker = ArtistProcessingWorker(self)
         self.worker.artist_ready.connect(self._add_artist_card_to_grid)
         self.worker.finished.connect(self._on_worker_finished)
         self.worker.start()
 
     def _add_artist_card_to_grid(self, artist_data: dict):
-        if self._stack.currentWidget() == self._spinner:
-            self._stack.setCurrentWidget(self._scroll_area)
-
         card = ArtistCardWidget(
             artist_name=artist_data["name"],
             track_count=artist_data["track_count"],
@@ -146,10 +183,13 @@ class ArtistViewWidget(QWidget):
         self._grid_layout.addWidget(card, row, col)
 
     def _on_worker_finished(self):
+        self._loading_bar.stop()
         self._is_loaded = True
         self.worker = None
 
     def update_accent_color(self):
+        acc = cfg.get_accent_color()
+        self._loading_bar._spinner.update()
         for i in range(self._grid_layout.count()):
             item = self._grid_layout.itemAt(i)
             if item and item.widget():

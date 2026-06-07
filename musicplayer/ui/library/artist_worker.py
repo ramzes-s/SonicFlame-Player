@@ -62,7 +62,7 @@ class ArtistProcessingWorker(QThread):
                 artists_agg[normalized_name]["filepaths"].append(filepath)
 
         processed_artists = []
-        for artist_data in artists_agg.values():
+        for artist_data in sorted(artists_agg.values(), key=lambda x: x["name"].lower()):
             filepaths = artist_data["filepaths"]
             display_name = artist_data["name"]
 

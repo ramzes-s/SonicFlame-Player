@@ -146,11 +146,11 @@ class ArtistCardWidget(QWidget):
         count_color.setAlphaF(self._count_opacity)
         painter.setPen(count_color)
 
-        count_font = QFont("Arial", 9)
+        count_font = QFont("Arial", 11)
         painter.setFont(count_font)
 
         count_rect = self.rect().adjusted(10, 0, -10, -10)
-        painter.drawText(count_rect, Qt.AlignBottom | Qt.AlignLeft, f"{self._track_count} tracks")
+        painter.drawText(count_rect, Qt.AlignBottom | Qt.AlignLeft, f"{self._track_count} треков")
 
         painter.setPen(self._border_color)
         painter.drawRect(self.rect().adjusted(0, 0, -1, -1))

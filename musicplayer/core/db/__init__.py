@@ -50,6 +50,8 @@ from musicplayer.core.db.favorites import (
 
 from musicplayer.core.db.cache import (
     get_covers_cache_size,
+    get_covers_cache_info,
+    get_artist_collage_cache_info,
     get_artists_cache_status,
     get_cached_artists,
     update_artists_cache,
@@ -110,6 +112,8 @@ __all__ = [
     "get_favorite_tracks",
     # Cache
     "get_covers_cache_size",
+    "get_covers_cache_info",
+    "get_artist_collage_cache_info",
     "get_artists_cache_status",
     "get_cached_artists",
     "update_artists_cache",
