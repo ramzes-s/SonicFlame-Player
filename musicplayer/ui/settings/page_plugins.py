@@ -38,13 +38,13 @@ class PluginsPage(QWidget):
             QScrollArea {{ border: none; background-color: {cfg.BG_COLOR}; }}
             QScrollBar:vertical {{
                 background-color: {cfg.BG_COLOR};
-                width: 8px;
+                width: 4px;
                 margin: 0;
             }}
             QScrollBar::handle:vertical {{
                 background-color: {cfg.SCROLLBAR_HANDLE_COLOR};
                 min-height: 30px;
-                border-radius: 4px;
+                border-radius: 2px;
             }}
             QScrollBar::handle:vertical:hover {{
                 background-color: {cfg.SCROLLBAR_HANDLE_HOVER_COLOR};
@@ -57,7 +57,7 @@ class PluginsPage(QWidget):
         inner = QWidget()
         inner.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
         self._inner_layout = QVBoxLayout(inner)
-        self._inner_layout.setContentsMargins(24, 20, 24, 20)
+        self._inner_layout.setContentsMargins(12, 10, 12, 10)
         self._inner_layout.setSpacing(0)
 
         if not self._plugin_infos:
@@ -127,6 +127,7 @@ class PluginsPage(QWidget):
             text_col.addWidget(desc)
 
         row_layout.addLayout(text_col, 1)
+        self._inner_layout.addSpacing(8)
         self._inner_layout.addWidget(row)
 
         # Embedded config widget (if plugin provides one)
@@ -141,7 +142,7 @@ class PluginsPage(QWidget):
         # Separator between plugins
         self._inner_layout.addSpacing(6)
         sep = QWidget()
-        sep.setFixedHeight(1)
+        sep.setFixedHeight(2)
         sep.setStyleSheet(f"background-color: {cfg.DIVIDER_COLOR};")
         self._inner_layout.addWidget(sep)
 

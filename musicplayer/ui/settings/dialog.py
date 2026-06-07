@@ -8,7 +8,7 @@ from PySide6.QtGui import QPainter, QColor, QPaintEvent
 from PySide6.QtSvgWidgets import QSvgWidget
 
 from musicplayer import config as cfg
-from musicplayer.core.db import get_covers_cache_size, get_analyzed_track_count
+from musicplayer.core.db import get_covers_cache_info, get_artist_collage_cache_info, get_analyzed_track_count
 from musicplayer.ui.svg_icons import get_music_note_svg
 
 from .constants import ACCENT_PRESETS, get_library_track_count
@@ -192,7 +192,6 @@ class SettingsDialog(QDialog):
         main_page.folder_browse_requested.connect(self._browse_folder)
         main_page.similarity_precision_changed.connect(self._on_similarity_precision_changed)
         main_page.analysis_duration_changed.connect(self._on_analysis_duration_changed)
-        main_page.db_reset_requested.connect(self.db_reset_requested.emit)
 
         appearance_page.accent_color_selected.connect(self._set_accent_color)
         appearance_page.dynamic_color_toggled.connect(self.dynamic_color_toggled.emit)
@@ -204,6 +203,8 @@ class SettingsDialog(QDialog):
 
         system_page.prevent_sleep_toggled.connect(self._on_prevent_sleep_toggled)
         system_page.audio_device_changed.connect(self.audio_device_changed.emit)
+        system_page.cleanup_finished.connect(self._update_stats)
+        system_page.db_reset_requested.connect(self.db_reset_requested.emit)
 
     def _switch_tab(self, idx: int):
         for i, btn in enumerate(self._tab_btns):
@@ -275,10 +276,13 @@ class SettingsDialog(QDialog):
         self.settings.analysis_duration = value
 
     def _update_stats(self):
-        covers_size = get_covers_cache_size()
         track_count = get_library_track_count()
         analyzed_count = get_analyzed_track_count()
-        self._pages[4].update_stats(track_count, analyzed_count, covers_size)
+        covers_count, covers_size = get_covers_cache_info()
+        collages_count, collages_size = get_artist_collage_cache_info()
+        self._pages[4].update_stats(track_count, analyzed_count,
+                                    covers_count, covers_size,
+                                    collages_count, collages_size)
 
         current = self.settings._data.get("accent_color", ACCENT_PRESETS[0][0])
         self._pages[1].highlight_color(current)

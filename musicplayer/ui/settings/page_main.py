@@ -20,7 +20,6 @@ class MainPage(QWidget):
     similarity_precision_changed = Signal(int)
     analysis_duration_changed = Signal(int)
     language_filter_changed = Signal(str)
-    db_reset_requested = Signal()
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -106,21 +105,6 @@ class MainPage(QWidget):
 
         lo.addStretch()
 
-        # DB reset button at the bottom
-        reset_row = QHBoxLayout()
-        reset_row.setSpacing(10)
-        self.reset_db_btn = QPushButton("Удалить базу данных")
-        self.reset_db_btn.setFixedHeight(36)
-        self.reset_db_btn.setCursor(Qt.PointingHandCursor)
-        self.reset_db_btn.clicked.connect(self._on_reset_db)
-        self._update_reset_btn_style()
-        reset_row.addWidget(self.reset_db_btn)
-        reset_label = QLabel("Все данные кроме настроек будут удалены!")
-        reset_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 14px;")
-        reset_row.addWidget(reset_label)
-        reset_row.addStretch()
-        lo.addLayout(reset_row)
-
     def _apply_lang_combo_style(self):
         accent = cfg.get_accent_color()
         self._lang_combo.setStyleSheet(f"""
@@ -176,18 +160,6 @@ class MainPage(QWidget):
         self._settings.language_filter_mode = mode
         self.language_filter_changed.emit(mode)
 
-    def _on_reset_db(self):
-        from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
-        parent = self.window() if self.window() else self
-        result = StyledMessageBox.question(
-            parent, "Сброс базы данных",
-            "Все треки, плейлисты и статистика будут удалены.\n"
-            "Настройки останутся без изменений.\n\n"
-            "Продолжить?"
-        )
-        if result == 1:
-            self.db_reset_requested.emit()
-
     def set_folder_path(self, folder: str):
         if folder and os.path.isdir(folder):
             self.folder_btn.setText(folder)
@@ -225,25 +197,6 @@ class MainPage(QWidget):
             self.folder_btn.setText("Укажите корневую папку с музыкой")
             self._update_folder_button_style(False)
 
-    def _update_reset_btn_style(self):
-        accent = cfg.get_accent_color()
-        self.reset_db_btn.setStyleSheet(f"""
-            QPushButton {{
-                background-color: transparent;
-                border: 1px solid {cfg.DIVIDER_COLOR};
-                color: {accent};
-                font-size: 13px;
-                text-align: left;
-                padding: 0 12px;
-            }}
-            QPushButton:hover {{
-                background-color: rgba(80, 80, 80, 0.3);
-            }}
-            QPushButton:pressed {{
-                background-color: {cfg.BUTTON_PRESSED_BG_COLOR};
-            }}
-        """)
-
     def _apply_slider_style(self, slider):
         accent = cfg.get_accent_color()
         slider.setStyleSheet(f"""
@@ -269,5 +222,4 @@ class MainPage(QWidget):
         self._update_folder_button_style(
             bool(self._settings.music_folder and os.path.isdir(self._settings.music_folder))
         )
-        self._update_reset_btn_style()
         self._apply_lang_combo_style()

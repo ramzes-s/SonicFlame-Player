@@ -67,13 +67,36 @@ def _load_cover(filepath: str) -> Optional[bytes]:
 
 def get_covers_cache_size() -> int:
     """Total size of all cached cover image files."""
+    count, total = get_covers_cache_info()
+    return total
+
+
+def get_covers_cache_info():
+    """Return (file_count, total_size_bytes) for cover cache."""
     if not COVERS_DIR.exists():
-        return 0
+        return 0, 0
+    count = 0
     total = 0
     for f in COVERS_DIR.iterdir():
         if f.is_file():
+            count += 1
             total += f.stat().st_size
-    return total
+    return count, total
+
+
+def get_artist_collage_cache_info():
+    """Return (file_count, total_size_bytes) for artist collage cache."""
+    from musicplayer import config as cfg
+    d = cfg.ARTIST_COLLAGES_DIR
+    if not d.exists():
+        return 0, 0
+    count = 0
+    total = 0
+    for f in d.iterdir():
+        if f.is_file():
+            count += 1
+            total += f.stat().st_size
+    return count, total
 
 
 # ---- Artist View Cache ----

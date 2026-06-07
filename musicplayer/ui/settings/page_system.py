@@ -29,6 +29,7 @@ class SystemPage(QWidget):
     idle_shutdown_changed = Signal(int)
     cleanup_finished = Signal(int)
     audio_device_changed = Signal(object)
+    db_reset_requested = Signal()
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -94,10 +95,12 @@ class SystemPage(QWidget):
 
         lo.addStretch()
 
-        # Bottom group: stats card + cleanup button (no gap)
+        # Bottom group: reset db, stats card, cleanup (no gap)
         bottom = QVBoxLayout()
         bottom.setSpacing(0)
         bottom.setContentsMargins(0, 0, 0, 0)
+
+        self._build_db_reset(bottom)
 
         self._build_stats_block(bottom)
 
@@ -236,6 +239,46 @@ class SystemPage(QWidget):
             QTimer.singleShot(3000, lambda: self._cleanup_btn.setText("Чистка мусора в БД"))
             self.cleanup_finished.emit(removed)
 
+    def _build_db_reset(self, lo: QVBoxLayout):
+        self._reset_db_btn = QPushButton("Удалить базу данных (Необратимо!)")
+        self._reset_db_btn.setFixedHeight(36)
+        self._reset_db_btn.setCursor(Qt.PointingHandCursor)
+        self._reset_db_btn.clicked.connect(self._on_reset_db)
+        self._update_db_reset_btn_style()
+        lo.addWidget(self._reset_db_btn)
+
+    def _update_db_reset_btn_style(self):
+        accent = cfg.get_accent_color()
+        self._reset_db_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {accent};
+                border: none;
+                color: #000000;
+                font-size: 13px;
+                font-weight: bold;
+            }}
+            QPushButton:hover {{
+                background-color: #FFFFFF;
+                color: #000000;
+            }}
+            QPushButton:pressed {{
+                background-color: #cccccc;
+                color: #000000;
+            }}
+        """)
+
+    def _on_reset_db(self):
+        from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+        parent = self.window() if self.window() else self
+        result = StyledMessageBox.question(
+            parent, "Сброс базы данных",
+            "Все треки, плейлисты и статистика будут удалены.\n"
+            "Настройки останутся без изменений.\n\n"
+            "Продолжить?"
+        )
+        if result == 1:
+            self.db_reset_requested.emit()
+
     def _build_stats_block(self, lo: QVBoxLayout):
         self._stats_card = QWidget()
         self._stats_card.setStyleSheet(f"""
@@ -265,11 +308,19 @@ class SystemPage(QWidget):
                                          f"background: transparent; border: none;")
         inner.addWidget(self._stats_covers)
 
+        self._stats_collages = QLabel()
+        self._stats_collages.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; "
+                                           f"background: transparent; border: none;")
+        inner.addWidget(self._stats_collages)
+
         lo.addWidget(self._stats_card)
 
-    def update_stats(self, track_count: int, analyzed_count: int, covers_size: int):
+    def update_stats(self, track_count: int, analyzed_count: int,
+                     covers_count: int, covers_size: int,
+                     collages_count: int, collages_size: int):
         self._stats_tracks.setText(f"Треков: {track_count}  •  Проанализированно: {analyzed_count}")
-        self._stats_covers.setText(f"Кеш обложек:  {format_size(covers_size)}")
+        self._stats_covers.setText(f"Кеш обложек ({covers_count} шт):  {format_size(covers_size)}")
+        self._stats_collages.setText(f"Кеш коллажей ({collages_count} шт):  {format_size(collages_size)}")
 
     def _update_cleanup_btn_style(self):
         accent = cfg.get_accent_color()
@@ -322,6 +373,7 @@ class SystemPage(QWidget):
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
         self._update_cleanup_btn_style()
+        self._update_db_reset_btn_style()
         self._apply_combo_style()
         self._apply_idle_combo_style()
         self._apply_stats_style(color)
