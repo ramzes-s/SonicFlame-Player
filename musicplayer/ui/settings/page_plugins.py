@@ -1,7 +1,13 @@
-"""Settings page — 'Плагины' tab with enable/disable toggles + embedded config."""
+"""Settings page — 'Плагины' tab with enable/disable toggles.
+
+Config widgets are NOT embedded in the tab. Plugins with a
+settings_widget_factory get a generic «Настроить» button that opens
+a FramelessDialog with the plugin's config inside — avoiding the
+DWM frame flash that HWND-heavy children trigger inside frameless windows.
+"""
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-                                QCheckBox, QScrollArea)
+                                QCheckBox, QPushButton, QScrollArea)
 from PySide6.QtCore import Qt
 
 from musicplayer import config as cfg
@@ -9,17 +15,14 @@ from musicplayer.core.plugin_manager import PluginInfo
 
 
 class PluginsPage(QWidget):
-    """Single settings tab listing all discovered plugins.
-    
-    UI is built lazily on first show() to avoid blocking dialog creation.
-    """
+    """One settings tab listing all discovered plugins."""
 
     def __init__(self, settings, plugin_infos: list[PluginInfo]):
         super().__init__()
         self._settings = settings
         self._plugin_infos = plugin_infos
-        self._widgets: dict[str, QWidget] = {}
         self._built = False
+        self._inner_layout = None
 
     def showEvent(self, event):
         super().showEvent(event)
@@ -38,13 +41,11 @@ class PluginsPage(QWidget):
             QScrollArea {{ border: none; background-color: {cfg.BG_COLOR}; }}
             QScrollBar:vertical {{
                 background-color: {cfg.BG_COLOR};
-                width: 4px;
-                margin: 0;
+                width: 4px; margin: 0;
             }}
             QScrollBar::handle:vertical {{
                 background-color: {cfg.SCROLLBAR_HANDLE_COLOR};
-                min-height: 30px;
-                border-radius: 2px;
+                min-height: 30px; border-radius: 2px;
             }}
             QScrollBar::handle:vertical:hover {{
                 background-color: {cfg.SCROLLBAR_HANDLE_HOVER_COLOR};
@@ -71,7 +72,6 @@ class PluginsPage(QWidget):
             self._plugin_infos.sort(key=lambda i: not self._settings.get_plugin_enabled(i.name))
             for info in self._plugin_infos:
                 self._add_plugin_row(info)
-
             self._inner_layout.addStretch()
 
         scroll.setWidget(inner)
@@ -92,13 +92,9 @@ class PluginsPage(QWidget):
         toggle.setFixedSize(36, 36)
         toggle.setCursor(Qt.PointingHandCursor)
         toggle.setStyleSheet(f"""
-            QCheckBox {{
-                spacing: 0;
-            }}
+            QCheckBox {{ spacing: 0; }}
             QCheckBox::indicator {{
-                width: 36px;
-                height: 20px;
-                border-radius: 10px;
+                width: 36px; height: 20px; border-radius: 10px;
                 background-color: #444;
             }}
             QCheckBox::indicator:checked {{
@@ -127,37 +123,62 @@ class PluginsPage(QWidget):
             text_col.addWidget(desc)
 
         row_layout.addLayout(text_col, 1)
+
+        if info.settings_widget_factory is not None:
+            config_btn = QPushButton("\u2699 \u041d\u0430\u0441\u0442\u0440\u043e\u0438\u0442\u044c")
+            config_btn.setAutoDefault(False)
+            config_btn.setCursor(Qt.PointingHandCursor)
+            config_btn.setFixedHeight(30)
+            config_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background-color: transparent; border: 1px solid {cfg.DIVIDER_COLOR};
+                    color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; padding: 0 12px;
+                }}
+                QPushButton:hover {{
+                    border-color: {accent}; color: {accent};
+                }}
+            """)
+            config_btn.clicked.connect(
+                lambda checked=False, inf=info: self._open_config(inf))
+            row_layout.addWidget(config_btn)
+
         self._inner_layout.addSpacing(8)
         self._inner_layout.addWidget(row)
-
-        # Embedded config widget (if plugin provides one)
-        if info.settings_widget_factory is not None:
-            config_widget = info.settings_widget_factory()
-            config_widget.setVisible(is_enabled)
-            self._inner_layout.addWidget(config_widget)
-            self._widgets[info.name] = config_widget
-            toggle.toggled.connect(
-                lambda checked, w=config_widget: w.setVisible(checked))
-
-        # Separator between plugins
         self._inner_layout.addSpacing(6)
         sep = QWidget()
         sep.setFixedHeight(2)
         sep.setStyleSheet(f"background-color: {cfg.DIVIDER_COLOR};")
         self._inner_layout.addWidget(sep)
 
+    def _open_config(self, info: PluginInfo):
+        """Open a frameless dialog with the plugin's settings widget."""
+        from musicplayer.ui.widgets.frameless_dialog import FramelessDialog
+
+        dlg = FramelessDialog(self.window())
+        inner = dlg._setup_ui()
+        inner.addWidget(
+            dlg._build_title_bar(f"{info.display_name} \u2014 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"))
+
+        config = info.settings_widget_factory()
+        inner.addWidget(config)
+        inner.addStretch()
+
+        dlg.setMinimumSize(520, 200)
+        content_h = config.sizeHint().height()
+        dlg.resize(620, max(220, content_h + 80))
+        dlg.center_on_parent()
+        dlg.exec()
+
     def _on_toggle(self, name: str, checked: bool):
         self._settings.set_plugin_enabled(name, checked)
 
     def apply_accent_color(self, color: str):
-        """Update toggle indicator colors and propagate to embedded plugin widgets."""
-        if not self._built:
+        if not self._built or self._inner_layout is None:
             return
         for i in range(self._inner_layout.count()):
             item = self._inner_layout.itemAt(i)
             if item and item.widget():
                 w = item.widget()
-                # Update toggle checkbox
                 cb = w.findChild(QCheckBox)
                 if cb:
                     cb.setStyleSheet(f"""
@@ -173,10 +194,16 @@ class PluginsPage(QWidget):
                             background-color: #444;
                         }}
                     """)
-                # Propagate to embedded plugin widget
-                if hasattr(w, 'apply_accent_color'):
-                    w.apply_accent_color(color)
-                # Also check any child widgets that might be the embedded page
-                for child in w.findChildren(QWidget):
-                    if hasattr(child, 'apply_accent_color') and child is not w:
-                        child.apply_accent_color(color)
+                btn = w.findChild(QPushButton)
+                if btn:
+                    btn.setStyleSheet(f"""
+                        QPushButton {{
+                            background-color: transparent;
+                            border: 1px solid {cfg.DIVIDER_COLOR};
+                            color: {cfg.TERTIARY_TEXT_COLOR};
+                            font-size: 12px; padding: 0 12px;
+                        }}
+                        QPushButton:hover {{
+                            border-color: {color}; color: {color};
+                        }}
+                    """)

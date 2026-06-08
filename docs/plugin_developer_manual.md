@@ -131,20 +131,88 @@ hub.add_sidebar_button(
 
 #### `set_settings_widget(widget_factory)`
 
-Регистрирует фабрику виджета, который встраивается внутрь вкладки "Плагины" (под переключателем плагина). Альтернатива `add_settings_page` для простых настроек.
+Регистрирует фабрику виджета, который отображается **в отдельном FramelessDialog** при нажатии кнопки "⚙ Настроить" во вкладке "Плагины". Виджет **никогда** не встраивается напрямую в окно настроек, а открывается в модальном диалоге.
 
 | Параметр | Тип | Описание |
 |----------|-----|----------|
 | `widget_factory` | `Callable[[], QWidget]` | Функция без аргументов, возвращающая виджет-страницу настроек. |
 
-**Важные требования к встроенному виджету:**
-- Виджет должен уметь скрываться/показываться — его видимость переключается автоматически при включении/выключении плагина.
-- Если виджет использует акцентный цвет, реализуйте метод `apply_accent_color(self, color: str)`. Он вызывается при смене цвета в настройках.
+**Почему не встраивание:**
+На Windows виджеты с HWND-бэкендом (`QTableWidget`, `QComboBox`, `QLineEdit`, `QTreeWidget` и т.д.) вызывают артефакт DWM flash при размещении внутри безрамочного окна (`FramelessWindowHint`). Единственное надёжное решение — не встраивать их вовсе, а открывать в отдельном модальном `FramelessDialog`.
+
+**Как это работает:**
+```python
+# page_plugins.py:_open_config()
+dlg = FramelessDialog(self.window())
+inner = dlg._setup_ui()
+inner.addWidget(dlg._build_title_bar(f"{info.display_name} — настройки"))
+config = info.settings_widget_factory()
+inner.addWidget(config)
+inner.addStretch()
+dlg.center_on_parent()
+dlg.exec()
+```
+
+**Рекомендации:**
+- Виджет может **безопасно** содержать любые Qt-виджеты, включая `QTableWidget`, `QComboBox`, `QScrollArea` — они не встраиваются в безрамочное окно.
+- Виджет открывается в модальном диалоге — `apply_accent_color()` не вызывается во время показа (диалог блокирует смену цвета). При старте используйте `cfg.get_accent_color()`.
+- Для простых без-интерактивных страниц (только `QLabel`, пояснения) можно обойтись и без отдельного диалога, но архитектура единообразна для всех плагинов.
+- Если плагину нужно открыть **собственное полноценное окно** (не встроенный виджет, а отдельный диалог поиска дублей и т.п.), используйте шаблон «закрыть родителя через singleShot» (см. раздел 2.1.4.1).
 
 **Пример:**
 ```python
 hub.set_settings_widget(lambda: YMSettingsPage(hub.get_settings()))
 ```
+
+##### 2.1.4.1. Шаблон «отдельное окно плагина» (auto-close)
+
+Для плагинов, которые должны открывать собственное полноценное окно (поиск дублей, менеджер геймпада и т.п.), используйте следующий шаблон:
+
+```python
+class MyPluginPage(QWidget):
+    def __init__(self, settings):
+        super().__init__()
+        self._settings = settings
+        self._opened = False
+        lo = QVBoxLayout(self)
+        lo.addStretch()
+        QTimer.singleShot(0, self._auto_open)
+
+    def _auto_open(self):
+        if self._opened:
+            return
+        self._opened = True
+        mw = _hub.get_main_window() if _hub else self.window()
+        p = self.window()
+        if p and p is not self:
+            p.close()
+        QTimer.singleShot(0, lambda mw=mw: _open_my_dialog(mw))
+```
+
+**Логика:**
+- `_auto_open` вызывается через `QTimer.singleShot(0)` после создания виджета (но после того, как FramelessDialog из `_open_config` уже показан).
+- Сначала захватывается ссылка на главное окно (`mw`), затем родительский диалог закрывается (`p.close()`) — окно настроек исчезает немедленно.
+- Второй `QTimer.singleShot(0)` нужен, чтобы дождаться полного уничтожения родительского диалога (виджет `self` может быть удалён к этому моменту, поэтому вся логика вынесена в модульную функцию `_open_my_dialog`).
+- Функция `_open_my_dialog` не имеет доступа к `self`, вся необходимая логика должна быть самодостаточной.
+
+**Пример реализации (duplicate_finder):**
+```python
+def _open_dupe_dialog(parent_window):
+    """Создаёт и показывает диалог поиска дублей (без self)."""
+    from musicplayer.ui.widgets.frameless_dialog import FramelessDialog
+    from musicplayer.ui.tag_editor.widgets import LoadingBar
+
+    dialog = FramelessDialog(parent_window)
+    inner = dialog._setup_ui()
+    # ... построение UI, closures ...
+    dialog.exec()
+
+
+def register(hub):
+    hub.set_settings_widget(lambda: DuplicateFinderPage(hub.get_settings()))
+```
+
+> **Важно:** Функция `_open_dupe_dialog` не должна ссылаться на `self`, `hub` или другие объекты, которые могут быть удалены при закрытии родительского диалога. Используйте только переданные аргументы и глобальные переменные модуля (`_hub`, константы `cfg`).
 
 ### 2.2. Управление плеером
 
@@ -326,7 +394,7 @@ cfg.get_accent_color()   # Функция для получения текуще
 
 ### 6.2. Акцентный цвет
 
-Если плагин использует акцентный цвет в UI, его страница настроек (и любые дочерние виджеты) должны реализовать метод:
+Если плагин использует акцентный цвет в UI, его страница настроек (и любые дочерние виджеты) могут реализовать метод:
 
 ```python
 def apply_accent_color(self, color: str):
@@ -334,8 +402,9 @@ def apply_accent_color(self, color: str):
     self._some_label.setStyleSheet(f"color: {color};")
 ```
 
-Этот метод вызывается:
-- Для встроенных виджетов — через `PluginsPage.apply_accent_color()`.
+**Важно:** Начиная с версии, где виджеты настроек открываются в отдельном `FramelessDialog` (модально), `apply_accent_color()` **не вызывается** во время показа диалога — модальный `exec()` блокирует смену цвета. Метод сохраняется для обратной совместимости, но для новых плагинов достаточно использовать `cfg.get_accent_color()` при построении UI.
+
+Метод по-прежнему вызывается:
 - Для отдельных вкладок — через `SettingsDialog.apply_accent_color()`.
 
 ### 6.3. Стиль полей ввода и кнопок
@@ -405,6 +474,9 @@ logger = logging.getLogger(__name__)
 
 
 class TestPage(QWidget):
+    """Страница настроек плагина. Открывается в отдельном FramelessDialog
+    при нажатии '⚙ Настроить' во вкладке 'Плагины'."""
+
     def __init__(self, settings):
         super().__init__()
         self._settings = settings
@@ -420,17 +492,14 @@ class TestPage(QWidget):
             f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 14px;")
         layout.addWidget(self._label)
 
-    def apply_accent_color(self, color: str):
-        """Обновить цвета при смене акцентного цвета."""
-        self._label.setStyleSheet(
-            f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 14px;")
-
 
 def register(hub):
     """Точка входа — вызывается PluginManager при загрузке плагина."""
     logger.info("Test Plugin registered")
     hub.set_settings_widget(lambda: TestPage(hub.get_settings()))
 ```
+
+> **Примечание:** `apply_accent_color()` не требуется — страница открывается модально, акцентный цвет не может измениться во время показа. Достаточно `cfg.get_accent_color()` в `__init__`.
 
 ---
 
@@ -478,8 +547,10 @@ class PluginInfo:
 4. `add_settings_page()` создаёт отдельную вкладку; если планируется несколько плагинов, используйте `set_settings_widget()` для встраивания в общую вкладку.
 5. Плагин **не должен** полагаться на наличие других плагинов.
 6. Для frozen exe зависимости плагина не входят в `.exe` — их нужно предоставлять через `_vendor/`.
-7. Метод `apply_accent_color()` вызывается при смене цвета в настройках (не при загрузке). При старте используйте `cfg.get_accent_color()` напрямую.
+7. Виджеты с HWND-бэкендом (`QTableWidget`, `QComboBox`, `QLineEdit`, `QTreeWidget`, `QScrollArea` и т.д.) **не должны** встраиваться напрямую в безрамочное окно (`FramelessWindowHint` + `WA_TranslucentBackground`) — это вызывает DWM flash на Windows. Всегда используйте шаблон с отдельным `FramelessDialog` (реализовано в `_open_config` автоматически).
+8. Виджет настроек открывается **модально** — `apply_accent_color()` не вызывается. При старте используйте `cfg.get_accent_color()` напрямую.
+9. Для плагинов, которым нужно собственное полноценное окно (не встраиваемый виджет), используйте шаблон «auto-close» из раздела 2.1.4.1. Функция с логикой окна не должна ссылаться на `self`, только на переданные аргументы.
 
 ---
 
-*Дата обновления: 2026-06-06*
+*Дата обновления: 2026-06-08*
