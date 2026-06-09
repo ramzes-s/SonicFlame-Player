@@ -122,6 +122,12 @@ class PluginsPage(QWidget):
             desc.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
             text_col.addWidget(desc)
 
+        if info.author:
+            author_label = QLabel(f"Автор: {info.author}")
+            author_label.setStyleSheet(
+                f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 10px;")
+            text_col.addWidget(author_label)
+
         row_layout.addLayout(text_col, 1)
 
         if info.settings_widget_factory is not None:

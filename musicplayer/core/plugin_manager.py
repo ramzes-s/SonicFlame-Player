@@ -21,7 +21,8 @@ class PluginInfo:
 
     def __init__(self, name: str, display_name: str, version: str,
                  entry: str, description: str = "",
-                 settings_page: bool = False, requires: list = None):
+                 settings_page: bool = False, requires: list = None,
+                 author: str = ""):
         self.name = name
         self.display_name = display_name
         self.version = version
@@ -29,6 +30,7 @@ class PluginInfo:
         self.description = description
         self.settings_page = settings_page
         self.requires = requires or []
+        self.author = author
         self.settings_widget_factory = None  # Set by hub.set_settings_widget()
 
 
@@ -169,6 +171,7 @@ class PluginManager:
                     description=meta.get("description", ""),
                     settings_page=meta.get("settings_page", False),
                     requires=meta.get("requires", []),
+                    author=meta.get("author", ""),
                 )
                 self._plugins.append(info)
                 logger.info(f"Discovered plugin: {info.display_name} v{info.version}")
