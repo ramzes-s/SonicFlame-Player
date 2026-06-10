@@ -102,86 +102,121 @@ class AnalysisWorker(QThread):
         self._is_cancelled = True
 
 
+BATCH_SIZE = 100
+
+
 class AnalysisManager(QObject):
     """
     Manages background audio analysis.
-    Starts AnalysisWorker and updates the database with results.
+
+    Starts AnalysisWorker on the current playlist's unanalyzed tracks.
+    When the playlist batch finishes, it automatically continues with
+    unanalyzed tracks from the rest of the library (BATCH_SIZE at a time).
+    Calling start_analysis() with a new playlist cancels any running batch.
     """
+
     analysis_started = Signal()
-    analysis_progress = Signal(str, int, int) # filepath, current, total
+    analysis_progress = Signal(str, int, int)  # filepath, current, total
     analysis_finished = Signal()
-    
+
     def __init__(self, parent: Optional[QObject] = None):
         super().__init__(parent)
         self._worker: Optional[AnalysisWorker] = None
-        self._tracks_to_analyze: List[TrackInfo] = []
         self._analyzed_count = 0
         self._total_to_analyze = 0
 
     def start_analysis(self, tracks: List[TrackInfo]):
+        """Start analysis on the given track list (typically a playlist).
+
+        Cancels any running worker first.  After these tracks are done,
+        the manager continues with unanalyzed library tracks automatically.
         """
-        Starts the analysis for tracks that need it.
-        Expects a list of TrackInfo objects.
-        """
-        self._tracks_to_analyze = [t for t in tracks if t.tempo == 0.0] # Only analyze tracks not yet analyzed
-        if not self._tracks_to_analyze:
-            self.analysis_finished.emit()
+        self._cancel_worker()
+
+        pending = [t for t in tracks if t.tempo == 0.0]
+        if not pending:
+            self._advance_to_library()
             return
 
         self._analyzed_count = 0
-        self._total_to_analyze = len(self._tracks_to_analyze)
-        
-        filepaths_to_analyze = [t.filepath for t in self._tracks_to_analyze]
-
-        # Cancel any existing worker first
-        if self._worker:
-            if self._worker.isRunning():
-                self._worker.terminate()  # Force stop immediately
-                self._worker.wait(500)   # Wait max 500ms
-            self._worker = None
+        self._total_to_analyze = len(pending)
+        filepaths = [t.filepath for t in pending]
 
         from musicplayer.core.settings import get_analysis_duration
         duration = get_analysis_duration()
-        self._worker = AnalysisWorker(filepaths_to_analyze, duration, self)
+
+        self._worker = AnalysisWorker(filepaths, duration, self)
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
         self._worker.start()
         self.analysis_started.emit()
 
+    def _advance_to_library(self):
+        """Query next batch of unanalyzed library tracks and start worker."""
+        filepaths = self._get_unanalyzed_filepaths()
+        if not filepaths:
+            self.analysis_finished.emit()
+            return
+
+        self._analyzed_count = 0
+        self._total_to_analyze = len(filepaths)
+
+        from musicplayer.core.settings import get_analysis_duration
+        duration = get_analysis_duration()
+
+        self._worker = AnalysisWorker(filepaths, duration, self)
+        self._worker.track_analyzed.connect(self._on_track_analyzed)
+        self._worker.analysis_finished.connect(self._on_analysis_finished)
+        self._worker.analysis_error.connect(self._on_analysis_error)
+        self._worker.start()
+        self.analysis_started.emit()
+
+    def _get_unanalyzed_filepaths(self) -> List[str]:
+        """Return up to BATCH_SIZE filepaths with tempo == 0 from the library."""
+        from musicplayer.core.db import get_connection
+        try:
+            with get_connection() as conn:
+                cur = conn.execute(
+                    "SELECT filepath FROM library WHERE tempo = 0 LIMIT ?",
+                    (BATCH_SIZE,)
+                )
+                return [row[0] for row in cur.fetchall()]
+        except Exception as e:
+            print(f"AnalysisManager: DB query failed: {e}", file=sys.stderr)
+            return []
+
     def _on_track_analyzed(self, filepath: str, tempo: float, energy: float, mood: float,
                            zero_crossing_rate: float = 0.0,
                            spectral_flux: float = 0.0,
                            hpss_ratio: float = 0.0):
-        """Slot to receive analysis results and update the database."""
-        # Update the database
+        """Update the database and emit progress."""
         try:
-            # We need a function in db.py to update only analysis fields
-            update_track_analysis(filepath, tempo, energy, mood, zero_crossing_rate, spectral_flux, hpss_ratio)
+            update_track_analysis(filepath, tempo, energy, mood,
+                                  zero_crossing_rate, spectral_flux, hpss_ratio)
         except Exception as e:
             print(f"AnalysisManager: Failed to update DB for {filepath}: {e}", file=sys.stderr)
-        
+
         self._analyzed_count += 1
         self.analysis_progress.emit(filepath, self._analyzed_count, self._total_to_analyze)
 
     def _on_analysis_finished(self):
-        """Slot for when the analysis worker finishes."""
-        if self._worker:
-            self._worker.quit()
-            self._worker.wait()
-            self._worker = None
-        self.analysis_finished.emit()
+        """Playlist or library batch finished — continue with library if any left."""
+        self._worker = None
+        self._advance_to_library()
 
     def _on_analysis_error(self, message: str):
-        """Slot for errors from the analysis worker."""
         print(f"AnalysisManager: Analysis worker error: {message}", file=sys.stderr)
-        # Optionally, emit analysis_finished or analysis_error to main_window
-        self.analysis_finished.emit() # For now, just mark as finished
+        self._worker = None
+        self._advance_to_library()
 
-    def cancel_analysis(self):
-        """Cancels any ongoing analysis."""
+    def _cancel_worker(self):
         if self._worker and self._worker.isRunning():
             self._worker.cancel()
-            self._worker.wait() # Wait for the thread to actually stop
+            self._worker.wait(500)
             self._worker = None
+
+    def cancel_analysis(self):
+        """Cancel any ongoing analysis (called on app close)."""
+        self._cancel_worker()
 
