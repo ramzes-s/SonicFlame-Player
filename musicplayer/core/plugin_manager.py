@@ -96,6 +96,36 @@ class PluginHub:
         """Get a value from config by attribute name."""
         return getattr(cfg, key, None)
 
+    # -- Plugin-specific settings storage --
+
+    PLUGIN_SETTINGS_FILE = cfg.CACHE_DIR / "plugins.json"
+
+    @classmethod
+    def _load_all_plugin_settings(cls) -> dict:
+        try:
+            with open(cls.PLUGIN_SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {}
+
+    @classmethod
+    def _save_all_plugin_settings(cls, data: dict):
+        cls.PLUGIN_SETTINGS_FILE.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def get_plugin_settings(self, plugin_name: str) -> dict:
+        """Return settings dict for a specific plugin."""
+        all_data = self._load_all_plugin_settings()
+        return all_data.get(plugin_name, {})
+
+    def save_plugin_settings(self, plugin_name: str, data: dict):
+        """Persist settings dict for a specific plugin (merges with existing)."""
+        all_data = self._load_all_plugin_settings()
+        all_data[plugin_name] = data
+        self._save_all_plugin_settings(all_data)
+
     # -- Database --
 
     def add_tracks_to_library(self, filepaths: list):
@@ -181,6 +211,15 @@ class PluginManager:
         # Remove stale plugin_enabled_* entries from settings
         active = {p.name for p in self._plugins}
         self._settings.cleanup_plugin_settings(active)
+
+        # Remove stale entries from plugins.json
+        all_plugin_data = PluginHub._load_all_plugin_settings()
+        stale_keys = set(all_plugin_data) - active
+        if stale_keys:
+            for key in stale_keys:
+                del all_plugin_data[key]
+            PluginHub._save_all_plugin_settings(all_plugin_data)
+            logger.info(f"Cleaned up {len(stale_keys)} stale plugin settings from plugins.json")
 
         return self._plugins
 

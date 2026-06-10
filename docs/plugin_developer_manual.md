@@ -40,7 +40,8 @@ plugins/<plugin_name>/
     "version": "1.0.0",
     "entry": "duplicate_finder",
     "description": "Находит дубликаты треков по названию и исполнителю",
-    "settings_page": true
+    "settings_page": true,
+    "author": "SonicFlame Player"
 }
 
 ```
@@ -54,6 +55,7 @@ plugins/<plugin_name>/
 | `description` | string | нет | Краткое описание (отображается в списке плагинов под именем). |
 | `settings_page` | bool | нет | Флаг наличия UI-настроек (по умолчанию `false`). |
 | `requires` | array[string] | нет | Список pip-пакетов, необходимых плагину (информационно, для документации). |
+| `author` | string | нет | Автор плагина (отображается в списке плагинов под описанием). |
 
 ### 1.4. Процесс загрузки
 
@@ -161,7 +163,7 @@ dlg.exec()
 
 **Пример:**
 ```python
-hub.set_settings_widget(lambda: YMSettingsPage(hub.get_settings()))
+hub.set_settings_widget(lambda: MyPluginSettingsPage())
 ```
 
 ##### 2.1.4.1. Шаблон «отдельное окно плагина» (auto-close)
@@ -248,18 +250,43 @@ def register(hub):
 
 #### `get_settings() -> AppSettings`
 
-Возвращает объект настроек. Плагин может читать и писать свои ключи:
+Возвращает объект настроек плеера. Плагин может **читать** из него ключи плеера (например, `last_folder`, `volume`), но **не должен** записывать в него свои настройки.
+
+#### `get_plugin_settings(plugin_name: str) -> dict`
+
+Возвращает словарь настроек для указанного плагина из `.cache/plugins.json`.
+
+#### `save_plugin_settings(plugin_name: str, data: dict)`
+
+Сохраняет словарь настроек для указанного плагина в `.cache/plugins.json`.
+
+> **Правило хранения настроек**: Все настройки плагина хранятся централизованно в `.cache/plugins.json`. Ключом верхнего уровня является имя плагина (`name` из `plugin.json`). Хаб (`PluginHub`) обеспечивает изоляцию — плагин видит только свой раздел. Запись в глобальный `settings.json` плеера **запрещена**.
+
+**Пример:**
 
 ```python
-settings = hub.get_settings()
 # Чтение
-token = settings._data.get("ym_token", "")
+data = hub.get_plugin_settings("my_plugin")
+token = data.get("token", "")
+
 # Запись
-settings._data["ym_token"] = "new_token"
-settings._save()
+hub.save_plugin_settings("my_plugin", {"token": "new_value", "quality": "high"})
 ```
 
-> **Важно**: Все ключи плагина должны иметь уникальный префикс (например, `ym_token`, `ym_quality`), чтобы избежать коллизий.
+Файл `.cache/plugins.json` имеет следующую структуру:
+
+```json
+{
+    "duplicate_finder": {
+        "min_similarity": 0.85
+    },
+    "ym_downloader": {
+        "token": "..."
+    }
+}
+```
+
+При удалении плагина его раздел удаляется автоматически через `cleanup_plugin_settings()`.
 
 #### `get_config_value(key: str) -> Any`
 
@@ -531,6 +558,7 @@ class PluginInfo:
     display_name: str               # Отображаемое имя
     version: str                    # Версия
     entry: str                      # Модуль для импорта
+    author: str                     # Автор
     description: str                # Описание
     settings_page: bool             # Флаг наличия UI настроек
     requires: list                  # Список зависимостей
@@ -550,7 +578,8 @@ class PluginInfo:
 7. Виджеты с HWND-бэкендом (`QTableWidget`, `QComboBox`, `QLineEdit`, `QTreeWidget`, `QScrollArea` и т.д.) **не должны** встраиваться напрямую в безрамочное окно (`FramelessWindowHint` + `WA_TranslucentBackground`) — это вызывает DWM flash на Windows. Всегда используйте шаблон с отдельным `FramelessDialog` (реализовано в `_open_config` автоматически).
 8. Виджет настроек открывается **модально** — `apply_accent_color()` не вызывается. При старте используйте `cfg.get_accent_color()` напрямую.
 9. Для плагинов, которым нужно собственное полноценное окно (не встраиваемый виджет), используйте шаблон «auto-close» из раздела 2.1.4.1. Функция с логикой окна не должна ссылаться на `self`, только на переданные аргументы.
+10. Плагин **обязан** хранить свои настройки через `hub.save_plugin_settings()` / `hub.get_plugin_settings()`. Запись в глобальный `settings.json` плеера через `get_settings()._data` **запрещена**. При удалении плагина его настройки очищаются автоматически.
 
 ---
 
-*Дата обновления: 2026-06-08*
+*Дата обновления: 2026-06-10*
