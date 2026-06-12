@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.2.0.0"
+APP_VERSION = "1.2.3.0"
 # Database version for schema compatibility checking
 DB_VERSION = 1
 
@@ -23,7 +23,7 @@ ACCENT_COLOR = "#ed6a02"
 # Global colors
 TEXT_COLOR = "#FFFFFF"
 BG_COLOR = "#000000"
-DIVIDER_COLOR = "rgba(80, 80, 80, 0.5)"               # основные разделители (sidebar, панели)
+DIVIDER_COLOR = "rgba(80, 80, 80, 0.3)"               # основные разделители (sidebar, панели)
 
 # Item-level divider (playlist items, table rows) — rgba(60,60,60,50) в QColor paintEvent
 DIVIDER_ITEM_COLOR = "rgba(80, 80, 80, 0.2)"          # для QSS (border-bottom)
