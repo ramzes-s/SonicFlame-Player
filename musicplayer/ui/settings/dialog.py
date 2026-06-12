@@ -33,7 +33,8 @@ class SettingsDialog(QDialog):
     prevent_sleep_toggled = Signal(bool)
     audio_device_changed = Signal(object)
 
-    def __init__(self, settings, parent=None, plugin_pages=None, plugin_infos=None):
+    def __init__(self, settings, parent=None, plugin_pages=None, plugin_infos=None,
+                 plugin_manager=None):
         super().__init__(parent)
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
@@ -46,6 +47,7 @@ class SettingsDialog(QDialog):
         self.settings = settings
         self._plugin_pages = plugin_pages or []
         self._plugin_infos = plugin_infos or []
+        self._plugin_manager = plugin_manager
 
         self._build_ui()
         self._update_stats()
@@ -138,7 +140,7 @@ class SettingsDialog(QDialog):
 
         tab_names = ["Основное", "Внешний вид", "Сервер и API", "Плагины", "Системные"]
         page_classes = [MainPage, AppearancePage, WebServerPage,
-                        lambda s: PluginsPage(s, self._plugin_infos), SystemPage]
+                        lambda s: PluginsPage(s, self._plugin_infos, self._plugin_manager), SystemPage]
         self._pages = []
 
         def _add_tab(name, page_widget):

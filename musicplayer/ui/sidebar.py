@@ -266,6 +266,15 @@ class SideBarWidget(QWidget):
         self._plugin_section.setVisible(True)
         return btn
 
+    def remove_plugin_button(self, btn):
+        """Remove a plugin button from the sidebar."""
+        if btn in self._plugin_buttons:
+            self._plugin_buttons.remove(btn)
+        self._plugin_layout.removeWidget(btn)
+        btn.deleteLater()
+        if not self._plugin_buttons:
+            self._plugin_section.setVisible(False)
+
     def set_music_folder_configured(self, configured: bool):
         """Enable folder button only when music_folder is set in config."""
         self._music_folder_configured = configured

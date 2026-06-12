@@ -415,6 +415,8 @@ class PlaylistWidget(QWidget):
         # Favorites manager
         self.favorites = FavoritesManager()
         self._context_actions = []  # List of (text, callback) for plugin context menu
+        self._context_submenus = []  # List of (label, [(text, callback)]) for plugin submenus
+        self._context_refresh_cb = None  # Callable(view_index, track) to rebuild submenus
 
         # Track data — share same reference so add_track works during scanning
         self._full_tracks = []    # All tracks from folder
@@ -495,34 +497,77 @@ class PlaylistWidget(QWidget):
         """Add an action to the right-click context menu."""
         self._context_actions.append((text, callback))
 
+    def add_context_submenu(self, label: str, items: list):
+        """Add a submenu to the right-click context menu.
+
+        Args:
+            label: submenu label text
+            items: list of (item_text, callback) tuples
+        """
+        self._context_submenus.append((label, items))
+
+    def set_context_refresh(self, callback):
+        """Register a callback invoked before the context menu is shown.
+        callback(view_index, track) should rebuild _context_submenus and _context_actions.
+        """
+        self._context_refresh_cb = callback
+
     def contextMenuEvent(self, event):
         """Show context menu with plugin actions on right-click."""
-        if not self._context_actions:
-            return
         list_pos = self.list_widget.mapFromGlobal(event.globalPos())
         item = self.list_widget.itemAt(list_pos)
-        if not item:
-            return
-        view_index = item.data(Qt.UserRole + 1)
-        if view_index is None:
-            return
-        track = self.get_track_by_view_index(view_index)
-        if not track:
+        view_index = None
+        track = None
+        if item:
+            view_index = item.data(Qt.UserRole + 1)
+            if view_index is not None:
+                if hasattr(self, 'get_track_by_view_index'):
+                    track = self.get_track_by_view_index(view_index)
+
+        # Refresh dynamic context menu items
+        if self._context_refresh_cb is not None:
+            self._context_refresh_cb(view_index, track)
+
+        has_track_actions = bool(self._context_actions or self._context_submenus)
+        if not has_track_actions and track is None:
             return
 
         menu = QMenu(self)
         menu.setStyleSheet(f"""
-            QMenu {{ background-color: {cfg.SECONDARY_BG_COLOR}; color: {cfg.TEXT_COLOR};
-                border: 1px solid {cfg.DIVIDER_COLOR}; padding: 4px; font-size: 12px; }}
-            QMenu::item {{ padding: 6px 24px; border-radius: 3px; }}
-            QMenu::item:selected {{ background-color: {cfg.get_accent_color()}40; }}
+            QMenu {{ background-color: {cfg.BG_COLOR}; color: {cfg.TEXT_COLOR};
+                border: 1px solid {cfg.DIVIDER_COLOR}; padding: 4px 0; font-size: 12px; }}
+            QMenu::item {{ padding: 5px 22px; }}
+            QMenu::item:selected {{ background-color: {cfg.get_accent_color()}; }}
+            QMenu::separator {{ height: 1px; background: {cfg.DIVIDER_COLOR};
+                margin: 2px 8px; }}
         """)
-        for text, cb in self._context_actions:
-            action = menu.addAction(text)
-            action.setData(view_index)
-            # Connect callback directly to this action
-            action.triggered.connect(lambda checked=False, c=cb: c())
-        menu.exec(event.globalPos())
+
+        # Track-specific actions (submenus) — require a track
+        if track is not None:
+            for label, items in self._context_submenus:
+                sub = menu.addMenu(label)
+                sub.setStyleSheet(menu.styleSheet())
+                for item in items:
+                    if item is None:
+                        sub.addSeparator()
+                    else:
+                        text, cb = item
+                        action = sub.addAction(text)
+                        action.setData(view_index)
+                        action.triggered.connect(
+                            lambda checked=False, c=cb, vi=view_index: c(vi))
+
+        # Simple actions (always shown)
+        if self._context_actions:
+            if self._context_submenus and track is not None:
+                menu.addSeparator()
+            for text, cb in self._context_actions:
+                action = menu.addAction(text)
+                action.setData(view_index)
+                action.triggered.connect(lambda checked=False, c=cb: c())
+
+        if menu.actions():
+            menu.exec(event.globalPos())
 
     def load_tracks(self, tracks: list):
         """Load tracks into the playlist (full folder scan)."""

@@ -5,8 +5,12 @@ Wrapper around QMediaPlayer providing playback functionality
 with signals for UI updates.
 """
 
+import json
+import time
+
 from PySide6.QtCore import QObject, Signal, QUrl
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from musicplayer import config as cfg
 from musicplayer.core.db import TrackInfo
 from musicplayer.core import settings
 from musicplayer.core.smtc_manager import SMTCManager
@@ -35,6 +39,7 @@ class AudioPlayer(QObject):
         super().__init__(parent)
 
         self._current_track: TrackInfo | None = None
+        self._now_playing_written = None  # filepath of last track written to now_playing.json
 
         # Audio device manager (handles selection + fallback)
         self._device_manager = AudioDeviceManager(self)
@@ -108,9 +113,43 @@ class AudioPlayer(QObject):
 
     def _on_position_changed(self, position: int):
         self.position_changed.emit(position)
+        self._check_write_now_playing(position)
 
     def _on_duration_changed(self, duration: int):
         self.duration_changed.emit(duration)
+
+    def _check_write_now_playing(self, position: int):
+        """Write now_playing.json after 10s of stable playback (once per track)."""
+        if position < 10000:
+            return
+        track = self._current_track
+        if track is None:
+            return
+        if track.filepath == self._now_playing_written:
+            return
+        try:
+            genres = (
+                [g.strip() for g in track.genre.split("/") if g.strip()]
+                if track.genre else []
+            )
+            data = {}
+            if track.artist and track.artist != "Unknown Artist":
+                data["artist"] = track.artist
+            data["title"] = track.title
+            if track.album and track.album != "Unknown Album":
+                data["album"] = track.album
+            data["duration"] = track.duration
+            if genres:
+                data["genres"] = genres
+            data["timestamp"] = time.time()
+
+            np_path = cfg.CACHE_DIR / "now_playing.json"
+            with open(np_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+            self._now_playing_written = track.filepath
+        except Exception:
+            pass
 
 
 
@@ -125,6 +164,7 @@ class AudioPlayer(QObject):
     def load_source(self, track: TrackInfo):
         """Load an audio file for playback."""
         self._current_track = track
+        self._now_playing_written = None
         url = QUrl.fromLocalFile(track.filepath)
         self._player.setSource(url)
         self._smtc.update_track_info(track)

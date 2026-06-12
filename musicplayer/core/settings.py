@@ -369,7 +369,7 @@ class AppSettings:
             self._save()
 
     def get_plugin_enabled(self, name: str) -> bool:
-        return self._data.get(f"plugin_enabled_{name}", True)
+        return self._data.get(f"plugin_enabled_{name}", False)
 
     def set_plugin_enabled(self, name: str, enabled: bool):
         self._data[f"plugin_enabled_{name}"] = enabled

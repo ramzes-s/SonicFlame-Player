@@ -32,6 +32,7 @@ class PluginInfo:
         self.requires = requires or []
         self.author = author
         self.settings_widget_factory = None  # Set by hub.set_settings_widget()
+        self.sidebar_buttons: list = []  # Track buttons added to sidebar
 
 
 class PluginHub:
@@ -51,12 +52,26 @@ class PluginHub:
     def add_sidebar_button(self, svg_getter: Callable, tooltip: str,
                            callback: Callable) -> object:
         """Add a button to the sidebar. Returns the button widget."""
-        return self._main_window.sidebar.add_plugin_button(
+        btn = self._main_window.sidebar.add_plugin_button(
             svg_getter, tooltip, callback)
+        # Track button under current plugin for cleanup on disable
+        if _current_plugin_info is not None:
+            _current_plugin_info.sidebar_buttons.append(btn)
+        return btn
 
     def add_context_action(self, text: str, callback: Callable):
         """Add an action to the playlist's right-click context menu."""
         self._main_window.playlist_widget.add_context_action(text, callback)
+
+    def add_context_submenu(self, label: str, items: list):
+        """Add a submenu to the playlist's right-click context menu.
+
+        Args:
+            label: submenu label text
+            items: list of (item_text, callback) tuples.
+                   callback receives view_index of the clicked track.
+        """
+        self._main_window.playlist_widget.add_context_submenu(label, items)
 
     def add_settings_page(self, page_widget, tab_name: str):
         """Add a new tab page to the Settings dialog."""
@@ -264,6 +279,42 @@ class PluginManager:
 
     def get_hub(self) -> Optional[PluginHub]:
         return self._hub
+
+    def register_single(self, info: PluginInfo) -> bool:
+        """Load and register a single plugin (used when user enables in settings).
+
+        Returns True if registration succeeded, False otherwise.
+        """
+        if self._hub is None:
+            logger.warning("PluginHub not initialized, cannot register %s", info.name)
+            return False
+        try:
+            global _current_plugin_info
+            _current_plugin_info = info
+            plugins_dir = str(cfg.PLUGINS_DIR)
+            if plugins_dir not in sys.path:
+                sys.path.insert(0, plugins_dir)
+            plugin_mod = __import__(info.entry, fromlist=['register'])
+            if hasattr(plugin_mod, 'register'):
+                plugin_mod.register(self._hub)
+                logger.info("Dynamically registered plugin: %s", info.display_name)
+                return True
+            else:
+                logger.warning("Plugin %s has no register() function", info.name)
+                return False
+        except Exception as e:
+            logger.error("Failed to dynamically register plugin %s: %s", info.name, e)
+            return False
+        finally:
+            _current_plugin_info = None
+
+    def unregister_plugin(self, info: PluginInfo):
+        """Remove a plugin's sidebar integration (called when plugin is disabled)."""
+        # Remove sidebar buttons
+        sidebar = self._hub._main_window.sidebar
+        for btn in list(info.sidebar_buttons):
+            sidebar.remove_plugin_button(btn)
+        info.sidebar_buttons.clear()
 
     def get_discovered_plugins(self) -> list[PluginInfo]:
         """Return all discovered plugins (regardless of enabled state)."""

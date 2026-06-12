@@ -8,7 +8,11 @@ DWM frame flash that HWND-heavy children trigger inside frameless windows.
 
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                                 QCheckBox, QPushButton, QScrollArea)
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent, QSize, QByteArray, QRect
+from PySide6.QtGui import QIcon, QPixmap, QPainter
+from PySide6.QtSvg import QSvgRenderer
+
+from musicplayer.ui.svg_icons import get_settings_svg
 
 from musicplayer import config as cfg
 from musicplayer.core.plugin_manager import PluginInfo
@@ -17,10 +21,11 @@ from musicplayer.core.plugin_manager import PluginInfo
 class PluginsPage(QWidget):
     """One settings tab listing all discovered plugins."""
 
-    def __init__(self, settings, plugin_infos: list[PluginInfo]):
+    def __init__(self, settings, plugin_infos: list[PluginInfo], plugin_manager=None):
         super().__init__()
         self._settings = settings
         self._plugin_infos = plugin_infos
+        self._plugin_manager = plugin_manager
         self._built = False
         self._inner_layout = None
 
@@ -77,6 +82,36 @@ class PluginsPage(QWidget):
         scroll.setWidget(inner)
         lo.addWidget(scroll)
 
+    def _gear_icon(self, color: str, size: int = 36) -> QIcon:
+        svg = get_settings_svg(size, color)
+        renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
+        pm = QPixmap(size, size)
+        pm.fill(Qt.transparent)
+        p = QPainter(pm)
+        p.setRenderHint(QPainter.Antialiasing)
+        renderer.render(p, QRect(0, 0, size, size))
+        p.end()
+        return QIcon(pm)
+
+    def _make_gear_button(self) -> QPushButton:
+        btn = QPushButton()
+        btn.setFixedSize(40, 40)
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setIcon(self._gear_icon(cfg.DISABLED_TEXT_COLOR))
+        btn.setIconSize(QSize(36, 36))
+        btn.setStyleSheet("QPushButton { background-color: transparent; border: none; }")
+        btn._is_gear = True
+        btn.installEventFilter(self)
+        return btn
+
+    def eventFilter(self, obj, event):
+        if isinstance(obj, QPushButton) and getattr(obj, "_is_gear", False):
+            if event.type() == QEvent.Enter:
+                obj.setIcon(self._gear_icon("#FFFFFF"))
+            elif event.type() == QEvent.Leave:
+                obj.setIcon(self._gear_icon(cfg.DISABLED_TEXT_COLOR))
+        return super().eventFilter(obj, event)
+
     def _add_plugin_row(self, info: PluginInfo):
         accent = cfg.get_accent_color()
         is_enabled = self._settings.get_plugin_enabled(info.name)
@@ -123,7 +158,8 @@ class PluginsPage(QWidget):
             text_col.addWidget(desc)
 
         if info.author:
-            author_label = QLabel(f"Автор: {info.author}")
+            author_label = QLabel(
+                f"Автор: <span style='color:{cfg.TEXT_COLOR}'>{info.author}</span>")
             author_label.setStyleSheet(
                 f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 10px;")
             text_col.addWidget(author_label)
@@ -131,19 +167,7 @@ class PluginsPage(QWidget):
         row_layout.addLayout(text_col, 1)
 
         if info.settings_widget_factory is not None:
-            config_btn = QPushButton("\u2699 \u041d\u0430\u0441\u0442\u0440\u043e\u0438\u0442\u044c")
-            config_btn.setAutoDefault(False)
-            config_btn.setCursor(Qt.PointingHandCursor)
-            config_btn.setFixedHeight(30)
-            config_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background-color: transparent; border: 1px solid {cfg.DIVIDER_COLOR};
-                    color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px; padding: 0 12px;
-                }}
-                QPushButton:hover {{
-                    border-color: {accent}; color: {accent};
-                }}
-            """)
+            config_btn = self._make_gear_button()
             config_btn.clicked.connect(
                 lambda checked=False, inf=info: self._open_config(inf))
             row_layout.addWidget(config_btn)
@@ -177,6 +201,38 @@ class PluginsPage(QWidget):
 
     def _on_toggle(self, name: str, checked: bool):
         self._settings.set_plugin_enabled(name, checked)
+        info = next((i for i in self._plugin_infos if i.name == name), None)
+        if not info:
+            return
+        if checked and self._plugin_manager:
+            self._plugin_manager.register_single(info)
+            self._rebuild()
+        elif not checked and self._plugin_manager:
+            self._plugin_manager.unregister_plugin(info)
+
+    def _rebuild(self):
+        """Rebuild the plugin list (e.g. after dynamic registration)."""
+        # Remove all items from layout
+        while self._inner_layout.count():
+            item = self._inner_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                PluginsPage._clear_layout(item.layout())
+        # Re-add rows in current order
+        self._plugin_infos.sort(key=lambda i: not self._settings.get_plugin_enabled(i.name))
+        for info in self._plugin_infos:
+            self._add_plugin_row(info)
+        self._inner_layout.addStretch()
+
+    @staticmethod
+    def _clear_layout(layout):
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+            elif item.layout():
+                PluginsPage._clear_layout(item.layout())
 
     def apply_accent_color(self, color: str):
         if not self._built or self._inner_layout is None:
@@ -200,16 +256,4 @@ class PluginsPage(QWidget):
                             background-color: #444;
                         }}
                     """)
-                btn = w.findChild(QPushButton)
-                if btn:
-                    btn.setStyleSheet(f"""
-                        QPushButton {{
-                            background-color: transparent;
-                            border: 1px solid {cfg.DIVIDER_COLOR};
-                            color: {cfg.TERTIARY_TEXT_COLOR};
-                            font-size: 12px; padding: 0 12px;
-                        }}
-                        QPushButton:hover {{
-                            border-color: {color}; color: {color};
-                        }}
-                    """)
+                # gear icons are always gray — no accent update needed

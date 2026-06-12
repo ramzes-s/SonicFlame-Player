@@ -458,7 +458,8 @@ class MainWindow(QMainWindow):
         from musicplayer.ui.accent_style import apply_accent_to_main_window
         self._settings_dialog = SettingsDialog(
             self.settings, self, plugin_pages=self._plugin_pages,
-            plugin_infos=self._plugin_manager.get_discovered_plugins()) # get_discovered_plugins очень медленный метод, замедляет открытие окна Настроек, надо перенести внутрь вкладки плагинов в настройках
+            plugin_infos=self._plugin_manager.get_discovered_plugins(),
+            plugin_manager=self._plugin_manager)
         dialog = self._settings_dialog
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))
