@@ -121,18 +121,21 @@ class PlaylistManager(PlayerManagerBase):
             self._mw.settings.playlist_type = "Playlist"
             self._mw._play_track_at_view_index(0)
 
-    def load_similar_tracks(self):
-        current_fp = self._mw._current_playing_filepath
-        current_track = None
-        if current_fp:
-            for t in self._mw.playlist_widget.get_view_tracks():
-                if t.filepath == current_fp:
-                    current_track = t
-                    break
-        if not current_track:
-            StyledMessageBox.info(self._mw, "Поиск похожих треков",
-                                  text="Нет текущего воспроизводимого трека для поиска похожих.")
-            return
+    def load_similar_tracks(self, track=None):
+        if track is None:
+            current_fp = self._mw._current_playing_filepath
+            current_track = None
+            if current_fp:
+                for t in self._mw.playlist_widget.get_view_tracks():
+                    if t.filepath == current_fp:
+                        current_track = t
+                        break
+            if not current_track:
+                StyledMessageBox.info(self._mw, "Поиск похожих треков",
+                                      text="Нет текущего воспроизводимого трека для поиска похожих.")
+                return
+        else:
+            current_track = track
 
         from musicplayer.core.db import increment_play_count
         increment_play_count(current_track.filepath)

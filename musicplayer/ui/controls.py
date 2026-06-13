@@ -14,7 +14,7 @@ from musicplayer.ui.svg_icons import (
     get_play_svg, get_pause_svg, get_next_svg, get_previous_svg,
     get_shuffle_svg, get_repeat_svg,
     get_volume_high_svg, get_volume_mute_svg, get_heart_svg,
-    get_similar_tracks_svg, get_artist_svg
+    get_similar_tracks_svg, get_settings_svg
 )
 from musicplayer import config as cfg
 from musicplayer.config import TEXT_COLOR
@@ -42,8 +42,8 @@ class ControlsWidget(QWidget):
     volume_changed = Signal(float)  # 0.0 to 1.0
     seek_clicked = Signal(int)  # milliseconds - emitted on click/release
     favorite_toggled = Signal()  # toggle favorite for current track
-    similar_tracks_requested = Signal() # NEW: Request to find similar tracks
-    artist_tracks_requested = Signal()  # Request to load all tracks by current artist
+    similar_tracks_requested = Signal() # Request to find similar tracks
+    settings_requested = Signal()  # Open settings dialog
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -100,10 +100,10 @@ class ControlsWidget(QWidget):
         controls_layout.setContentsMargins(0, 0, 0, 0)
         controls_layout.setSpacing(0)
 
-        # Artist tracks button - load all tracks by current artist
-        self.artist_btn = ColorHoverButton(get_artist_svg, size=22, tooltip="Все песни исполнителя")
-        self.artist_btn.clicked.connect(self.artist_tracks_requested.emit)
-        controls_layout.addWidget(self.artist_btn)
+        # Settings button - open settings dialog
+        self.settings_btn = ColorHoverButton(get_settings_svg, size=28, tooltip="Настройки")
+        self.settings_btn.clicked.connect(self.settings_requested.emit)
+        controls_layout.addWidget(self.settings_btn)
 
         controls_layout.addSpacing(60)
 
@@ -304,9 +304,8 @@ class ControlsWidget(QWidget):
             self.heart_btn.setToolTip("В избранное")
     
     def set_action_buttons_enabled(self, enabled: bool):
-        """Enable/disable similar-tracks and artist-tracks buttons during loading."""
+        """Enable/disable similar-tracks button during loading."""
         self.similar_tracks_btn.setEnabled(enabled)
-        self.artist_btn.setEnabled(enabled)
 
     def _update_time_labels(self, position: int, duration: int):
         """Update time display labels."""

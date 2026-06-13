@@ -295,7 +295,6 @@ class PlaylistListWidget(QListWidget):
 
     track_selected = Signal(int)  # view_index
     heart_clicked = Signal(int)   # view_index
-    badge_clicked = Signal(int)   # view_index — click on badges area (duration, genre, crown)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -324,11 +323,6 @@ class PlaylistListWidget(QListWidget):
                     self._suppress_selection = True
                     event.accept()
                     return
-                elif click_pos.x() >= heart_x - 100:
-                    # Badge zone (left of heart) — suppress selection, ignore
-                    self._suppress_selection = True
-                    event.accept()
-                    return
 
         self._suppress_selection = False
         super().mousePressEvent(event)
@@ -351,10 +345,6 @@ class PlaylistListWidget(QListWidget):
                         self.heart_clicked.emit(view_index)
                         event.accept()
                         return
-                    # Badge zone — emit badge_clicked
-                    self.badge_clicked.emit(view_index)
-                    event.accept()
-                    return
             event.accept()
             return
 
@@ -372,11 +362,6 @@ class PlaylistListWidget(QListWidget):
                 if heart_rect.contains(click_pos):
                     # Heart zone
                     self.heart_clicked.emit(view_index)
-                    event.accept()
-                    return
-                elif click_pos.x() >= heart_x - 100:
-                    # Badge zone — emit badge_clicked
-                    self.badge_clicked.emit(view_index)
                     event.accept()
                     return
                 else:
@@ -403,6 +388,8 @@ class PlaylistWidget(QWidget):
     favorite_clicked = Signal(int)  # Emitted when user clicks heart icon (view index)
     badge_clicked = Signal(int)  # Emitted when user clicks badge area (view index)
     playlist_loaded = Signal()  # Emitted after tracks are loaded
+    context_similar_tracks = Signal(object)  # Emitted from context menu: find similar for TrackInfo
+    context_artist_tracks = Signal(str)  # Emitted from context menu: all tracks by artist name
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -435,7 +422,6 @@ class PlaylistWidget(QWidget):
         # Connect custom signals
         self.list_widget.track_selected.connect(self._on_track_selected)
         self.list_widget.heart_clicked.connect(self._on_heart_clicked)
-        self.list_widget.badge_clicked.connect(self._on_badge_clicked)
 
         # Set custom delegate — reference _view_tracks from the start
         self.delegate = PlaylistDelegate(self.list_widget, self._view_tracks, self.favorites)
@@ -489,10 +475,6 @@ class PlaylistWidget(QWidget):
         """Handle heart icon click — toggle favorite."""
         self.favorite_clicked.emit(view_index)
 
-    def _on_badge_clicked(self, view_index: int):
-        """Handle badge area click — emit signal for tag editor."""
-        self.badge_clicked.emit(view_index)
-
     def add_context_action(self, text: str, callback):
         """Add an action to the right-click context menu."""
         self._context_actions.append((text, callback))
@@ -512,6 +494,18 @@ class PlaylistWidget(QWidget):
         """
         self._context_refresh_cb = callback
 
+    def remove_context_actions(self, actions: list):
+        """Remove specific context actions (used by PluginManager on disable)."""
+        for item in actions:
+            if item in self._context_actions:
+                self._context_actions.remove(item)
+
+    def remove_context_submenus(self, submenus: list):
+        """Remove specific context submenus (used by PluginManager on disable)."""
+        for item in submenus:
+            if item in self._context_submenus:
+                self._context_submenus.remove(item)
+
     def contextMenuEvent(self, event):
         """Show context menu with plugin actions on right-click."""
         list_pos = self.list_widget.mapFromGlobal(event.globalPos())
@@ -528,21 +522,41 @@ class PlaylistWidget(QWidget):
         if self._context_refresh_cb is not None:
             self._context_refresh_cb(view_index, track)
 
-        has_track_actions = bool(self._context_actions or self._context_submenus)
-        if not has_track_actions and track is None:
+        has_plugin_actions = bool(self._context_actions or self._context_submenus)
+        if not has_plugin_actions and track is None:
             return
 
         menu = QMenu(self)
+        accent = cfg.get_accent_color()
         menu.setStyleSheet(f"""
             QMenu {{ background-color: {cfg.BG_COLOR}; color: {cfg.TEXT_COLOR};
                 border: 1px solid {cfg.DIVIDER_COLOR}; padding: 4px 0; font-size: 12px; }}
-            QMenu::item {{ padding: 5px 22px; }}
-            QMenu::item:selected {{ background-color: {cfg.get_accent_color()}; }}
+            QMenu::item {{ padding: 8px 24px; }}
+            QMenu::item:selected {{ background-color: {accent}; color: {cfg.CTR_TEXT_COLOR}; }}
             QMenu::separator {{ height: 1px; background: {cfg.DIVIDER_COLOR};
-                margin: 2px 8px; }}
+                margin: 4px 10px; }}
         """)
 
-        # Track-specific actions (submenus) — require a track
+        # Permanent track-specific actions
+        if track is not None:
+            artist_name = (track.artist or "").split(";")[0].split(",")[0].strip()
+            similar_action = menu.addAction("Найти похожие треки")
+            similar_action.triggered.connect(
+                lambda checked=False, t=track: self.context_similar_tracks.emit(t))
+
+            if artist_name and artist_name != "Unknown Artist":
+                artist_action = menu.addAction("Все песни исполнителя")
+                artist_action.triggered.connect(
+                    lambda checked=False, a=artist_name: self.context_artist_tracks.emit(a))
+
+            edit_action = menu.addAction("Редактировать теги")
+            edit_action.triggered.connect(
+                lambda checked=False, vi=view_index: self.badge_clicked.emit(vi))
+
+            if self._context_submenus:
+                menu.addSeparator()
+
+        # Plugin submenus — require a track
         if track is not None:
             for label, items in self._context_submenus:
                 sub = menu.addMenu(label)

@@ -17,7 +17,6 @@ from PySide6.QtSvg import QSvgRenderer
 from musicplayer.ui.svg_icons import (
     get_folder_svg,
     get_heart_svg,
-    get_settings_svg,
     get_library_svg,
     get_top_svg,
 )
@@ -157,7 +156,6 @@ class SideBarWidget(QWidget):
     favorites_toggled = Signal(bool)  # emitted with active state
     top_requested = Signal(bool)  # emitted with active state
     playlist_type_changed = Signal(str)  # emits: "Folder", "Favorites", "Top", "Playlist"
-    settings_requested = Signal()
     library_requested = Signal()
 
     def __init__(self, parent=None):
@@ -224,12 +222,6 @@ class SideBarWidget(QWidget):
         self.library_btn = SidebarButton(get_library_svg, tooltip="Библиотека")
         self.library_btn.clicked.connect(self.library_requested.emit)
         layout.addWidget(self.library_btn, alignment=Qt.AlignBottom)
-
-        layout.addSpacing(4)
-
-        self.settings_btn = SidebarButton(get_settings_svg, tooltip="Настройки")
-        self.settings_btn.clicked.connect(self.settings_requested.emit)
-        layout.addWidget(self.settings_btn, alignment=Qt.AlignBottom)
 
     def _on_favorites_clicked(self):
         """Toggle favorites mode."""

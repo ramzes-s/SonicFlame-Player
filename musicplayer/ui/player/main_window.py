@@ -141,6 +141,21 @@ class MainWindow(QMainWindow):
     def _scanning(self) -> ScanningManager:
         return self.__scanning
 
+    # -- Public API for PluginHub --
+
+    def add_plugin_page(self, page_widget, tab_name: str):
+        """Add a new tab page to the Settings dialog (called by plugins)."""
+        self._plugin_pages.append((page_widget, tab_name))
+
+    def get_current_folder(self) -> str | None:
+        """Return the currently opened folder path (or None)."""
+        return self._current_folder_path
+
+    def rescan_folder(self):
+        """Re-scan the currently opened folder."""
+        if self._current_folder_path:
+            self.__scanning.scan(self._current_folder_path)
+
     @property
     def _tray(self) -> TrayManager:
         return self.__tray
@@ -322,6 +337,8 @@ class MainWindow(QMainWindow):
         self.playlist_widget.track_selected.connect(self._playback.on_track_selected)
         self.playlist_widget.favorite_clicked.connect(self._playback.on_favorite_clicked)
         self.playlist_widget.badge_clicked.connect(self._playback.on_badge_clicked)
+        self.playlist_widget.context_similar_tracks.connect(self._on_context_similar_tracks)
+        self.playlist_widget.context_artist_tracks.connect(self._on_context_artist_tracks)
 
         self.track_info_widget.album_art_widget.clicked.connect(self._on_cover_clicked)
 
@@ -333,13 +350,12 @@ class MainWindow(QMainWindow):
         self.controls_widget.volume_changed.connect(self._on_volume_changed)
         self.controls_widget.favorite_toggled.connect(self._playlist.on_control_favorite_toggled)
         self.controls_widget.similar_tracks_requested.connect(self._on_similar_tracks_requested)
-        self.controls_widget.artist_tracks_requested.connect(self._on_artist_tracks_requested)
+        self.controls_widget.settings_requested.connect(self._on_settings_requested)
 
         self.sidebar.folder_open_requested.connect(self._on_open_folder)
         self.sidebar.favorites_toggled.connect(self._on_favorites_toggled)
         self.sidebar.top_requested.connect(self._on_top_toggled)
         self.sidebar.playlist_type_changed.connect(self._on_playlist_type_changed)
-        self.sidebar.settings_requested.connect(self._on_settings_requested)
         self.sidebar.library_requested.connect(self._on_library_requested)
 
     def _on_volume_changed_for_web(self, volume: float):
@@ -557,6 +573,13 @@ class MainWindow(QMainWindow):
                 if artist and artist != "Unknown Artist":
                     self._playlist.load_artist(artist, bring_to_front=False)
                 break
+
+    def _on_context_similar_tracks(self, track):
+        self._playlist.load_similar_tracks(track)
+
+    def _on_context_artist_tracks(self, artist):
+        if artist and artist != "Unknown Artist":
+            self._playlist.load_artist(artist)
 
     def _play_track_at_view_index(self, view_index: int):
         self.__playback.play_track_at_view_index(view_index)
