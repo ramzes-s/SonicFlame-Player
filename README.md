@@ -72,6 +72,16 @@
 - Library as a separate subprocess
 - IPC communication between player and library (QLocalSocket)
 
+### Plugin System
+- Plugin discovery via `plugin.json` manifest
+- Dynamic enable/disable without app restart
+- Sidebar button registration
+- Playlist context menu: find similar, all artist tracks, edit tags + plugin actions/submenus
+- Custom settings pages per-plugin
+- Configurable plugin-specific key-value storage
+- Developer manual at `docs/plugin_developer_manual.md`
+- Bundled plugins: Yandex Music Downloader, Playlist Manager, Smart Playlists, Duplicate Finder, Gamepad Control, Library Statistics
+
 ### Settings Dialog (5 pages)
 - **Main page**: root music folder, similarity precision slider, language filter mode (the larger the library, the higher you can set precision for better results; matching only works for scanned tracks, marked with ★ on the cover or in the library, also shown in settings in brackets next to total track count: 7500 (7500))
 - **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity
@@ -215,6 +225,16 @@ GNU General Public License v3.0 (GPL v3)
 - Принудительное обновление кеша библиотеки
 - Библиотека как отдельный субпроцесс
 - IPC связь между плеером и библиотекой (QLocalSocket)
+
+### Плагины
+- Обнаружение плагинов через манифест `plugin.json`
+- Вкл/выкл без перезапуска приложения
+- Регистрация кнопок на боковой панели
+- Контекстное меню плейлиста: «Найти похожие треки», «Все песни исполнителя», «Редактировать теги» + действия и подменю плагинов
+- Собственные страницы настроек
+- Персистентное key-value хранилище для каждого плагина
+- Руководство разработчика: `docs/plugin_developer_manual.md`
+- Встроенные плагины: Yandex Music Downloader, Плейлисты, Умные плейлисты, Поиск дублей, Управление с геймпада, Статистика библиотеки
 
 ### Диалог настроек (5 страниц)
 - **Главная**: корневая папка, точность похожих треков, фильтр языка (чем обьемнее библиотека, тем выше можно задирать точность, тем лучше результат, подбор происходит только по отсканированным трекам (обозначаются ★ звездой на обложке или в библиотеке и в окне настроек в скобках рядом с общим числом треков: 7500 (7500)))

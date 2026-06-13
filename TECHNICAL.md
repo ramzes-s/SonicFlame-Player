@@ -40,6 +40,12 @@ MusicPlayer2\
 │   │   ├── normalize.py                # Нормализация метаданных (mutagen)
 │   │   ├── player.py                   # Обёртка над QMediaPlayer
 │   │   ├── playlist.py                 # Управление плейлистом
+│   │   ├── plugin_manager/             # Пакет менеджера плагинов (discovery, lifecycle, PluginHub)
+│   │   │   ├── __init__.py             # Re-export: PluginInfo, PluginHub, PluginManager, LockedSettings
+│   │   │   ├── info.py                 # PluginInfo — dataclass плагина (context_actions, context_submenus)
+│   │   │   ├── hub.py                  # PluginHub + LockedSettings + whitelist get_config_value()
+│   │   │   └── manager.py              # PluginManager — discover, register, unregister
+│   │   ├── plugin_manager.py           # Shim для обратной совместимости (импорт из пакета)
 │   │   ├── recommendations.py          # Алгоритм подбора похожих треков
 │   │   ├── settings.py                 # Постоянные настройки (JSON, пути из config)
 │   │   ├── smtc_manager.py             # SMTC — интеграция с системным оверлеем Windows
@@ -128,8 +134,11 @@ MusicPlayer2\
 │   ├── covers/                         # Обложки в формате WebP
 │   ├── library_col_widths.json         # Ширина колонок библиотеки
 │   ├── musicplayer.db                  # SQLite библиотека (WAL mode)
+│   ├── plugins.json                     # Key-value хранилище настроек плагинов
 │   └── settings.json                   # Пользовательские настройки
 ├── build.bat                           # Скрипт сборки
+├── docs/
+│   └── plugin_developer_manual.md      # Руководство по разработке плагинов
 ├── LICENSE.txt                         # GPL v3
 ├── main.py                             # Точка входа (плеер + библиотека через --library)
 ├── README.md                           # Документация пользователя
@@ -357,6 +366,58 @@ MusicPlayer2\
 | language_filter_mode | str    | Режим фильтра языка: "off" / "penalty" / "exclude" (по умолч. "off") |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
 | plugin_enabled_*  | bool   | Состояние каждого плагина (true/false), ключи удаляются при отсутствии плагина |
+
+#### `core/plugin_manager/` — Пакет менеджера плагинов
+
+Система плагинов: обнаружение, жизненный цикл, интеграция с UI. Разделён на три модуля:
+
+**`info.py` — `PluginInfo`** — dataclass с метаданными плагина:
+- `name`, `display_name`, `version`, `entry` (модуль импорта), `description`, `settings_page`, `requires`, `author`
+- `settings_widget_factory` — фабрика виджета настроек (задаётся через PluginHub)
+- `sidebar_buttons` — список добавленных кнопок (для очистки при выключении)
+- `context_actions`, `context_submenus` — списки для per-plugin отслеживания пунктов контекстного меню
+
+**`hub.py` — `PluginHub(QObject)`** — мост между плагином и плеером:
+- `add_sidebar_button(svg_getter, tooltip, callback)` — кнопка на боковой панели
+- `add_context_action(text, callback)` / `add_context_submenu(label, items)` — элементы контекстного меню плейлиста (трекинг per-plugin)
+- `add_settings_page(page, tab_name)` — новая вкладка в диалоге настроек
+- `set_settings_widget(factory)` — кастомный виджет внутри вкладки "Плагины"
+- `get_player()`, `get_playlist_widget()`, `get_main_window()` — доступ к компонентам плеера
+- `get_settings()` — LockedSettings (read-only прокси над AppSettings)
+- `get_plugin_settings(name)` / `save_plugin_settings(name, data)` — персистентное хранилище (`.cache/plugins.json`)
+- `get_data_dir()` — возвращает `plugins/<name>/` для хранения данных плагина
+- `get_config_value(key)` — whitelist-доступ к константам config.py
+- `add_tracks_to_library(filepaths)` — добавление треков в БД
+
+**`manager.py` — `PluginManager(QObject)`** — управление жизненным циклом:
+- `discover()` — сканирует `plugins/` на наличие `plugin.json`, чистит устаревшие настройки, удаляет stale-ключи из `plugins.json`
+- `register_all()` — загружает все включённые плагины, вызывает `register(hub)`
+- `register_single(info)` — горячая загрузка одного плагина (при включении в настройках)
+- `unregister_plugin(info)` — удаление **только своих** кнопок и контекстного меню per-plugin, вызов `unregister()` (при выключении)
+
+**Интеграция UI**:
+- `SideBarWidget.add_plugin_button()` / `remove_plugin_button()` — динамическое добавление/удаление кнопок
+- `PlaylistWidget.add_context_action()` / `add_context_submenu()` / `set_context_refresh()` — динамическое контекстное меню
+- `PluginsPage` (стр. настроек) — список плагинов с toggle + кнопка настроек (если `settings_widget_factory` задана)
+- Диалог настроек плагина: виджет конфига растягивается на всю высоту (stretch factor 1), без пустого места внизу
+- Плагины могут добавлять собственные вкладки в диалог настроек через `PluginHub.add_settings_page()`
+
+**Структура плагина**:
+```
+plugins/имя_плагина/
+├── __init__.py          # Точка входа: register(hub), unregister()
+├── plugin.json          # Манифест: name, display_name, version, entry, description, settings_page, requires, author
+└── ...                  # Вспомогательные модули
+```
+
+**Правила**:
+- Плагины живут вне пакета `musicplayer/` — не являются частью плеера
+- Новые плагины по умолчанию **отключены** (для включения требуется действие пользователя)
+- Вкл/выкл без перезапуска приложения
+- Плагины не добавляют зависимостей в `requirements.txt` проекта
+- Манифест читается из `plugin.json` в корне директории плагина
+- **Данные** плагина хранятся в `plugins/<name>/` через `hub.get_data_dir()`, **настройки** — в `.cache/plugins.json` через `hub.save_plugin_settings()`
+- Руководство разработчика: `docs/plugin_developer_manual.md`
 
 #### `core/db_cleaner.py` — Database Cleaner
 Модуль для очистки базы данных от треков, файлы которых больше не существуют на диске.
@@ -747,8 +808,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Высота элемента: 52px
 
 **`PlaylistListWidget`**:
-- Зонная обработка кликов: текст → воспроизведение, сердце → избранное, бейджи → редактор тегов
-- Сигналы: `track_selected`, `heart_clicked`, `badge_clicked`
+- Зонная обработка кликов: текст → воспроизведение, сердце → избранное
+- Сигналы: `track_selected`, `heart_clicked`
 
 **`PlaylistWidget`**:
 - `_full_tracks` — все треки из папки
@@ -761,6 +822,13 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Пересортировка текущего вида по режиму (`artist`/`title`/`newest`)
 - Сохраняет подсветку активного трека
 
+**Контекстное меню плейлиста**:
+- Открывается правым кликом по любому треку
+- **Постоянные пункты**: «Найти похожие треки», «Все песни исполнителя», «Редактировать теги»
+- **Плагины** могут добавлять свои действия через `add_context_action()`/`add_context_submenu()`
+- Перед показом меню вызывается `_context_refresh_cb` для обновления динамических пунктов
+- Стиль: `padding: 8px 24px`, при ховере — акцентный фон + чёрный текст (`CTR_TEXT_COLOR`)
+
 **`FavoritesManager`** — обёртка над `db.py` функциями избранного
 
 #### `ui/controls.py` — ControlsWidget
@@ -769,7 +837,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **Компоненты**:
 - Seek slider + time labels (0:00 / 3:45) — `SliderWidget` (из `ui/widgets/sliders.py`)
-- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Все песни исполнителя" (левый край), кнопка "Поиск похожих треков"
+- Transport: prev, play/pause (58×58px, круглая), next, repeat (none→all→one), кнопка "Похожие", кнопка "Настройки" (правый край)
 - Volume: icon (mute toggle) + slider — `VolumeSliderWidget` (из `ui/widgets/sliders.py`)
 - Heart button (избранное для текущего трека) — `IconButton` (из `ui/widgets/icon_button.py`)
 
@@ -781,10 +849,9 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - 📁 Открыть папку
 - ♡ Избранное (toggle)
 - ⭐ Топ (toggle)
-- ⚙ Настройки
 - 📚 Библиотека (субпроцесс)
 
-**Сигналы**: `folder_open_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `settings_requested`, `library_requested`
+**Сигналы**: `folder_open_requested`, `favorites_toggled`, `top_requested`, `playlist_type_changed`, `library_requested`
 
 #### `ui/settings/` — Пакет настроек (рефакторинг)
 
@@ -1063,6 +1130,7 @@ QThread для анализа одного аудиофайла через libro
 | Фон                        | `BG_COLOR`             | `#000000`                        |
 | Вторичный фон              | `SECONDARY_BG_COLOR`   | `#1a1a1a`                        |
 | Основной текст             | `TEXT_COLOR`           | `#FFFFFF`                        |
+| Контрастный текст          | `CTR_TEXT_COLOR`       | `#000000`                        |
 | Вторичный текст            | `SECONDARY_TEXT_COLOR` | `#888888`                        |
 | Третичный текст            | `TERTIARY_TEXT_COLOR`  | `#CCCCCC`                        |
 | Отключённый текст          | `DISABLED_TEXT_COLOR`  | `#666666`                        |
