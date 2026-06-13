@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.2.3.0"
+APP_VERSION = "1.2.4.0"
 # Database version for schema compatibility checking
 DB_VERSION = 1
 
@@ -16,12 +16,12 @@ DB_VERSION = 1
 LOG_DEBUG = True
 
 
-
 # Global accent color — change here to update the entire app
 ACCENT_COLOR = "#ed6a02"
 
 # Global colors
 TEXT_COLOR = "#FFFFFF"
+CTR_TEXT_COLOR = "#000000"
 BG_COLOR = "#000000"
 DIVIDER_COLOR = "rgba(80, 80, 80, 0.3)"               # основные разделители (sidebar, панели)
 
