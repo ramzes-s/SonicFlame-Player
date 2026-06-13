@@ -190,8 +190,7 @@ class PluginsPage(QWidget):
             dlg._build_title_bar(f"{info.display_name} \u2014 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"))
 
         config = info.settings_widget_factory()
-        inner.addWidget(config)
-        inner.addStretch()
+        inner.addWidget(config, 1)
 
         dlg.setMinimumSize(520, 200)
         content_h = config.sizeHint().height()
@@ -209,6 +208,8 @@ class PluginsPage(QWidget):
             self._rebuild()
         elif not checked and self._plugin_manager:
             self._plugin_manager.unregister_plugin(info)
+            info.settings_widget_factory = None
+            self._rebuild()
 
     def _rebuild(self):
         """Rebuild the plugin list (e.g. after dynamic registration)."""
