@@ -124,6 +124,7 @@ class AnalysisManager(QObject):
         self._worker: Optional[AnalysisWorker] = None
         self._analyzed_count = 0
         self._total_to_analyze = 0
+        self._shutting_down = False
 
     def start_analysis(self, tracks: List[TrackInfo]):
         """Start analysis on the given track list (typically a playlist).
@@ -149,11 +150,14 @@ class AnalysisManager(QObject):
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
+        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.start()
         self.analysis_started.emit()
 
     def _advance_to_library(self):
         """Query next batch of unanalyzed library tracks and start worker."""
+        if self._shutting_down:
+            return
         filepaths = self._get_unanalyzed_filepaths()
         if not filepaths:
             self.analysis_finished.emit()
@@ -169,6 +173,7 @@ class AnalysisManager(QObject):
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
+        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.start()
         self.analysis_started.emit()
 
@@ -202,21 +207,21 @@ class AnalysisManager(QObject):
 
     def _on_analysis_finished(self):
         """Playlist or library batch finished — continue with library if any left."""
-        self._worker = None
         self._advance_to_library()
 
     def _on_analysis_error(self, message: str):
         print(f"AnalysisManager: Analysis worker error: {message}", file=sys.stderr)
-        self._worker = None
         self._advance_to_library()
 
     def _cancel_worker(self):
         if self._worker and self._worker.isRunning():
             self._worker.cancel()
-            self._worker.wait(500)
-            self._worker = None
+            if not self._worker.wait(5000):
+                self._worker.terminate()
+                self._worker.wait()
 
     def cancel_analysis(self):
         """Cancel any ongoing analysis (called on app close)."""
+        self._shutting_down = True
         self._cancel_worker()
 
