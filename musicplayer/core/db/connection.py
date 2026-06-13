@@ -192,6 +192,8 @@ def init_db():
         """)
 
 
+
+
 def check_db_version() -> Optional[str]:
     """Check DB version compatibility. Returns error message or None if OK."""
     db_version_str = None

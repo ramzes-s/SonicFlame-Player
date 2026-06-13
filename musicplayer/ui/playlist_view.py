@@ -209,15 +209,9 @@ class PlaylistDelegate(QStyledItemDelegate):
 
             # 2) Genre badges (each genre in its own badge)
             if track.genre:
-                raw_genres = track.genre
-                genres = []
-                for sep in ['/', ';', ',']:
-                    new_genres = []
-                    for g in (genres if genres else [raw_genres]):
-                        new_genres.extend(part.strip() for part in g.split(sep) if part.strip())
-                    genres = new_genres
+                genres = [g.strip() for g in track.genre.split(';') if g.strip()]
                 if not genres:
-                    genres = [raw_genres.strip()] if raw_genres.strip() else []
+                    genres = [track.genre.strip()] if track.genre.strip() else []
 
                 # Limit to 3 genres max, show +N for overflow
                 MAX_GENRES = 3

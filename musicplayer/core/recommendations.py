@@ -52,12 +52,10 @@ def _normalize_metric(value: float, min_val: float, max_val: float) -> float:
 
 
 def _get_list_from_string(s: Optional[str]) -> List[str]:
-    """Helper to convert a comma/semicolon separated string to a list."""
+    """Helper to convert a semicolon-separated string to a list."""
     if not s:
         return []
-    # Split by comma or semicolon, then strip whitespace and filter empty strings
-    s = s.replace(';', ',').replace('/', ',')
-    items = [item.strip() for item in s.split(',') if item.strip()]
+    items = [item.strip() for item in s.split(';') if item.strip()]
     # Preserve order while removing duplicates
     return list(dict.fromkeys(items))
 

@@ -126,7 +126,7 @@ class _SaveTagsThread(QThread):
                 if self.track:
                     audio["tracknumber"] = self.track
                 if self.genres:
-                    audio["genre"] = self.genres
+                    audio["genre"] = ";".join(self.genres)
 
                 audio.clear_pictures()
                 if self.cover_data:
@@ -161,7 +161,7 @@ class _SaveTagsThread(QThread):
                         track_num = 0
                     audio["trkn"] = [(track_num, 0)]
                 if self.genres:
-                    audio["\xa9gen"] = self.genres
+                    audio["\xa9gen"] = ";".join(self.genres)
                 audio["\xa9too"] = ""
 
                 if "covr" in audio:

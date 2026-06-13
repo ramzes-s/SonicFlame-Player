@@ -129,7 +129,7 @@ class AudioPlayer(QObject):
             return
         try:
             genres = (
-                [g.strip() for g in track.genre.split("/") if g.strip()]
+                [g.strip() for g in track.genre.split(";") if g.strip()]
                 if track.genre else []
             )
             data = {}

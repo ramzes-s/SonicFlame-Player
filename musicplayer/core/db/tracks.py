@@ -697,13 +697,22 @@ def _get_tag(tags, key: str, filepath: str) -> str:
     return Path(filepath).stem
 
 
+def _normalize_genre_separators(genre: str) -> str:
+    """Normalise genre separators to semicolons: / and , become ; spaces are trimmed."""
+    if not genre:
+        return genre
+    genre = genre.replace('/', ';').replace(',', ';')
+    parts = [p.strip() for p in genre.split(';') if p.strip()]
+    return ';'.join(parts)
+
+
 def _join_tag_values(val, key: str) -> str:
-    """Join multiple tag values; for genre join with '/', otherwise take first."""
+    """Join multiple tag values; for genre join with ';', otherwise take first."""
     parts = [str(v) for v in (val if isinstance(val, list) else [val]) if v]
     if not parts:
         return ''
     if key == 'genre':
-        return '/'.join(parts)
+        return _normalize_genre_separators(';'.join(parts))
     return parts[0]
 
 
