@@ -207,6 +207,7 @@ class SettingsDialog(QDialog):
         system_page.audio_device_changed.connect(self.audio_device_changed.emit)
         system_page.cleanup_finished.connect(self._update_stats)
         system_page.db_reset_requested.connect(self.db_reset_requested.emit)
+        system_page.refresh_stats_requested.connect(self._update_stats)
 
     def _switch_tab(self, idx: int):
         for i, btn in enumerate(self._tab_btns):

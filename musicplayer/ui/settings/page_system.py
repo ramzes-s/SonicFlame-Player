@@ -6,6 +6,7 @@ from musicplayer import config as cfg
 from musicplayer.core.db_cleaner import cleanup_missing_tracks
 from musicplayer.core.audio_device_manager import AudioDeviceManager
 from .constants import format_size
+from .widgets import SpinnerWidget
 
 
 class CleanupWorker(QThread):
@@ -30,6 +31,7 @@ class SystemPage(QWidget):
     cleanup_finished = Signal(int)
     audio_device_changed = Signal(object)
     db_reset_requested = Signal()
+    refresh_stats_requested = Signal()
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -280,6 +282,10 @@ class SystemPage(QWidget):
             self.db_reset_requested.emit()
 
     def _build_stats_block(self, lo: QVBoxLayout):
+        self._stats_timer = QTimer(self)
+        self._stats_timer.setInterval(10000)
+        self._stats_timer.timeout.connect(self._auto_refresh_stats)
+
         self._stats_card = QWidget()
         self._stats_card.setStyleSheet(f"""
             QWidget {{
@@ -293,10 +299,16 @@ class SystemPage(QWidget):
         inner.setSpacing(4)
 
         accent = cfg.get_accent_color()
+        title_row = QHBoxLayout()
+        title_row.setSpacing(6)
         self._stats_title = QLabel("Библиотека")
         self._stats_title.setStyleSheet(f"color: {accent}; font-size: 13px; font-weight: bold; "
                                         f"background: transparent; border: none;")
-        inner.addWidget(self._stats_title)
+        title_row.addWidget(self._stats_title)
+        self._stats_spinner = SpinnerWidget()
+        title_row.addWidget(self._stats_spinner)
+        title_row.addStretch()
+        inner.addLayout(title_row)
 
         self._stats_tracks = QLabel()
         self._stats_tracks.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px; "
@@ -321,6 +333,22 @@ class SystemPage(QWidget):
         self._stats_tracks.setText(f"Треков: {track_count}  •  Проанализированно: {analyzed_count}")
         self._stats_covers.setText(f"Кеш обложек ({covers_count} шт):  {format_size(covers_size)}")
         self._stats_collages.setText(f"Кеш коллажей ({collages_count} шт):  {format_size(collages_size)}")
+
+        if analyzed_count < track_count:
+            if not self._stats_timer.isActive() and self.isVisible():
+                self._stats_spinner.start()
+                self._stats_timer.start()
+        else:
+            self._stats_spinner.stop()
+            self._stats_timer.stop()
+
+    def _auto_refresh_stats(self):
+        if self.isVisible():
+            self.refresh_stats_requested.emit()
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        self._auto_refresh_stats()
 
     def _update_cleanup_btn_style(self):
         accent = cfg.get_accent_color()
@@ -379,6 +407,8 @@ class SystemPage(QWidget):
         self._apply_stats_style(color)
 
     def cleanup(self):
+        self._stats_timer.stop()
+        self._stats_spinner.stop()
         if hasattr(self, '_cleanup_worker') and self._cleanup_worker.isRunning():
             self._cleanup_worker.quit()
             self._cleanup_worker.wait()
