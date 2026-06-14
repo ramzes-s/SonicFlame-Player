@@ -8,9 +8,9 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.2.4.0"
+APP_VERSION = "1.3.0.0"
 # Database version for schema compatibility checking
-DB_VERSION = 1
+DB_VERSION = 2
 
 # Debug logging toggle — set False to disable file logging
 LOG_DEBUG = True
@@ -118,6 +118,8 @@ ENABLE_PLUGINS = True
 
 # Temporary directory for plugin downloads
 TEMP_DIR = CACHE_DIR / "temp"
+
+
 
 
 def get_accent_color() -> str:
