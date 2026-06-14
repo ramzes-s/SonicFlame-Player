@@ -143,6 +143,7 @@ def normalize_track(track) -> "TrackInfo":
         zero_crossing_rate=getattr(track, 'zero_crossing_rate', 0.0),
         spectral_flux=getattr(track, 'spectral_flux', 0.0),
         hpss_ratio=getattr(track, 'hpss_ratio', 0.0),
+        year=getattr(track, 'year', 0),
     )
 
 
