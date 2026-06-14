@@ -108,7 +108,8 @@ def init_db():
                     spectral_flux REAL DEFAULT 0,
                     hpss_ratio REAL DEFAULT 0,
                     language TEXT DEFAULT '',
-                    is_favorite INTEGER DEFAULT 0
+                    is_favorite INTEGER DEFAULT 0,
+                    year INTEGER DEFAULT 0
                 )
             """)
             conn.execute("""

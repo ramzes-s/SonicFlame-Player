@@ -70,7 +70,8 @@ def get_favorite_tracks() -> List[TrackInfo]:
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    mtime,
                    COALESCE(language, '') as language,
-                   COALESCE(is_favorite, 0) as is_favorite
+                   COALESCE(is_favorite, 0) as is_favorite,
+                   COALESCE(year, 0) as year
             FROM library
             WHERE is_favorite = 1
             ORDER BY filepath
@@ -117,6 +118,8 @@ def get_favorite_tracks() -> List[TrackInfo]:
                 track.language = row[17]
             if len(row) > 18:
                 track.is_favorite = bool(row[18])
+            if len(row) > 19:
+                track.year = row[19] or 0
 
             results.append(track)
 

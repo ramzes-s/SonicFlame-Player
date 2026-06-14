@@ -32,7 +32,8 @@ class TrackInfo:
                  hpss_ratio: float = 0.0,
                  mtime: float = 0.0,
                  language: str = "",
-                 is_favorite: bool = False):
+                 is_favorite: bool = False,
+                 year: int = 0):
         self.filepath = filepath
         self.title = title or Path(filepath).stem
         self.artist = artist or "Unknown Artist"
@@ -53,6 +54,7 @@ class TrackInfo:
         self.mtime = mtime
         self.language = language
         self.is_favorite = is_favorite
+        self.year = year
 
     def to_dict(self) -> dict:
         """Serialize to dict (excluding cover data for JSON storage)."""
@@ -75,6 +77,7 @@ class TrackInfo:
             "spectral_flux": self.spectral_flux,
             "hpss_ratio": self.hpss_ratio,
             "is_favorite": self.is_favorite,
+            "year": self.year,
         }
 
     @classmethod
@@ -98,6 +101,7 @@ class TrackInfo:
             spectral_flux=data.get("spectral_flux", 0.0),
             hpss_ratio=data.get("hpss_ratio", 0.0),
             is_favorite=data.get("is_favorite", False),
+            year=data.get("year", 0),
         )
 
     def __repr__(self):
@@ -142,6 +146,8 @@ def _row_to_track(row: tuple) -> TrackInfo:
         track.language = row[17]
     if len(row) > 18:
         track.is_favorite = bool(row[18])
+    if len(row) > 19:
+        track.year = row[19] or 0
     return track
 
 
@@ -189,6 +195,8 @@ def _row_to_track_with_cover(row: tuple) -> TrackInfo:
         track.language = row[17]
     if len(row) > 18:
         track.is_favorite = bool(row[18])
+    if len(row) > 19:
+        track.year = row[19] or 0
     return track
 
 
@@ -219,7 +227,8 @@ def get_track(filepath: str) -> Optional[TrackInfo]:
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    mtime,
                    COALESCE(language, '') as language,
-                   COALESCE(is_favorite, 0) as is_favorite
+                   COALESCE(is_favorite, 0) as is_favorite,
+                   COALESCE(year, 0) as year
             FROM library WHERE filepath = ?
         """, (filepath,))
         row = cursor.fetchone()
@@ -300,8 +309,8 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
                  has_cover, genre, is_lossless, play_count, bitrate,
                  tempo, energy, mood,
                  zero_crossing_rate, spectral_flux, hpss_ratio,
-                 language, is_favorite)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 language, is_favorite, year)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             normalized.filepath,
             mtime,
@@ -322,6 +331,7 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
             final_hpss_ratio,
             getattr(track, 'language', ''),
             1 if final_is_favorite else 0,
+            getattr(track, 'year', 0),
         ))
 
     if track.has_cover and track.cover_data:
@@ -392,7 +402,8 @@ def get_all_library_tracks_light() -> List[TrackInfo]:
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    mtime,
                    COALESCE(language, '') as language,
-                   COALESCE(is_favorite, 0) as is_favorite
+                   COALESCE(is_favorite, 0) as is_favorite,
+                   COALESCE(year, 0) as year
             FROM library
         """)
         rows = cursor.fetchall()
@@ -520,6 +531,9 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
         if not language:
             language = _detect_language(title + ' ' + artist)
 
+        # Extract year from metadata
+        year = _extract_year(tags) if hasattr(audio, 'tags') and audio.tags is not None else 0
+
         return TrackInfo(
             filepath=filepath,
             title=title,
@@ -533,6 +547,7 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
             is_lossless=is_lossless,
             bitrate=bitrate,
             mtime=file_mtime,
+            year=year,
         )
 
     except Exception:
@@ -716,6 +731,40 @@ def _join_tag_values(val, key: str) -> str:
     return parts[0]
 
 
+def _extract_year(tags) -> int:
+    """Extract 4-digit year from audio file metadata tags."""
+    date_str = ""
+    try:
+        if hasattr(tags, 'getall'):
+            for frame_id in ['TDRC', 'TYER', 'TDRL']:
+                val = tags.getall(frame_id)
+                if val:
+                    date_str = str(val[0]).strip()
+                    break
+        if not date_str and hasattr(tags, '__getitem__'):
+            for key in ('date', 'year'):
+                try:
+                    val = tags[key]
+                    if val:
+                        date_str = str(val[0] if isinstance(val, list) else val).strip()
+                        break
+                except (KeyError, IndexError):
+                    pass
+        if not date_str and hasattr(tags, '__getitem__'):
+            try:
+                val = tags['©day']
+                if val:
+                    date_str = str(val[0] if isinstance(val, list) else val).strip()
+            except (KeyError, IndexError):
+                pass
+    except Exception:
+        pass
+    if not date_str:
+        return 0
+    m = re.search(r'\b(\d{4})\b', date_str)
+    return int(m.group(1)) if m else 0
+
+
 def _extract_cover(audio, tags) -> Optional[bytes]:
     """Extract cover art from audio file."""
     try:
@@ -767,7 +816,8 @@ def get_tracks_by_artist(artist_name: str) -> List[TrackInfo]:
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                     mtime,
                     COALESCE(language, '') as language,
-                    COALESCE(is_favorite, 0) as is_favorite
+                    COALESCE(is_favorite, 0) as is_favorite,
+                    COALESCE(year, 0) as year
              FROM library
              WHERE
                  artist = ? COLLATE NOCASE
@@ -815,7 +865,8 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
                     COALESCE(spectral_flux, 0.0) as spectral_flux,
                     mtime,
                     COALESCE(language, '') as language,
-                    COALESCE(is_favorite, 0) as is_favorite
+                    COALESCE(is_favorite, 0) as is_favorite,
+                    COALESCE(year, 0) as year
             FROM library
             WHERE filepath LIKE ?
             ORDER BY filepath

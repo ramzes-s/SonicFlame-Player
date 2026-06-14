@@ -99,7 +99,7 @@ class MainWindow(QMainWindow):
         self._setup_ui()
         self._connect_signals()
 
-        # Ensure temp directory exists
+        # Ensure temp directory exists (used by plugins)
         cfg.TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
         # Ensure plugins directory and __init__.py exist

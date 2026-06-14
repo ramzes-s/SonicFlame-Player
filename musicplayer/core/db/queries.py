@@ -153,7 +153,8 @@ def get_library_tracks_page(
                COALESCE(spectral_flux, 0.0) as spectral_flux,
                mtime,
                COALESCE(language, '') as language,
-               COALESCE(is_favorite, 0) as is_favorite
+               COALESCE(is_favorite, 0) as is_favorite,
+               COALESCE(year, 0) as year
         FROM library
         {where_sql}
         ORDER BY {order_clause}
@@ -217,7 +218,8 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    COALESCE(language, '') as language,
-                   COALESCE(is_favorite, 0) as is_favorite
+                   COALESCE(is_favorite, 0) as is_favorite,
+                   COALESCE(year, 0) as year
             FROM library
             WHERE play_count > 0
             ORDER BY play_count DESC
@@ -255,6 +257,7 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                 zero_crossing_rate=row[15] if len(row) > 15 else 0.0,
                 spectral_flux=row[16] if len(row) > 16 else 0.0,
                 is_favorite=bool(row[18]) if len(row) > 18 else False,
+                year=row[19] if len(row) > 19 else 0,
             )
 
             try:
@@ -303,7 +306,8 @@ def find_similar_tracks(filepath: str, limit: int = 20) -> List[TrackInfo]:
                    COALESCE(zero_crossing_rate, 0.0) as zero_crossing_rate,
                    COALESCE(spectral_flux, 0.0) as spectral_flux,
                    COALESCE(language, '') as language,
-                   COALESCE(is_favorite, 0) as is_favorite
+                   COALESCE(is_favorite, 0) as is_favorite,
+                   COALESCE(year, 0) as year
             FROM library
             WHERE filepath != ? AND tempo > 0.0
         """, (filepath,))

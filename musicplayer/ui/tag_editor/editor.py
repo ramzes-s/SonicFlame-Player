@@ -27,6 +27,7 @@ from .widgets import LoadingBar, CoverDisplayLabel
 from .dialogs import CoverSearchResultsDialog, TrackSearchResultsDialog
 from .base_dialog import BaseFramelessDialog
 from .track_mover import move_track_to_folder
+from musicplayer.core.db.tracks import upsert_track, get_track, extract_metadata
 
 
 class TagEditorDialog(BaseFramelessDialog):
@@ -792,6 +793,18 @@ class TagEditorDialog(BaseFramelessDialog):
         self.delete_btn.setEnabled(True)
         self.file_path = new_filepath
         self.save_confirmed = True
+        # Update year in database
+        try:
+            track = get_track(new_filepath)
+            if track:
+                year_text = self.year_edit.text().strip()
+                year_val = int(re.search(r'\b(\d{4})\b', year_text).group(1)) if re.search(r'\b(\d{4})\b', year_text) else 0
+                track.year = year_val
+                mtime = os.path.getmtime(new_filepath)
+                upsert_track(track, mtime)
+                logger.info("DB updated with year=%d for %s", year_val, new_filepath)
+        except Exception as e:
+            logger.warning("Could not update year in DB: %s", e)
         self.accept()
 
     def _on_save_error(self, message):
