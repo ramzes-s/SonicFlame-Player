@@ -213,10 +213,10 @@ class AnalysisManager(QObject):
         print(f"AnalysisManager: Analysis worker error: {message}", file=sys.stderr)
         self._advance_to_library()
 
-    def _cancel_worker(self):
+    def _cancel_worker(self, timeout_ms: int = 15000):
         if self._worker and self._worker.isRunning():
             self._worker.cancel()
-            if not self._worker.wait(5000):
+            if not self._worker.wait(timeout_ms):
                 self._worker.terminate()
                 self._worker.wait()
 
