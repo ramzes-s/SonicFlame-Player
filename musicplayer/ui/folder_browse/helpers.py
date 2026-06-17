@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from PySide6.QtSvg import QSvgRenderer
 
 from musicplayer import config as cfg
 from musicplayer.ui.svg_icons import get_folder_svg
+from musicplayer.core.db.system import get_system_value, set_system_value
 
 
 _IS_WIN = os.name == 'nt'
@@ -102,3 +104,39 @@ def _get_subfolder_count(folder_path: str) -> int:
         return sum(1 for e in os.scandir(folder_path) if e.is_dir())
     except (PermissionError, OSError):
         return 0
+
+
+_FAVORITE_FOLDERS_KEY = "favorite_folders"
+FAVORITE_LIMIT = 5
+
+
+def get_favorite_folders() -> list:
+    try:
+        data = get_system_value(_FAVORITE_FOLDERS_KEY)
+        if data:
+            folders = json.loads(data)
+            # remove non-existent paths
+            return [p for p in folders if os.path.isdir(p)]
+    except Exception:
+        pass
+    return []
+
+
+def add_favorite_folder(folder_path: str) -> bool:
+    folders = get_favorite_folders()
+    np = os.path.normpath(folder_path)
+    if np in folders:
+        return True
+    if len(folders) >= FAVORITE_LIMIT:
+        return False
+    folders.append(np)
+    set_system_value(_FAVORITE_FOLDERS_KEY, json.dumps(folders, ensure_ascii=False))
+    return True
+
+
+def remove_favorite_folder(folder_path: str):
+    folders = get_favorite_folders()
+    np = os.path.normpath(folder_path)
+    if np in folders:
+        folders.remove(np)
+        set_system_value(_FAVORITE_FOLDERS_KEY, json.dumps(folders, ensure_ascii=False))

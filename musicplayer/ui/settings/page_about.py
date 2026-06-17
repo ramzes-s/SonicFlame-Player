@@ -1,7 +1,49 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout
-from PySide6.QtCore import Qt, QByteArray
-from PySide6.QtGui import QPixmap, QPainter, QColor, QFont
+import hashlib
+import logging
+import subprocess
+from datetime import datetime
+
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton
+from PySide6.QtCore import Qt, QByteArray, QUrl
+from PySide6.QtGui import QPixmap, QPainter, QFont
 from PySide6.QtSvgWidgets import QSvgWidget
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
+
+logger = logging.getLogger("register")
+
+
+def _get_hardware_id() -> str:
+    parts = []
+    try:
+        out = subprocess.check_output("wmic csproduct get uuid", shell=True, timeout=3, stderr=subprocess.DEVNULL)
+        uuid = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
+        if uuid:
+            parts.append(uuid)
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output("wmic cpu get processorid", shell=True, timeout=3, stderr=subprocess.DEVNULL)
+        cpu = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
+        if cpu:
+            parts.append(cpu)
+    except Exception:
+        pass
+    try:
+        out = subprocess.check_output("wmic diskdrive get serialnumber", shell=True, timeout=3, stderr=subprocess.DEVNULL)
+        serial = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
+        if serial:
+            parts.append(serial)
+    except Exception:
+        pass
+    try:
+        import uuid as _uuid
+        parts.append(str(_uuid.getnode()))
+    except Exception:
+        pass
+
+    raw = "-".join(parts)
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest().upper()
+    return f"{digest[:8]}-{digest[8:12]}-{digest[12:16]}-{digest[16:24]}"
 
 from musicplayer import config as cfg
 from musicplayer.core.db.system import get_system_value
@@ -12,6 +54,8 @@ class AboutPage(QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self._settings = settings
+        self._net = QNetworkAccessManager(self)
+        self._net.finished.connect(self._on_reply)
         self._build_ui()
 
     def _build_ui(self):
@@ -53,6 +97,29 @@ class AboutPage(QWidget):
         self._icon_label = QLabel()
         self._update_icon(accent)
         lo.addWidget(self._icon_label)
+
+        lo.addSpacing(16)
+
+        # Registration section
+        self._reg_widget = QWidget()
+        self._reg_widget.setStyleSheet("background: transparent;")
+        reg_lo = QVBoxLayout(self._reg_widget)
+        reg_lo.setContentsMargins(0, 0, 0, 0)
+        reg_lo.setSpacing(6)
+
+        self._reg_btn = QPushButton("Регистрация плеера")
+        self._reg_btn.setFixedHeight(34)
+        self._reg_btn.setCursor(Qt.PointingHandCursor)
+        self._reg_btn.clicked.connect(self._on_register)
+        reg_lo.addWidget(self._reg_btn, 0, Qt.AlignCenter)
+
+        self._reg_status = QLabel()
+        self._reg_status.setAlignment(Qt.AlignCenter)
+        self._reg_status.setWordWrap(True)
+        self._reg_status.setVisible(False)
+        reg_lo.addWidget(self._reg_status)
+
+        lo.addWidget(self._reg_widget)
 
         lo.addStretch(1)
 
@@ -105,6 +172,119 @@ class AboutPage(QWidget):
 
         lo.addSpacing(16)
 
+        self._update_reg_btn_style(accent)
+        self._update_reg_ui()
+
+    def _update_reg_ui(self):
+        accent = cfg.get_accent_color()
+        pid = self._settings.player_id
+        lo = self._reg_widget.layout()
+
+        # remove old key block if any
+        for attr in ('_reg_key_block', '_reg_hwid_block'):
+            blk = getattr(self, attr, None)
+            if blk:
+                lo.removeWidget(blk)
+                blk.deleteLater()
+                setattr(self, attr, None)
+
+        self._reg_btn.setVisible(pid is None)
+        self._reg_status.setVisible(False)
+
+        if pid:
+            self._reg_key_block = QWidget()
+            self._reg_key_block.setFixedHeight(40)
+            self._reg_key_block.setStyleSheet(f"""
+                QWidget {{
+                    background-color: {cfg.BG_COLOR};
+                    border: 1px solid {accent};
+                }}
+            """)
+            bl = QHBoxLayout(self._reg_key_block)
+            bl.setContentsMargins(14, 0, 14, 0)
+
+            key_lbl = QLabel(pid)
+            key_lbl.setFont(QFont("Consolas", 12))
+            key_lbl.setStyleSheet(f"color: {accent}; background: transparent; border: none;")
+            key_lbl.setAlignment(Qt.AlignCenter)
+            bl.addWidget(key_lbl)
+
+            lo.insertWidget(1, self._reg_key_block, 0, Qt.AlignCenter)
+
+    def _update_reg_btn_style(self, accent):
+        self._reg_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {accent};
+                border: none;
+                color: {cfg.CTR_TEXT_COLOR};
+                font-size: 13px; font-weight: bold;
+                padding: 0 24px;
+            }}
+            QPushButton:hover {{
+                background-color: {cfg.TEXT_COLOR};
+                color: {cfg.BG_COLOR};
+            }}
+            QPushButton:disabled {{
+                background-color: {cfg.DISABLED_TEXT_COLOR};
+            }}
+        """)
+
+    def _on_register(self):
+        self._reg_btn.setEnabled(False)
+        self._reg_btn.setText("Регистрация...")
+        self._reg_status.setVisible(False)
+
+        today = datetime.now().strftime("%d%m%Y")
+        self._update_reg_btn_style(cfg.get_accent_color())
+
+        logger.info("Sending POST to https://sonicflame.pro/api/register.php with firstkey=%s", today)
+
+        url = QUrl("https://sonicflame.pro/api/register.php")
+        req = QNetworkRequest(url)
+        req.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
+        req.setRawHeader(b"User-Agent", b"SonicFlame Player")
+
+        hwid = _get_hardware_id()
+        body = f'{{"firstkey":"{today}","hardware_id":"{hwid}"}}'.encode("utf-8")
+        self._net.post(req, body)
+
+    def _on_reply(self, reply):
+        self._reg_btn.setEnabled(True)
+        self._reg_btn.setText("Регистрация плеера")
+        self._update_reg_btn_style(cfg.get_accent_color())
+
+        status = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        data = reply.readAll().data()
+        reply.deleteLater()
+
+        try:
+            text = data.decode("utf-8")
+            logger.info("HTTP %s: %s", status, text)
+            import json
+            resp = json.loads(text)
+        except Exception:
+            code = status if status else "—"
+            logger.warning("HTTP %s, parse error", code)
+            self._show_status(f"Ошибка сервера (HTTP {code})", error=True)
+            return
+
+        if resp.get("status") == "ok":
+            pid = resp.get("player_id", "").strip()
+            if pid:
+                self._settings.player_id = pid
+                self._update_reg_ui()
+        else:
+            msg = resp.get("message", f"Ошибка (HTTP {status})")
+            self._show_status(msg, error=True)
+
+    def _show_status(self, text: str, error: bool = False):
+        accent = cfg.get_accent_color()
+        self._reg_status.setText(text)
+        self._reg_status.setStyleSheet(
+            f"color: {'#ff4444' if error else accent}; font-size: 12px; background: transparent; border: none;"
+        )
+        self._reg_status.setVisible(True)
+
     def _update_icon(self, accent: str):
         pixmap = QPixmap(128, 128)
         pixmap.fill(Qt.transparent)
@@ -120,3 +300,5 @@ class AboutPage(QWidget):
     def apply_accent_color(self, color: str):
         self._title_label.setStyleSheet(f"color: {color}; font-size: 22px; font-weight: bold;")
         self._update_icon(color)
+        self._update_reg_btn_style(color)
+        self._update_reg_ui()

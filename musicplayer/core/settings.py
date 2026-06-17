@@ -146,6 +146,7 @@ class AppSettings:
             "use_language_filter": False,
             "language_filter_mode": "off",
             "idle_shutdown_minutes": 60,
+        "player_id": None,
         }
         self._load()
 
@@ -356,6 +357,15 @@ class AppSettings:
     @use_language_filter.setter
     def use_language_filter(self, value: bool):
         self._data["use_language_filter"] = value
+        self._save()
+
+    @property
+    def player_id(self) -> Optional[str]:
+        return self._data.get("player_id")
+
+    @player_id.setter
+    def player_id(self, value: Optional[str]):
+        self._data["player_id"] = value
         self._save()
 
     @property

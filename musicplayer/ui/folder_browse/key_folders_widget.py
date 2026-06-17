@@ -1,16 +1,17 @@
 import os
 
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QListWidget,
-                                QListWidgetItem, QWidget)
+                                QListWidgetItem, QWidget, QPushButton, QSizePolicy)
 from PySide6.QtCore import Qt, QByteArray, QRectF, Signal
-from PySide6.QtGui import QPixmap, QPainter
+from PySide6.QtGui import QPixmap, QPainter, QFont
 from PySide6.QtSvg import QSvgRenderer
 
 from musicplayer import config as cfg
 from musicplayer.ui.svg_icons import get_all_music_svg
 from musicplayer.core.db.queries import get_all_folders
 from .helpers import (_norm_path, _get_folder_icon, _get_track_count,
-                      _SCROLLBAR_STYLE)
+                      _SCROLLBAR_STYLE, get_favorite_folders,
+                      remove_favorite_folder, FAVORITE_LIMIT)
 
 
 class KeyFoldersWidget(QWidget):
@@ -48,6 +49,28 @@ class KeyFoldersWidget(QWidget):
         self._key_list.itemClicked.connect(self._on_item_clicked)
         self._key_list.currentItemChanged.connect(self._on_selection_changed)
         layout.addWidget(self._key_list, 1)
+
+        # Favorite folders section
+        self._fav_header = QLabel("\u0418\u0437\u0431\u0440\u0430\u043d\u043d\u044b\u0435 \u043f\u0430\u043f\u043a\u0438")
+        self._apply_fav_header_style(cfg.get_accent_color())
+        layout.addWidget(self._fav_header)
+
+        self._fav_list = QListWidget()
+        self._fav_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
+                font-size: 12px; outline: none;
+            }}
+            QListWidget::item {{
+                padding: 8px 4px 8px 2px; border-bottom: 1px solid rgba(80,80,80,0.1);
+            }}
+            QListWidget::item:hover {{
+                background-color: rgba(80,80,80,0.2);
+            }}
+        """ + _SCROLLBAR_STYLE)
+        self._fav_list.itemClicked.connect(self._on_fav_item_clicked)
+        self._fav_list.currentItemChanged.connect(self._on_fav_selection_changed)
+        layout.addWidget(self._fav_list)
 
     def load_key_folders(self):
         items = get_all_folders()
@@ -146,6 +169,22 @@ class KeyFoldersWidget(QWidget):
                 background-color: {accent}; color: {cfg.BG_COLOR};
             }}
         {_SCROLLBAR_STYLE}""")
+        self._fav_list.setStyleSheet(f"""
+            QListWidget {{
+                background-color: {cfg.BG_COLOR}; color: {cfg.TERTIARY_TEXT_COLOR}; border: none;
+                font-size: 12px; outline: none;
+            }}
+            QListWidget::item {{
+                padding: 8px 4px 8px 2px; border-bottom: 1px solid rgba(80,80,80,0.1);
+            }}
+            QListWidget::item:hover {{
+                background-color: rgba(80,80,80,0.2);
+            }}
+            QListWidget::item:selected {{
+                background-color: {accent}; color: {cfg.BG_COLOR};
+            }}
+        {_SCROLLBAR_STYLE}""")
+        self._apply_fav_header_style(accent)
         self._update_root_item_accent(accent)
 
     def _update_root_item_accent(self, accent: str):
@@ -223,3 +262,95 @@ class KeyFoldersWidget(QWidget):
                         f"color: {cfg.BG_COLOR}; font-size: 12px;" if is_selected
                         else f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px;"
                     )
+
+    def is_in_key_list(self, path: str) -> bool:
+        np = os.path.normpath(path)
+        for i in range(self._key_list.count()):
+            item = self._key_list.item(i)
+            if item and os.path.normpath(item.data(Qt.UserRole)) == np:
+                return True
+        return False
+
+    def _apply_fav_header_style(self, accent: str):
+        self._fav_header.setStyleSheet(f"""
+            color: {accent}; font-size: 11px; font-weight: bold;
+            padding: 8px 2px 6px 2px;
+            border-bottom: 1px solid rgba(80,80,80,0.1);
+        """)
+
+    # -- favorite folders --
+
+    def load_favorite_folders(self):
+        self._fav_list.clear()
+        folders = get_favorite_folders()
+        visible = bool(folders)
+        self._fav_header.setVisible(visible)
+        self._fav_list.setVisible(visible)
+        if not visible:
+            self._fav_list.setMaximumHeight(0)
+            return
+        for fp in folders:
+            name = os.path.basename(fp) or fp
+            widget = QWidget()
+            widget.setStyleSheet("background: transparent;")
+            hl = QHBoxLayout(widget)
+            hl.setContentsMargins(2, 2, 4, 2)
+            hl.setSpacing(6)
+
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(_get_folder_icon().pixmap(16, 16))
+            hl.addWidget(icon_lbl)
+
+            name_lbl = QLabel(name)
+            name_lbl.setObjectName("fav_name")
+            name_lbl.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px;")
+            hl.addWidget(name_lbl, 1)
+
+            rm_btn = QPushButton("\u2715")
+            rm_btn.setFixedSize(18, 18)
+            rm_btn.setCursor(Qt.PointingHandCursor)
+            rm_btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent; border: none;
+                    color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px;
+                }}
+                QPushButton:hover {{ color: {cfg.get_accent_color()}; }}
+            """)
+            fp_copy = fp
+            rm_btn.clicked.connect(lambda checked=True, p=fp_copy: self._remove_fav(p))
+            hl.addWidget(rm_btn)
+
+            item = QListWidgetItem()
+            item.setData(Qt.UserRole, fp)
+            item.setToolTip(fp)
+            self._fav_list.addItem(item)
+            self._fav_list.setItemWidget(item, widget)
+
+        # limit fav_list height to its actual content
+        row_h = self._fav_list.sizeHintForRow(0)
+        if row_h > 0:
+            self._fav_list.setMaximumHeight(row_h * self._fav_list.count())
+
+    def _remove_fav(self, path: str):
+        remove_favorite_folder(path)
+        self.load_favorite_folders()
+
+    def _on_fav_item_clicked(self, item):
+        path = item.data(Qt.UserRole)
+        if not path or not os.path.isdir(path):
+            return
+        self.folder_selected.emit(path, False)
+
+    def _on_fav_selection_changed(self, current, previous):
+        for item, is_selected in ((current, True), (previous, False)):
+            if item is None:
+                continue
+            widget = self._fav_list.itemWidget(item)
+            if widget is None:
+                continue
+            name_lbl = widget.findChild(QLabel, "fav_name")
+            if name_lbl:
+                name_lbl.setStyleSheet(
+                    f"color: {cfg.BG_COLOR}; font-size: 12px;" if is_selected
+                    else f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 12px;"
+                )

@@ -5,6 +5,7 @@ Handles cover art file caching and artists cache management.
 """
 
 import hashlib
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -71,32 +72,57 @@ def get_covers_cache_size() -> int:
     return total
 
 
+_covers_cache = None
+_covers_cache_time = 0
+_collages_cache = None
+_collages_cache_time = 0
+_CACHE_TTL = 1800  # 30 minutes
+
+
 def get_covers_cache_info():
-    """Return (file_count, total_size_bytes) for cover cache."""
+    """Return (file_count, total_size_bytes) for cover cache.
+    Results are cached for 30 minutes."""
+    global _covers_cache, _covers_cache_time
+    now = time.time()
+    if _covers_cache is not None and (now - _covers_cache_time) < _CACHE_TTL:
+        return _covers_cache
     if not COVERS_DIR.exists():
-        return 0, 0
+        _covers_cache = (0, 0)
+        _covers_cache_time = now
+        return _covers_cache
     count = 0
     total = 0
     for f in COVERS_DIR.iterdir():
         if f.is_file():
             count += 1
             total += f.stat().st_size
-    return count, total
+    _covers_cache = (count, total)
+    _covers_cache_time = now
+    return _covers_cache
 
 
 def get_artist_collage_cache_info():
-    """Return (file_count, total_size_bytes) for artist collage cache."""
+    """Return (file_count, total_size_bytes) for artist collage cache.
+    Results are cached for 30 minutes."""
+    global _collages_cache, _collages_cache_time
     from musicplayer import config as cfg
+    now = time.time()
+    if _collages_cache is not None and (now - _collages_cache_time) < _CACHE_TTL:
+        return _collages_cache
     d = cfg.ARTIST_COLLAGES_DIR
     if not d.exists():
-        return 0, 0
+        _collages_cache = (0, 0)
+        _collages_cache_time = now
+        return _collages_cache
     count = 0
     total = 0
     for f in d.iterdir():
         if f.is_file():
             count += 1
             total += f.stat().st_size
-    return count, total
+    _collages_cache = (count, total)
+    _collages_cache_time = now
+    return _collages_cache
 
 
 # ---- Artist View Cache ----

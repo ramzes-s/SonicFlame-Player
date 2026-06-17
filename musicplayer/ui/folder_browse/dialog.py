@@ -7,6 +7,7 @@ from musicplayer.ui.widgets.frameless_dialog import FramelessDialog
 from .key_folders_widget import KeyFoldersWidget
 from .folder_tree_widget import FolderTreeWidget
 from .bottom_bar_widget import BottomBarWidget
+from .helpers import add_favorite_folder
 
 
 class FolderBrowseDialog(FramelessDialog):
@@ -19,8 +20,8 @@ class FolderBrowseDialog(FramelessDialog):
         self._selected_path = None
 
         self.setWindowTitle(title)
-        self.setMinimumSize(640, 500)
-        self.resize(800, 720)
+        self.setMinimumSize(640, 600)
+        self.resize(780, 750)
 
         self._build_ui(title)
         self.apply_accent_color()
@@ -60,6 +61,7 @@ class FolderBrowseDialog(FramelessDialog):
         self._key_widget.folder_selected.connect(self._on_key_folder_selected)
         self._tree_widget.folder_selected.connect(self._on_tree_folder_selected)
         self._tree_widget.folder_activated.connect(self._accept_current)
+        self._tree_widget.add_to_favorites_requested.connect(self._on_add_to_favorites)
         self._bottom_bar.select_requested.connect(self._accept_current)
 
         # now safe to populate (signals are connected)
@@ -68,6 +70,7 @@ class FolderBrowseDialog(FramelessDialog):
             root_name = os.path.basename(self._norm_root) or self._norm_root
             self._key_widget.prepend_root_to_key_list(root_name)
         self._key_widget.load_key_folders()
+        self._key_widget.load_favorite_folders()
 
     def _on_key_folder_selected(self, path, is_root):
         self._tree_widget.clear_selection()
@@ -81,6 +84,24 @@ class FolderBrowseDialog(FramelessDialog):
         self._key_widget.clear_selection()
         self._selected_path = path
         self._bottom_bar.set_selected_path(path)
+
+    def _on_add_to_favorites(self, path: str):
+        if self._key_widget.is_in_key_list(path):
+            from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+            StyledMessageBox.info(
+                self, "Избранные папки",
+                "Эта папка уже есть в списке ключевых папок."
+            )
+            return
+        if add_favorite_folder(path):
+            self._key_widget.load_favorite_folders()
+        else:
+            from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
+            StyledMessageBox.warning(
+                self, "Избранные папки",
+                f"Максимум {5} избранных папок.\n"
+                "Удалите одну из текущих, чтобы добавить новую."
+            )
 
     def _accept_current(self):
         if self._selected_path and os.path.isdir(self._selected_path):

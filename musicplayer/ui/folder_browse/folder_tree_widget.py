@@ -2,9 +2,9 @@ import os
 
 from PySide6.QtWidgets import (QVBoxLayout, QHBoxLayout, QTreeWidget,
                                 QTreeWidgetItem, QLineEdit, QWidget, QComboBox,
-                                QFrame, QStyledItemDelegate)
+                                QFrame, QStyledItemDelegate, QMenu)
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QAction
 
 
 class _TallItemDelegate(QStyledItemDelegate):
@@ -21,6 +21,7 @@ from .helpers import (_IS_WIN, _norm_path, _path_startswith, _get_folder_icon,
 class FolderTreeWidget(QWidget):
     folder_selected = Signal(str)
     folder_activated = Signal(str)
+    add_to_favorites_requested = Signal(str)
 
     def __init__(self, norm_root=None, start_path="", parent=None):
         super().__init__(parent)
@@ -118,21 +119,18 @@ class FolderTreeWidget(QWidget):
         np_key = _norm_path(path)
         item = self._items_by_path.get(np_key)
         if item:
+            self._expand_parents(item)
             self._tree.setCurrentItem(item)
             self._tree.scrollToItem(item)
-            self._expand_parents(item)
             display_path = item.data(0, Qt.UserRole) or path
             self.folder_selected.emit(display_path)
             return
 
+        # build path parts from path up to root (drive or norm_root)
         if self._norm_root:
             root_key = _norm_path(self._norm_root)
         else:
             root_key = _norm_path(os.path.splitdrive(os.path.normpath(path))[0] + os.sep)
-
-        current_item = self._items_by_path.get(root_key)
-        if not current_item:
-            return
 
         parts = []
         p = os.path.normpath(path)
@@ -147,6 +145,26 @@ class FolderTreeWidget(QWidget):
             p = parent
         parts.reverse()
 
+        if not parts:
+            return
+
+        # find starting item: try root_key first, else use first part
+        current_item = self._items_by_path.get(root_key)
+        if not current_item:
+            pk = _norm_path(parts[0])
+            current_item = self._items_by_path.get(pk)
+            if current_item:
+                parts = parts[1:]  # first part consumed as starting point
+            if not parts:
+                # single-level path — already found above, select it
+                if current_item:
+                    self._expand_parents(current_item)
+                    self._tree.setCurrentItem(current_item)
+                    self._tree.scrollToItem(current_item)
+                    display_path = current_item.data(0, Qt.UserRole) or path
+                    self.folder_selected.emit(display_path)
+                return
+
         for part in parts:
             pk = _norm_path(part)
             child_item = self._items_by_path.get(pk)
@@ -156,8 +174,6 @@ class FolderTreeWidget(QWidget):
             if child_item:
                 self._populate_subdirs(child_item)
                 current_item = child_item
-                self._tree.setCurrentItem(current_item)
-                self._tree.scrollToItem(current_item)
                 display_path = child_item.data(0, Qt.UserRole) or part
                 self.folder_selected.emit(display_path)
             else:
@@ -165,6 +181,8 @@ class FolderTreeWidget(QWidget):
 
         if current_item:
             self._expand_parents(current_item)
+            self._tree.setCurrentItem(current_item)
+            self._tree.scrollToItem(current_item)
 
     def _style_sort_combo(self, accent):
         self._sort_combo.setStyleSheet(f"""
@@ -371,3 +389,34 @@ class FolderTreeWidget(QWidget):
 
     def _on_item_expanded(self, item):
         self._populate_subdirs(item)
+
+    def contextMenuEvent(self, event):
+        viewport_pos = self._tree.viewport().mapFromGlobal(event.globalPos())
+        item = self._tree.itemAt(viewport_pos)
+        if item is None:
+            return
+        path = item.data(0, Qt.UserRole)
+        if not path or not os.path.isdir(path):
+            return
+
+        menu = QMenu(self._tree)
+        menu.setStyleSheet(f"""
+            QMenu {{
+                background-color: {cfg.SECONDARY_BG_COLOR};
+                border: 1px solid {cfg.DIVIDER_COLOR};
+                color: {cfg.TEXT_COLOR};
+                font-size: 12px;
+                padding: 4px 0;
+            }}
+            QMenu::item {{
+                padding: 8px 24px;
+            }}
+            QMenu::item:selected {{
+                background-color: {cfg.get_accent_color()};
+                color: {cfg.CTR_TEXT_COLOR};
+            }}
+        """)
+        action = QAction("Добавить в избранные папки", menu)
+        action.triggered.connect(lambda: self.add_to_favorites_requested.emit(path))
+        menu.addAction(action)
+        menu.exec(event.globalPos())
