@@ -89,9 +89,9 @@ class WebIntegration(QObject):
             return
         music_folder = self._main_window.settings.music_folder
         if music_folder and os.path.isdir(music_folder):
-            folder_norm = os.path.normpath(folder_path)
-            music_norm = os.path.normpath(music_folder)
-            if not folder_norm.startswith(music_norm + os.sep) and folder_norm != music_norm:
+            folder_real = os.path.realpath(folder_path)
+            music_real = os.path.realpath(music_folder)
+            if os.path.commonpath([folder_real, music_real]) != music_real:
                 print(f"[WebIntegration] Folder outside music directory: {folder_path}")
                 return
         self._main_window._scan_folder(folder_path)

@@ -9,7 +9,6 @@ QThread-based folder scanning with smart sync:
 
 import os
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from PySide6.QtCore import QThread, Signal
 
 from musicplayer.core.db import (
@@ -59,7 +58,6 @@ class AudioScanner(QThread):
         self.folder_path = folder_path
         self.use_cache = use_cache
         self._is_cancelled = False
-        self.executor = None
 
         # Ensure DB is initialized
         init_db()
@@ -138,29 +136,16 @@ class AudioScanner(QThread):
             total = len(audio_files)
             tracks = []
             
-            # Use ThreadPoolExecutor to process files in parallel
-            # Use a reasonable number of workers, not too many to avoid overwhelming I/O
-            max_workers = min(os.cpu_count() * 2, 8)
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                self.executor = executor
-                futures = {executor.submit(self._process_file, filepath): filepath for filepath in audio_files}
+            for i, filepath in enumerate(audio_files):
+                if self._is_cancelled:
+                    break
 
-                for i, future in enumerate(as_completed(futures)):
-                    if self._is_cancelled:
-                        break # Exit the loop, shutdown will handle pending futures
+                track_info = self._process_file(filepath)
+                if track_info:
+                    tracks.append(track_info)
+                    self.track_scanned.emit(track_info)
 
-                    try:
-                        track_info = future.result()
-                        if track_info:
-                            tracks.append(track_info)
-                            self.track_scanned.emit(track_info) # Emit for dynamic UI updates
-                    except Exception:
-                        # Log or handle error for a single file if necessary
-                        pass
-                    
-                    self.scanning_progress.emit(i + 1, total)
-            
-            self.executor = None
+                self.scanning_progress.emit(i + 1, total)
 
             if not self._is_cancelled:
                 self.scanning_finished.emit(tracks)
@@ -172,7 +157,4 @@ class AudioScanner(QThread):
     def cancel(self):
         """Cancel the scanning operation."""
         self._is_cancelled = True
-        if self.executor:
-            # Python 3.9+ feature to cancel pending futures
-            self.executor.shutdown(wait=False, cancel_futures=True)
         self.wait()

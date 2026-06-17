@@ -150,7 +150,6 @@ class AnalysisManager(QObject):
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
-        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.start()
         self.analysis_started.emit()
 
@@ -173,7 +172,6 @@ class AnalysisManager(QObject):
         self._worker.track_analyzed.connect(self._on_track_analyzed)
         self._worker.analysis_finished.connect(self._on_analysis_finished)
         self._worker.analysis_error.connect(self._on_analysis_error)
-        self._worker.finished.connect(self._worker.deleteLater)
         self._worker.start()
         self.analysis_started.emit()
 
@@ -214,11 +212,14 @@ class AnalysisManager(QObject):
         self._advance_to_library()
 
     def _cancel_worker(self, timeout_ms: int = 15000):
-        if self._worker and self._worker.isRunning():
-            self._worker.cancel()
-            if not self._worker.wait(timeout_ms):
-                self._worker.terminate()
-                self._worker.wait()
+        try:
+            if self._worker and self._worker.isRunning():
+                self._worker.cancel()
+                if not self._worker.wait(timeout_ms):
+                    self._worker.terminate()
+                    self._worker.wait()
+        except RuntimeError:
+            pass
 
     def cancel_analysis(self):
         """Cancel any ongoing analysis (called on app close)."""

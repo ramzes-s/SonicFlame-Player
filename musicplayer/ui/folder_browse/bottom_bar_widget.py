@@ -76,7 +76,7 @@ class BottomBarWidget(QWidget):
                 parts.append(f'<span style="color:{cfg.SECONDARY_TEXT_COLOR}; font-size: 13px;">{_folder_count_str(folder_count)}  \u0438 </span>')
             if track_count:
                 parts.append(f'<span style="color:{cfg.SECONDARY_TEXT_COLOR}; font-size: 13px;">{_track_count_str(track_count)}</span>')
-            self._breadcrumb_count.setText(" ".join(parts) if parts else '<span style="color:{cfg.DISABLED_TEXT_COLOR}; font-size: 13px;">\u041f\u0430\u043f\u043a\u0430 \u043f\u0443\u0441\u0442\u0430</span>')
+            self._breadcrumb_count.setText(" ".join(parts) if parts else f'<span style="color:{cfg.DISABLED_TEXT_COLOR}; font-size: 13px;">\u041f\u0430\u043f\u043a\u0430 \u043f\u0443\u0441\u0442\u0430</span>')
         except Exception:
             self._breadcrumb_label.setText(path)
             self._breadcrumb_count.clear()

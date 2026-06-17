@@ -199,7 +199,7 @@ def main():
     # Single-instance check (skip for library subprocess)
     if not is_library_mode and _try_activate_existing_instance():
         logging.getLogger(__name__).info("Existing instance detected, activating and exiting.")
-        os._exit(0)
+        return
 
     if is_library_mode:
         # === LIBRARY MODE ===
@@ -247,10 +247,10 @@ def _run_library_mode(app: QApplication):
         if editor.exec() == 1:
             new_filepath = editor.file_path
             if os.path.exists(new_filepath):
-                if os.path.normpath(new_filepath) != os.path.normpath(filepath):
-                    delete_track(filepath)
                 updated_track = extract_metadata(new_filepath)
                 if updated_track:
+                    if os.path.normpath(new_filepath) != os.path.normpath(filepath):
+                        delete_track(filepath)
                     upsert_track(updated_track, os.path.getmtime(new_filepath))
                     ipc_client.send_refresh()
 

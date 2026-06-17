@@ -167,7 +167,7 @@ class WebServer(QObject):
             async def _cleanup():
                 if hasattr(self, '_runner'):
                     await self._runner.cleanup()
-                for task in asyncio.all_tasks(loop):
+                for task in asyncio.all_tasks():
                     task.cancel()
                 loop.stop()
             asyncio.run_coroutine_threadsafe(_cleanup(), loop)

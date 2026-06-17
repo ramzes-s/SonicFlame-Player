@@ -246,17 +246,6 @@ class PlaylistDelegate(QStyledItemDelegate):
                     crown_pixmap = crown_pixmap.scaled(14, 14, Qt.KeepAspectRatio, Qt.SmoothTransformation)
                     crown_y = option.rect.top() + (option.rect.height() - 14) // 2
                     painter.drawPixmap(x + 2, crown_y, crown_pixmap)
-
-            # 4) Heart icon (LEFTMOST - before crown or genres)
-            is_fav = self._is_favorite(track)
-            heart_pixmap = self._render_heart_pixmap(is_fav)
-            heart_rect = self._get_heart_rect(view_index, option.rect)
-
-            # Also store heart rect for click detection
-            painter.setOpacity(1.0)
-            if not heart_pixmap.isNull():
-                painter.drawPixmap(heart_rect, heart_pixmap)
-
         painter.restore()
 
     def sizeHint(self, option, index):

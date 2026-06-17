@@ -270,39 +270,38 @@ def upsert_track(track: TrackInfo, mtime: float, preserve_play_count: bool = Tru
         if row:
             current_count, current_tempo, current_energy, current_mood, current_zero_crossing_rate, current_spectral_flux, current_hpss_ratio, current_is_favorite = row
 
-    final_tempo = getattr(track, 'tempo', 0.0)
-    if final_tempo == 0.0 and current_tempo != 0.0:
-        final_tempo = current_tempo
+        final_tempo = getattr(track, 'tempo', 0.0)
+        if final_tempo == 0.0 and current_tempo != 0.0:
+            final_tempo = current_tempo
 
-    final_energy = getattr(track, 'energy', 0.0)
-    if final_energy == 0.0 and current_energy != 0.0:
-        final_energy = current_energy
+        final_energy = getattr(track, 'energy', 0.0)
+        if final_energy == 0.0 and current_energy != 0.0:
+            final_energy = current_energy
 
-    final_mood = getattr(track, 'mood', 0.0)
-    if final_mood == 0.0 and current_mood != 0.0:
-        final_mood = current_mood
+        final_mood = getattr(track, 'mood', 0.0)
+        if final_mood == 0.0 and current_mood != 0.0:
+            final_mood = current_mood
 
-    final_zero_crossing_rate = getattr(track, 'zero_crossing_rate', 0.0)
-    if final_zero_crossing_rate == 0.0 and current_zero_crossing_rate != 0.0:
-        final_zero_crossing_rate = current_zero_crossing_rate
+        final_zero_crossing_rate = getattr(track, 'zero_crossing_rate', 0.0)
+        if final_zero_crossing_rate == 0.0 and current_zero_crossing_rate != 0.0:
+            final_zero_crossing_rate = current_zero_crossing_rate
 
-    final_spectral_flux = getattr(track, 'spectral_flux', 0.0)
-    if final_spectral_flux == 0.0 and current_spectral_flux != 0.0:
-        final_spectral_flux = current_spectral_flux
+        final_spectral_flux = getattr(track, 'spectral_flux', 0.0)
+        if final_spectral_flux == 0.0 and current_spectral_flux != 0.0:
+            final_spectral_flux = current_spectral_flux
 
-    final_hpss_ratio = getattr(track, 'hpss_ratio', 0.0)
-    if final_hpss_ratio == 0.0 and current_hpss_ratio != 0.0:
-        final_hpss_ratio = current_hpss_ratio
+        final_hpss_ratio = getattr(track, 'hpss_ratio', 0.0)
+        if final_hpss_ratio == 0.0 and current_hpss_ratio != 0.0:
+            final_hpss_ratio = current_hpss_ratio
 
-    final_play_count = getattr(track, 'play_count', 0)
-    if preserve_play_count:
-        final_play_count = current_count
+        final_play_count = getattr(track, 'play_count', 0)
+        if preserve_play_count:
+            final_play_count = current_count
 
-    final_is_favorite = getattr(track, 'is_favorite', False)
-    if row is not None:
-        final_is_favorite = current_is_favorite
+        final_is_favorite = getattr(track, 'is_favorite', False)
+        if row is not None:
+            final_is_favorite = current_is_favorite
 
-    with get_connection() as conn:
         conn.execute("""
             INSERT OR REPLACE INTO library
                 (filepath, mtime, title, artist, album, duration,

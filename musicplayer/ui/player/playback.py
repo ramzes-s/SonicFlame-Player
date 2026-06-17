@@ -153,8 +153,16 @@ class PlaybackManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status("Загрузка...", True)
         self._mw._blink_animation.start()
 
-        if self._mw.scanner and self._mw.scanner.isRunning():
-            self._mw.scanner.cancel()
+        old_scanner = self._mw.scanner
+        if old_scanner:
+            try:
+                old_scanner.scanning_finished.disconnect()
+                old_scanner.scanning_error.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+            if old_scanner.isRunning():
+                old_scanner.cancel()
+            old_scanner.deleteLater()
 
         self._mw.scanner = AudioScanner(folder_path, use_cache=True)
         self._mw._removed_tracks_count = 0

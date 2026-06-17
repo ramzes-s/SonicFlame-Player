@@ -1,8 +1,8 @@
-import urllib.request
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                               QPushButton, QScrollArea, QFrame, QGridLayout)
 from PySide6.QtCore import Qt, Signal, QByteArray
 from PySide6.QtGui import QPainter, QPixmap, QMouseEvent, QColor
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 from PySide6.QtSvg import QSvgRenderer
 from musicplayer import config as cfg
 from musicplayer.ui.svg_icons import get_music_note_svg
@@ -29,6 +29,8 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         self._artist = artist
         self._title = title
         self._duration = duration
+        self._network = QNetworkAccessManager(self)
+        self._cover_downloads = []
         self._build_ui()
 
     def showEvent(self, event):
@@ -78,6 +80,28 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
         content_layout.addWidget(scroll)
         inner.addWidget(content, stretch=1)
 
+        self._start_cover_downloads()
+
+    def _start_cover_downloads(self):
+        for label, url in self._cover_downloads:
+            req = QNetworkRequest(url)
+            reply = self._network.get(req)
+            reply.finished.connect(lambda r=reply, lbl=label: self._on_cover_downloaded(r, lbl))
+
+    def _on_cover_downloaded(self, reply, label):
+        try:
+            img_data = reply.readAll()
+            pixmap = QPixmap()
+            if pixmap.loadFromData(img_data):
+                size = min(label.width(), label.height())
+                scaled = pixmap.scaled(size, size, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                label.setPixmap(scaled)
+                label.setText("")
+        except RuntimeError:
+            pass  # dialog closed, widget deleted
+        finally:
+            reply.deleteLater()
+
     def _build_card(self, track_data, score, original_artist, original_title, original_duration):
         card = QFrame()
         accent = cfg.get_accent_color()
@@ -105,22 +129,10 @@ class TrackSearchResultsDialog(BaseFramelessDialog):
             QLabel {{ background-color: {cfg.INPUT_BG_COLOR}; color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; }}
         """)
 
+        cover_label.setPixmap(_music_note_pixmap(COVER_SIZE))
         art_url = track_data.get("artworkUrl100", "").replace("100x100", "300x300")
         if art_url:
-            try:
-                req = urllib.request.Request(art_url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=5) as resp:
-                    img_data = resp.read()
-                pixmap = QPixmap()
-                pixmap.loadFromData(img_data)
-                if not pixmap.isNull():
-                    scaled = pixmap.scaled(COVER_SIZE, COVER_SIZE, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    cover_label.setPixmap(scaled)
-                    cover_label.setText("")
-            except Exception:
-                cover_label.setPixmap(_music_note_pixmap(COVER_SIZE))
-        else:
-            cover_label.setPixmap(_music_note_pixmap(COVER_SIZE))
+            self._cover_downloads.append((cover_label, art_url))
 
         pick_btn = QPushButton("✓ Подходит")
         pick_btn.setFixedWidth(COVER_SIZE)
