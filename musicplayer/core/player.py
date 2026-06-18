@@ -57,7 +57,7 @@ class AudioPlayer(QObject):
             self._sleep_blocker.enable()
 
         # Create media player
-        self._player = QMediaPlayer()  
+        self._player = QMediaPlayer(self)
         self._player.setAudioOutput(self._audio_output)
 
         # Connect signals
@@ -148,8 +148,8 @@ class AudioPlayer(QObject):
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
             self._now_playing_written = track.filepath
-        except Exception:
-            pass
+        except Exception as e:
+            print("player._check_write_now_playing: write now_playing.json failed")
 
 
 

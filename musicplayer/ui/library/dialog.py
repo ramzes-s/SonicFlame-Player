@@ -6,7 +6,6 @@ Uses QTableView + virtual model for performance with large datasets.
 """
 
 import os
-from pathlib import Path
 from typing import List
 
 from PySide6.QtWidgets import (QApplication, QDialog, QVBoxLayout, QHBoxLayout, QLabel,
@@ -20,7 +19,7 @@ from PySide6.QtSvgWidgets import QSvgWidget
 from musicplayer import config as cfg
 from musicplayer.core.db import (
     get_all_genres,
-    get_all_folders,
+    get_tracks_by_artist,
 )
 from musicplayer.ui.svg_icons import get_music_note_svg
 from musicplayer.ui.library.model import LibraryModel, MoodStarDelegate
@@ -147,14 +146,6 @@ class LibraryDialog(QDialog):
         self.search_edit.textChanged.connect(self._on_search_changed)
         lay.addWidget(self.search_edit, stretch=1)
 
-        self.folder_cb = QComboBox()
-        self.folder_cb.setFixedHeight(30)
-        self.folder_cb.setFixedWidth(280)
-        self.folder_cb.setStyleSheet(self._combo_style())
-        self.folder_cb.addItem("Все папки", "")
-        self.folder_cb.currentIndexChanged.connect(self._on_folder_filter_changed)
-        lay.addWidget(self.folder_cb)
-
         self.genre_cb = QComboBox()
         self.genre_cb.setFixedHeight(30)
         self.genre_cb.setFixedWidth(200)
@@ -218,30 +209,17 @@ class LibraryDialog(QDialog):
         return self.table
 
     def _initial_load(self):
-        def _fetch_initial_data():
-            return get_all_genres(), get_all_folders()
-
-        worker = DataWorker(_fetch_initial_data)
-        worker.results_ready.connect(self._on_initial_data_ready)
+        worker = DataWorker(get_all_genres)
+        worker.results_ready.connect(self._on_genres_ready)
         self.register_worker(worker)
         worker.start()
 
-    def _on_initial_data_ready(self, result):
-        genres, folders = result
-
+    def _on_genres_ready(self, genres):
         self.genre_cb.blockSignals(True)
         self.genre_cb.clear()
         self.genre_cb.addItem("Все жанры", "")
         self.genre_cb.addItems(genres)
         self.genre_cb.blockSignals(False)
-
-        self.folder_cb.blockSignals(True)
-        self.folder_cb.clear()
-        self.folder_cb.addItem("Все папки", "")
-        for folder_path, track_count in folders:
-            name = Path(folder_path).name
-            self.folder_cb.addItem(f"{name} ({track_count})", folder_path)
-        self.folder_cb.blockSignals(False)
 
         self.model.reset()
 
@@ -258,15 +236,17 @@ class LibraryDialog(QDialog):
             self.artist_view_widget.load_if_needed()
 
     def _on_search_changed(self, text: str):
-        QTimer.singleShot(200, lambda: self.model.set_search_term(text))
+        def _delayed_search(t=text):
+            try:
+                self.model.set_search_term(t)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(200, _delayed_search)
 
     def _on_genre_filter_changed(self, index: int):
         text = self.genre_cb.currentText()
         genre = "" if text == "Все жанры" else text
         self.model.set_genre_filter(genre)
-
-    def _on_folder_filter_changed(self, index: int):
-        self.model.set_folder_filter(self.folder_cb.currentData() or "")
 
     def _on_fav_filter_toggled(self, checked: bool):
         self.model.set_fav_only_filter(checked)
@@ -280,7 +260,6 @@ class LibraryDialog(QDialog):
 
     def _clear_filters(self):
         self.search_edit.clear()
-        self.folder_cb.setCurrentIndex(0)
         self.genre_cb.setCurrentIndex(0)
         self.fav_btn.setChecked(False)
 
@@ -293,7 +272,6 @@ class LibraryDialog(QDialog):
     def _update_styles(self):
         self.search_edit.setStyleSheet(self._input_style())
         self.genre_cb.setStyleSheet(self._combo_style())
-        self.folder_cb.setStyleSheet(self._combo_style())
         self.table.setStyleSheet(self._table_style())
         if hasattr(self, 'integrated_tab_bar') and self.integrated_tab_bar:
             self.integrated_tab_bar.setStyleSheet(self._tab_style())

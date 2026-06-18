@@ -148,8 +148,8 @@ class _MediaKeyHandler:
                         if action:
                             handler._dispatch(action)
                             return True, 0
-                except Exception:
-                    pass
+                except Exception as e:
+                    print("media_keys.nativeEventFilter: hotkey processing failed")
                 return False, 0
 
         self._app_filter = HotkeyFilter()

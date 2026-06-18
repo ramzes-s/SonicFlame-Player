@@ -19,8 +19,19 @@ class ScanningManager(PlayerManagerBase):
 
     def scan(self, folder_path: str):
         self._mw._current_folder_path = folder_path
-        if self._scanner and self._scanner.isRunning():
-            self._scanner.cancel()
+        if self._scanner:
+            if self._scanner.isRunning():
+                self._scanner.cancel()
+            try:
+                self._scanner.scanning_started.disconnect()
+                self._scanner.track_scanned.disconnect()
+                self._scanner.scanning_progress.disconnect()
+                self._scanner.tracks_removed.disconnect()
+                self._scanner.scanning_finished.disconnect()
+                self._scanner.scanning_error.disconnect()
+            except (TypeError, RuntimeError):
+                pass
+            self._scanner.deleteLater()
         self._scanner = AudioScanner(folder_path, use_cache=True)
         self._removed_count = 0
         self._scanner.scanning_started.connect(self._on_started)
@@ -39,8 +50,8 @@ class ScanningManager(PlayerManagerBase):
         self._mw.playlist.clear()
         try:
             self._mw.playlist.begin_bulk_add()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"scanning._on_started: begin_bulk_add failed: {e}")
         self._mw.playlist_widget.clear()
         self._mw.playlist_widget._view_tracks = self._mw.playlist_widget._full_tracks
         self._mw.playlist_widget.delegate.tracks_ref = self._mw.playlist_widget._view_tracks
@@ -74,9 +85,12 @@ class ScanningManager(PlayerManagerBase):
         if self._mw._current_folder_path:
             upsert_folder(self._mw._current_folder_path, track_count)
 
-        QTimer.singleShot(3000, lambda: (
-            self._mw.title_bar.set_scanning_status(f"{track_count}", True)
-        ))
+        def _delayed_show_count():
+            try:
+                self._mw.title_bar.set_scanning_status(f"{track_count}", True)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(3000, _delayed_show_count)
         self._mw.sidebar.set_all_buttons_enabled(True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
@@ -86,19 +100,19 @@ class ScanningManager(PlayerManagerBase):
         if self._mw.playlist.get_track_count() == 0 and tracks:
             try:
                 self._mw.playlist.begin_bulk_add()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"scanning._on_finished: begin_bulk_add failed: {e}")
             self._mw.playlist.load_tracks_no_sort(tracks)
             self._mw.playlist_widget.load_tracks(tracks)
             try:
                 self._mw.playlist.end_bulk_add()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"scanning._on_finished: end_bulk_add (inner) failed: {e}")
 
         try:
             self._mw.playlist.end_bulk_add()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"scanning._on_finished: end_bulk_add (outer) failed: {e}")
 
         sort_mode = get_playlist_sort_mode()
         self._mw.playlist.set_sort_mode(sort_mode)
@@ -123,7 +137,12 @@ class ScanningManager(PlayerManagerBase):
         self._mw._update_playlist_title()
         self._mw.ipc_server.send_refresh()
 
-        QTimer.singleShot(100, lambda: self._mw.analysis_manager.start_analysis(self._mw.playlist.get_tracks()))
+        def _delayed_analysis():
+            try:
+                self._mw.analysis_manager.start_analysis(self._mw.playlist.get_tracks())
+            except RuntimeError:
+                pass
+        QTimer.singleShot(100, _delayed_analysis)
 
     def _on_error(self, error_msg: str):
         self._mw._blink_animation.stop()

@@ -54,7 +54,8 @@ def _generate_abstract_cover(artist: str, title: str) -> bytes:
         img = background_img
     except FileNotFoundError:
         img = Image.new('RGBA', (COVER_SIZE, COVER_SIZE), (0, 0, 0, 255))
-    except Exception:
+    except Exception as e:
+        print(f"_generate_abstract_cover: failed to open background image: {e}")
         img = Image.new('RGBA', (COVER_SIZE, COVER_SIZE), (0, 0, 0, 255))
 
     draw = ImageDraw.Draw(img)

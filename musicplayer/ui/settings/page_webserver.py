@@ -4,7 +4,7 @@ from io import BytesIO
 import qrcode
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QLineEdit
-from PySide6.QtCore import Qt, Signal, QTimer
+from PySide6.QtCore import Qt, Signal, QTimer, QThread
 from PySide6.QtGui import QPixmap, QValidator, QFont
 
 from musicplayer import config as cfg
@@ -33,6 +33,36 @@ class PortValidator(QValidator):
         return "8080"
 
 
+class _IpResolveWorker(QThread):
+    ip_ready = Signal(str)
+
+    def run(self):
+        ip = self._get_local_ip()
+        self.ip_ready.emit(ip)
+
+    @staticmethod
+    def _get_local_ip() -> str:
+        try:
+            host = socket.gethostname()
+            ip_list = socket.getaddrinfo(host, None, socket.AF_INET)
+            for info in ip_list:
+                ip = info[4][0]
+                if not ip.startswith("127."):
+                    return ip
+        except Exception as e:
+            print(f"_get_local_ip: gethostname failed: {e}")
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(2)
+            s.connect(("8.8.8.8", 53))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip if not ip.startswith("127.") else "127.0.0.1"
+        except Exception as e:
+            print(f"_get_local_ip: socket connect failed: {e}")
+            return "127.0.0.1"
+
+
 class WebServerPage(QWidget):
     web_server_toggled = Signal(bool)
     port_changed = Signal(int)
@@ -42,6 +72,8 @@ class WebServerPage(QWidget):
         super().__init__(parent)
         self._settings = settings
         self._pending_port = None
+        self._resolved_ip = None
+        self._ip_worker = None
         self._port_debounce_timer = QTimer(self)
         self._port_debounce_timer.setSingleShot(True)
         self._port_debounce_timer.timeout.connect(self._on_port_debounce_complete)
@@ -179,48 +211,54 @@ class WebServerPage(QWidget):
         self.port_input.setStyleSheet(style)
         return style
 
-    def _get_local_ip(self):
-        try:
-            host = socket.gethostname()
-            ip_list = socket.getaddrinfo(host, None, socket.AF_INET)
-            for info in ip_list:
-                ip = info[4][0]
-                if not ip.startswith("127."):
-                    return ip
-        except Exception:
-            pass
-        try:
-            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(2)
-            s.connect(("8.8.8.8", 53))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip if not ip.startswith("127.") else "127.0.0.1"
-        except Exception:
-            return "127.0.0.1"
-
     def _update_status(self):
-        if self._settings.web_server_enabled:
-            ip = self._get_local_ip()
-            url = f"http://{ip}:{self._settings.web_server_port}"
-            self._web_server_status.setText(url)
-
-            qr = qrcode.QRCode(box_size=6, border=1)
-            qr.add_data(url)
-            qr.make(fit=True)
-            img = qr.make_image(fill_color="white", back_color="black")
-
-            buffer = BytesIO()
-            img.save(buffer, format="PNG")
-            buffer.seek(0)
-
-            pixmap = QPixmap()
-            pixmap.loadFromData(buffer.read())
-            self._qr_label.setPixmap(pixmap)
-            self._qr_label.setVisible(True)
-        else:
+        if not self._settings.web_server_enabled:
             self._web_server_status.setText("Остановлен")
             self._qr_label.setVisible(False)
+            return
+
+        if self._resolved_ip:
+            self._rebuild_status_display()
+            return
+
+        self._web_server_status.setText("Определение IP...")
+        self._start_ip_resolve()
+
+    def _start_ip_resolve(self):
+        if self._ip_worker:
+            self._ip_worker.ip_ready.disconnect()
+            self._ip_worker.quit()
+            self._ip_worker.wait()
+            self._ip_worker.deleteLater()
+        self._ip_worker = _IpResolveWorker(self)
+        self._ip_worker.ip_ready.connect(self._on_ip_resolved)
+        self._ip_worker.finished.connect(self._ip_worker.deleteLater)
+        self._ip_worker.start()
+
+    def _on_ip_resolved(self, ip: str):
+        self._resolved_ip = ip
+        if self._settings.web_server_enabled:
+            self._rebuild_status_display()
+
+    def _rebuild_status_display(self):
+        if not self._resolved_ip:
+            return
+        url = f"http://{self._resolved_ip}:{self._settings.web_server_port}"
+        self._web_server_status.setText(url)
+
+        qr = qrcode.QRCode(box_size=6, border=1)
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="white", back_color="black")
+
+        buffer = BytesIO()
+        img.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        pixmap = QPixmap()
+        pixmap.loadFromData(buffer.read())
+        self._qr_label.setPixmap(pixmap)
+        self._qr_label.setVisible(True)
 
     def refresh_status(self):
         self._update_status()

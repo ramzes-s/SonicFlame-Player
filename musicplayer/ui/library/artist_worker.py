@@ -100,7 +100,8 @@ class ArtistProcessingWorker(QThread):
         for p in image_paths:
             try:
                 images.append(Image.open(p).convert("RGBA"))
-            except Exception:
+            except Exception as e:
+                print(f"artist_worker._create_collage: failed to open image: {e}")
                 continue
 
         num_images = len(images)

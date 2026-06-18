@@ -10,6 +10,7 @@ Persistent storage for user preferences:
 """
 
 import json
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -19,99 +20,112 @@ from musicplayer import config
 SETTINGS_DIR = config.CACHE_DIR
 SETTINGS_FILE = config.SETTINGS_FILE
 
+_settings_lock = threading.RLock()
+
 def _read_settings_json():
-    try:
-        if not SETTINGS_FILE.exists():
+    with _settings_lock:
+        try:
+            if not SETTINGS_FILE.exists():
+                return {}
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            print("settings._read_settings_json: read settings failed")
             return {}
-        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
 
 def _write_settings_json(data):
-    SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-    with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+    with _settings_lock:
+        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
 _app_settings_instances = []
 
 def ensure_default_playlist_sort_mode():
-    data = _read_settings_json()
-    if "playlist_sort_mode" not in data:
-        data["playlist_sort_mode"] = "artist"
-        _write_settings_json(data)
+    with _settings_lock:
+        data = _read_settings_json()
+        if "playlist_sort_mode" not in data:
+            data["playlist_sort_mode"] = "artist"
+            _write_settings_json(data)
 
 def ensure_default_prevent_sleep():
-    data = _read_settings_json()
-    if "prevent_sleep" not in data:
-        data["prevent_sleep"] = True
-        _write_settings_json(data)
+    with _settings_lock:
+        data = _read_settings_json()
+        if "prevent_sleep" not in data:
+            data["prevent_sleep"] = True
+            _write_settings_json(data)
 
 def get_playlist_sort_mode():
-    data = _read_settings_json()
-    return data.get("playlist_sort_mode", "artist")
+    with _settings_lock:
+        return _read_settings_json().get("playlist_sort_mode", "artist")
 
 def set_playlist_sort_mode(mode: str):
-    if mode not in ("artist", "title", "newest", "shuffle"):
-        mode = "artist"
-    data = _read_settings_json()
-    if data.get("playlist_sort_mode") == mode:
-        return
-    data["playlist_sort_mode"] = mode
-    _write_settings_json(data)
-    for instance in _app_settings_instances:
-        instance._data["playlist_sort_mode"] = mode
+    with _settings_lock:
+        if mode not in ("artist", "title", "newest", "shuffle"):
+            mode = "artist"
+        data = _read_settings_json()
+        if data.get("playlist_sort_mode") == mode:
+            return
+        data["playlist_sort_mode"] = mode
+        _write_settings_json(data)
+        for instance in _app_settings_instances:
+            instance._data["playlist_sort_mode"] = mode
 
 def get_prevent_sleep():
-    data = _read_settings_json()
-    return data.get("prevent_sleep", True)
+    with _settings_lock:
+        return _read_settings_json().get("prevent_sleep", True)
 
 def set_prevent_sleep(value: bool):
-    data = _read_settings_json()
-    data["prevent_sleep"] = value
-    _write_settings_json(data)
-    for instance in _app_settings_instances:
-        instance._data["prevent_sleep"] = value
+    with _settings_lock:
+        data = _read_settings_json()
+        data["prevent_sleep"] = value
+        _write_settings_json(data)
+        for instance in _app_settings_instances:
+            instance._data["prevent_sleep"] = value
 
 def ensure_default_similarity_precision():
-    data = _read_settings_json()
-    if "similarity_precision" not in data:
-        data["similarity_precision"] = 20
-        _write_settings_json(data)
+    with _settings_lock:
+        data = _read_settings_json()
+        if "similarity_precision" not in data:
+            data["similarity_precision"] = 20
+            _write_settings_json(data)
 
 def get_similarity_precision():
-    data = _read_settings_json()
-    return data.get("similarity_precision", 20)
+    with _settings_lock:
+        return _read_settings_json().get("similarity_precision", 20)
 
 def set_similarity_precision(value: int):
-    value = max(0, min(40, int(value)))
-    data = _read_settings_json()
-    if data.get("similarity_precision") == value:
-        return
-    data["similarity_precision"] = value
-    _write_settings_json(data)
-    for instance in _app_settings_instances:
-        instance._data["similarity_precision"] = value
+    with _settings_lock:
+        value = max(0, min(40, int(value)))
+        data = _read_settings_json()
+        if data.get("similarity_precision") == value:
+            return
+        data["similarity_precision"] = value
+        _write_settings_json(data)
+        for instance in _app_settings_instances:
+            instance._data["similarity_precision"] = value
 
 def ensure_default_analysis_duration():
-    data = _read_settings_json()
-    if "analysis_duration" not in data:
-        data["analysis_duration"] = config.ANALYSIS_DURATION
-        _write_settings_json(data)
+    with _settings_lock:
+        data = _read_settings_json()
+        if "analysis_duration" not in data:
+            data["analysis_duration"] = config.ANALYSIS_DURATION
+            _write_settings_json(data)
 
 def get_analysis_duration():
-    data = _read_settings_json()
-    return data.get("analysis_duration", config.ANALYSIS_DURATION)
+    with _settings_lock:
+        return _read_settings_json().get("analysis_duration", config.ANALYSIS_DURATION)
 
 def set_analysis_duration(value: int):
-    value = max(30, min(60, int(value) // 10 * 10))
-    data = _read_settings_json()
-    if data.get("analysis_duration") == value:
-        return
-    data["analysis_duration"] = value
-    _write_settings_json(data)
-    for instance in _app_settings_instances:
-        instance._data["analysis_duration"] = value
+    with _settings_lock:
+        value = max(30, min(60, int(value) // 10 * 10))
+        data = _read_settings_json()
+        if data.get("analysis_duration") == value:
+            return
+        data["analysis_duration"] = value
+        _write_settings_json(data)
+        for instance in _app_settings_instances:
+            instance._data["analysis_duration"] = value
 
 # Ensure default on import
 ensure_default_playlist_sort_mode()
@@ -123,7 +137,8 @@ class AppSettings:
     """Manages persistent application settings."""
 
     def __init__(self):
-        _app_settings_instances.append(self)
+        with _settings_lock:
+            _app_settings_instances.append(self)
         self._data = {
             "last_folder": None,
             "last_track": None,
@@ -152,30 +167,33 @@ class AppSettings:
 
     def _load(self):
         """Load settings from disk."""
-        SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
-        if SETTINGS_FILE.exists():
-            try:
-                with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    self._data.update(data)
-            except (json.JSONDecodeError, IOError):
-                pass
+        with _settings_lock:
+            SETTINGS_DIR.mkdir(parents=True, exist_ok=True)
+            if SETTINGS_FILE.exists():
+                try:
+                    with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                        self._data.update(data)
+                except (json.JSONDecodeError, IOError):
+                    pass
 
     def _save(self):
         """Persist settings to disk."""
-        try:
-            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
-        except IOError:
-            pass
+        with _settings_lock:
+            try:
+                with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, indent=2, ensure_ascii=False)
+            except IOError:
+                pass
 
     def batch_save(self):
         """Persist multiple settings at once without triggering individual saves."""
-        try:
-            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-                json.dump(self._data, f, indent=2, ensure_ascii=False)
-        except IOError:
-            pass
+        with _settings_lock:
+            try:
+                with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                    json.dump(self._data, f, indent=2, ensure_ascii=False)
+            except IOError:
+                pass
 
     @property
     def last_folder(self) -> Optional[str]:

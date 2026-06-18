@@ -66,7 +66,8 @@ class TitleBarWidget(QWidget):
         self._sort_combo.blockSignals(True)
         try:
             current = get_playlist_sort_mode()
-        except Exception:
+        except Exception as e:
+            print(f"title_bar._setup_ui: failed to get sort mode: {e}")
             current = "artist"
         index_map = {"artist": 0, "title": 1, "newest": 2, "shuffle": 3}
         self._sort_combo.setCurrentIndex(index_map.get(current, 0))
@@ -92,8 +93,8 @@ class TitleBarWidget(QWidget):
         mode = mapping.get(index, "artist")
         try:
             set_playlist_sort_mode(mode)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"title_bar._on_sort_mode_changed: failed to save sort mode: {e}")
         self.sort_mode_changed.emit(mode)
 
     def set_playlist_title(self, title: str):

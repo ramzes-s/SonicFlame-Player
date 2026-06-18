@@ -232,8 +232,8 @@ def extract_accent_color(cover_data: bytes) -> str:
 
         return _to_hex(*boosted)
 
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"extract_accent_color: color extraction failed: {e}")
 
     return _default_color()
 
@@ -257,5 +257,6 @@ def extract_accent_color_from_path(cover_path: str) -> str:
         with open(cover_path, "rb") as f:
             cover_data = f.read()
         return extract_accent_color(cover_data)
-    except Exception:
+    except Exception as e:
+        print(f"extract_accent_color_from_path: failed for {cover_path}: {e}")
         return _default_color()

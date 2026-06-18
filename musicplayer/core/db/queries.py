@@ -195,7 +195,8 @@ def get_all_folders() -> List[Tuple[str, int]]:
             try:
                 parent_folder = str(Path(row[0]).parent)
                 folder_map[parent_folder] = folder_map.get(parent_folder, 0) + 1
-            except Exception:
+            except Exception as e:
+                print(f"get_all_genres: failed to extract parent folder — {e}")
                 pass
     return sorted(folder_map.items())
 
@@ -270,7 +271,8 @@ def get_top_tracks(limit: int = 100) -> List[TrackInfo]:
                             from musicplayer.core.db.tracks import upsert_track
                             upsert_track(updated_track, current_mtime)
                             track = updated_track
-            except Exception:
+            except Exception as e:
+                print(f"get_top_tracks: failed to refresh track — {e}")
                 pass
 
             results.append(track)

@@ -10,7 +10,7 @@ import ipaddress
 import sys
 import threading
 from pathlib import Path
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Set
 
 from aiohttp import web
 from PySide6.QtCore import QObject, Signal
@@ -18,6 +18,25 @@ from PySide6.QtCore import QObject, Signal
 from musicplayer.core.db import TrackInfo
 from musicplayer.core.web_api import APIHandlers
 from musicplayer.core.web_template import get_web_html
+
+
+class _SignalRelay(QObject):
+    """Thread-safe signal relay pinned to the main thread."""
+    play_requested = Signal()
+    pause_requested = Signal()
+    next_requested = Signal()
+    previous_requested = Signal()
+    volume_requested = Signal(float)
+    seek_requested = Signal(int)
+    play_track_requested = Signal(int)
+    play_folder_requested = Signal(str)
+    toggle_favorite_requested = Signal()
+    toggle_repeat_requested = Signal()
+    play_favorites_requested = Signal()
+    play_top_requested = Signal()
+    play_similar_requested = Signal()
+    play_artist_requested = Signal()
+    shutdown_requested = Signal()
 
 
 class WebServer(QObject):
@@ -39,6 +58,28 @@ class WebServer(QObject):
 
     def __init__(self):
         super().__init__()
+        self._relay = _SignalRelay()
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app:
+            self._relay.moveToThread(app.thread())
+        # Bridge relay signals to WebServer signals for backward compat
+        self._relay.play_requested.connect(self.play_requested)
+        self._relay.pause_requested.connect(self.pause_requested)
+        self._relay.next_requested.connect(self.next_requested)
+        self._relay.previous_requested.connect(self.previous_requested)
+        self._relay.volume_requested.connect(self.volume_requested)
+        self._relay.seek_requested.connect(self.seek_requested)
+        self._relay.play_track_requested.connect(self.play_track_requested)
+        self._relay.play_folder_requested.connect(self.play_folder_requested)
+        self._relay.toggle_favorite_requested.connect(self.toggle_favorite_requested)
+        self._relay.toggle_repeat_requested.connect(self.toggle_repeat_requested)
+        self._relay.play_favorites_requested.connect(self.play_favorites_requested)
+        self._relay.play_top_requested.connect(self.play_top_requested)
+        self._relay.play_similar_requested.connect(self.play_similar_requested)
+        self._relay.play_artist_requested.connect(self.play_artist_requested)
+        self._relay.shutdown_requested.connect(self.shutdown_requested)
+
         self._app: Optional[web.Application] = None
         self._runner: Optional[web.AppRunner] = None
         self._site: Optional[web.TCPSite] = None
@@ -57,6 +98,8 @@ class WebServer(QObject):
         self._favorite_filepaths = set()
         self._playlist_title = ""
         self._music_folder: Optional[str] = None
+
+        self._lock = threading.Lock()
 
         self._on_play: Optional[Callable] = None
         self._on_pause: Optional[Callable] = None
@@ -171,8 +214,8 @@ class WebServer(QObject):
                     task.cancel()
                 loop.stop()
             asyncio.run_coroutine_threadsafe(_cleanup(), loop)
-        except Exception:
-            pass
+        except Exception as e:
+            print("web_server.stop: cleanup failed")
 
     def is_running(self) -> bool:
         return self._is_running
@@ -182,33 +225,40 @@ class WebServer(QObject):
 
     def update_state(self, playing: bool, position: int, duration: int,
                      volume: float, repeat: str):
-        self._playing = playing
-        self._position = position
-        self._duration = duration
-        self._volume = volume
-        self._repeat = repeat
+        with self._lock:
+            self._playing = playing
+            self._position = position
+            self._duration = duration
+            self._volume = volume
+            self._repeat = repeat
 
     def update_sort_mode(self, sort_mode: str):
         """Update the playlist sort mode."""
-        self._sort_mode = sort_mode
+        with self._lock:
+            self._sort_mode = sort_mode
 
     def update_track(self, track: Optional[TrackInfo]):
-        self._current_track = track
+        with self._lock:
+            self._current_track = track
 
     def update_playlist_title(self, title: str):
         """Update the current playlist title."""
-        self._playlist_title = title
+        with self._lock:
+            self._playlist_title = title
 
-    def update_favorites(self, favorite_filepaths: set):
+    def update_favorites(self, favorite_filepaths: Set[str]):
         """Update the set of favorite filepaths."""
-        self._favorite_filepaths = favorite_filepaths
+        with self._lock:
+            self._favorite_filepaths = favorite_filepaths
 
     def update_current_index(self, index: int):
-        self._current_index = index
+        with self._lock:
+            self._current_index = index
 
     def update_playlist(self, tracks: List[TrackInfo]):
         print(f"[WebServer] update_playlist storing {len(tracks)} tracks, first: {tracks[0].filepath if tracks else 'none'}")
-        self._playlist = tracks
+        with self._lock:
+            self._playlist = tracks
 
     async def _handle_index(self, request: web.Request) -> web.Response:
         return web.Response(text=get_web_html(), content_type='text/html')

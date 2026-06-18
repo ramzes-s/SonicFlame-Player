@@ -50,17 +50,28 @@ class APIHandlers:
 
     async def handle_status(self, request: web.Request) -> web.Response:
         srv = self._server
+        with srv._lock:
+            playing = srv._playing
+            position = srv._position
+            duration = srv._duration
+            volume = srv._volume
+            repeat = srv._repeat
+            sort_mode = srv._sort_mode
         return web.json_response({
-            "playing": srv._playing,
-            "position": srv._position,
-            "duration": srv._duration,
-            "volume": srv._volume,
-            "repeat": srv._repeat,
-            "sort_mode": srv._sort_mode
+            "playing": playing,
+            "position": position,
+            "duration": duration,
+            "volume": volume,
+            "repeat": repeat,
+            "sort_mode": sort_mode
         })
 
     async def handle_track(self, request: web.Request) -> web.Response:
-        track = self._server._current_track
+        with self._server._lock:
+            track = self._server._current_track
+            is_fav = track.filepath in self._server._favorite_filepaths if track else False
+            playlist_title = self._server._playlist_title
+
         if not track:
             return web.json_response(None)
 
@@ -71,7 +82,8 @@ class APIHandlers:
             if cover_data:
                 try:
                     cover_b64 = base64.b64encode(cover_data).decode()
-                except Exception:
+                except Exception as e:
+                    print("web_api.handle_track: encode cover b64 failed")
                     cover_b64 = None
 
         return web.json_response({
@@ -81,13 +93,14 @@ class APIHandlers:
             "duration": track.duration,
             "genre": track.genre,
             "bitrate": track.bitrate,
-            "is_favorite": track.filepath in self._server._favorite_filepaths,
+            "is_favorite": is_fav,
             "cover": cover_b64,
-            "playlist_title": self._server._playlist_title
+            "playlist_title": playlist_title
         })
 
     async def handle_playlist(self, request: web.Request) -> web.Response:
-        playlist = self._server._playlist
+        with self._server._lock:
+            playlist = list(self._server._playlist)
         tracks = []
         for t in playlist:
             tracks.append({
@@ -102,39 +115,50 @@ class APIHandlers:
         return web.json_response({"color": cfg.get_accent_color()})
 
     async def handle_playing_data(self, request: web.Request) -> web.Response:
-        track = self._server._current_track
+        srv = self._server
+        with srv._lock:
+            playing = srv._playing
+            position = srv._position
+            duration = srv._duration
+            volume = srv._volume
+            repeat = srv._repeat
+            current_index = srv._current_index
+            track = srv._current_track
+            is_fav = track.filepath in srv._favorite_filepaths if track else False
+            sort_mode = srv._sort_mode
+
         return web.json_response({
             "status": {
-                "playing": self._server._playing,
-                "position": self._server._position,
-                "duration": self._server._duration,
-                "volume": self._server._volume,
-                "repeat": self._server._repeat
+                "playing": playing,
+                "position": position,
+                "duration": duration,
+                "volume": volume,
+                "repeat": repeat
             },
-            "current_index": self._server._current_index,
+            "current_index": current_index,
             "current_track_filepath": track.filepath if track else None,
-            "is_favorite": track.filepath in self._server._favorite_filepaths if track else False,
+            "is_favorite": is_fav,
             "accent_color": cfg.get_accent_color(),
-            "sort_mode": self._server._sort_mode
+            "sort_mode": sort_mode
         })
 
     async def handle_play(self, request: web.Request) -> web.Response:
         print(f"[WebServer] handle_play called")
-        self._server.play_requested.emit()
+        self._server._relay.play_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_pause(self, request: web.Request) -> web.Response:
         print(f"[WebServer] handle_pause called")
-        self._server.pause_requested.emit()
+        self._server._relay.pause_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_next(self, request: web.Request) -> web.Response:
         print(f"[WebServer] handle_next called")
-        self._server.next_requested.emit()
+        self._server._relay.next_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_previous(self, request: web.Request) -> web.Response:
-        self._server.previous_requested.emit()
+        self._server._relay.previous_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_volume(self, request: web.Request) -> web.Response:
@@ -142,9 +166,9 @@ class APIHandlers:
             data = await request.json()
             volume = _validate_volume(data.get("value", 0.5))
             if volume is not None:
-                self._server.volume_requested.emit(volume)
-        except Exception:
-            pass
+                self._server._relay.volume_requested.emit(volume)
+        except Exception as e:
+            print("web_api.handle_volume: parse volume request failed")
         return web.json_response({"ok": True})
 
     async def handle_seek(self, request: web.Request) -> web.Response:
@@ -152,19 +176,21 @@ class APIHandlers:
             data = await request.json()
             position = _validate_position(data.get("position", 0))
             if position is not None:
-                self._server.seek_requested.emit(position)
-        except Exception:
-            pass
+                self._server._relay.seek_requested.emit(position)
+        except Exception as e:
+            print("web_api.handle_seek: parse seek request failed")
         return web.json_response({"ok": True})
 
     async def handle_play_track(self, request: web.Request) -> web.Response:
         try:
             data = await request.json()
-            index = _validate_index(data.get("index", 0), len(self._server._playlist))
+            with self._server._lock:
+                playlist_len = len(self._server._playlist)
+            index = _validate_index(data.get("index", 0), playlist_len)
             if index is not None:
-                self._server.play_track_requested.emit(index)
-        except Exception:
-            pass
+                self._server._relay.play_track_requested.emit(index)
+        except Exception as e:
+            print("web_api.handle_play_track: parse play_track request failed")
         return web.json_response({"ok": True})
 
     async def handle_folders(self, request: web.Request) -> web.Response:
@@ -190,33 +216,33 @@ class APIHandlers:
                 # Validate path to prevent path traversal
                 music_folder = get_music_folder()
                 if is_safe_filepath(path, music_folder):
-                    self._server.play_folder_requested.emit(path)
-        except Exception:
-            pass
+                    self._server._relay.play_folder_requested.emit(path)
+        except Exception as e:
+            print("web_api.handle_play_folder: parse play_folder request failed")
         return web.json_response({"ok": True})
 
     async def handle_toggle_favorite(self, request: web.Request) -> web.Response:
-        self._server.toggle_favorite_requested.emit()
+        self._server._relay.toggle_favorite_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_toggle_repeat(self, request: web.Request) -> web.Response:
-        self._server.toggle_repeat_requested.emit()
+        self._server._relay.toggle_repeat_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_play_favorites(self, request: web.Request) -> web.Response:
-        self._server.play_favorites_requested.emit()
+        self._server._relay.play_favorites_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_play_top(self, request: web.Request) -> web.Response:
-        self._server.play_top_requested.emit()
+        self._server._relay.play_top_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_play_similar(self, request: web.Request) -> web.Response:
-        self._server.play_similar_requested.emit()
+        self._server._relay.play_similar_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_play_artist(self, request: web.Request) -> web.Response:
-        self._server.play_artist_requested.emit()
+        self._server._relay.play_artist_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_shutdown(self, request: web.Request) -> web.Response:
@@ -224,7 +250,7 @@ class APIHandlers:
         settings = AppSettings()
         if not settings.allow_remote_shutdown:
             return web.json_response({"ok": False, "error": "Remote shutdown is disabled"})
-        self._server.shutdown_requested.emit()
+        self._server._relay.shutdown_requested.emit()
         return web.json_response({"ok": True})
 
     async def handle_check(self, request: web.Request) -> web.Response:

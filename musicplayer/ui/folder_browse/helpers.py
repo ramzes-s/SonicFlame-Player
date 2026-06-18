@@ -117,8 +117,8 @@ def get_favorite_folders() -> list:
             folders = json.loads(data)
             # remove non-existent paths
             return [p for p in folders if os.path.isdir(p)]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"helpers.get_favorite_folders: failed to load favorite folders: {e}")
     return []
 
 

@@ -4,12 +4,21 @@ import subprocess
 from datetime import datetime
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton
-from PySide6.QtCore import Qt, QByteArray, QUrl
+from PySide6.QtCore import Qt, QByteArray, QUrl, QThread, Signal, QTimer
+from PySide6.QtNetwork import QNetworkReply
 from PySide6.QtGui import QPixmap, QPainter, QFont
 from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 
 logger = logging.getLogger("register")
+
+
+class _HwIdWorker(QThread):
+    hwid_ready = Signal(str)
+
+    def run(self):
+        hwid = _get_hardware_id()
+        self.hwid_ready.emit(hwid)
 
 
 def _get_hardware_id() -> str:
@@ -19,27 +28,27 @@ def _get_hardware_id() -> str:
         uuid = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
         if uuid:
             parts.append(uuid)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"_get_hardware_id: wmic uuid failed: {e}")
     try:
         out = subprocess.check_output("wmic cpu get processorid", shell=True, timeout=3, stderr=subprocess.DEVNULL)
         cpu = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
         if cpu:
             parts.append(cpu)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"_get_hardware_id: wmic cpu failed: {e}")
     try:
         out = subprocess.check_output("wmic diskdrive get serialnumber", shell=True, timeout=3, stderr=subprocess.DEVNULL)
         serial = out.decode("utf-8", errors="ignore").strip().split("\n")[-1].strip()
         if serial:
             parts.append(serial)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"_get_hardware_id: wmic diskdrive failed: {e}")
     try:
         import uuid as _uuid
         parts.append(str(_uuid.getnode()))
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"_get_hardware_id: getnode failed: {e}")
 
     raw = "-".join(parts)
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest().upper()
@@ -55,7 +64,6 @@ class AboutPage(QWidget):
         super().__init__(parent)
         self._settings = settings
         self._net = QNetworkAccessManager(self)
-        self._net.finished.connect(self._on_reply)
         self._build_ui()
 
     def _build_ui(self):
@@ -231,11 +239,18 @@ class AboutPage(QWidget):
 
     def _on_register(self):
         self._reg_btn.setEnabled(False)
-        self._reg_btn.setText("Регистрация...")
+        self._reg_btn.setText("Получение HWID...")
         self._reg_status.setVisible(False)
-
-        today = datetime.now().strftime("%d%m%Y")
         self._update_reg_btn_style(cfg.get_accent_color())
+
+        self._hwid_worker = _HwIdWorker(self)
+        self._hwid_worker.hwid_ready.connect(self._on_hwid_ready)
+        self._hwid_worker.finished.connect(self._hwid_worker.deleteLater)
+        self._hwid_worker.start()
+
+    def _on_hwid_ready(self, hwid: str):
+        self._reg_btn.setText("Регистрация...")
+        today = datetime.now().strftime("%d%m%Y")
 
         logger.info("Sending POST to https://sonicflame.pro/api/register.php with firstkey=%s", today)
 
@@ -244,25 +259,44 @@ class AboutPage(QWidget):
         req.setHeader(QNetworkRequest.ContentTypeHeader, "application/json")
         req.setRawHeader(b"User-Agent", b"SonicFlame Player")
 
-        hwid = _get_hardware_id()
         body = f'{{"firstkey":"{today}","hardware_id":"{hwid}"}}'.encode("utf-8")
-        self._net.post(req, body)
+        reply = self._net.post(req, body)
+        reply.finished.connect(self._on_reg_reply)
+        QTimer.singleShot(10000, reply, reply.abort)
 
-    def _on_reply(self, reply):
+    def _on_reg_reply(self):
+        reply = self.sender()
+        if not reply:
+            return
+        reply.finished.disconnect(self._on_reg_reply)
+        reply.deleteLater()
+
         self._reg_btn.setEnabled(True)
         self._reg_btn.setText("Регистрация плеера")
         self._update_reg_btn_style(cfg.get_accent_color())
 
         status = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+
+        if status == 403:
+            self._show_status("Сервер регистрации отключен.", error=True)
+            return
+
+        if reply.error() != QNetworkReply.NetworkError.NoError:
+            if reply.error() == QNetworkReply.NetworkError.OperationCanceledError:
+                self._show_status("Сервер недоступен (таймаут 10 с)", error=True)
+            else:
+                self._show_status(f"Ошибка сети: {reply.errorString()}", error=True)
+            return
+
         data = reply.readAll().data()
-        reply.deleteLater()
 
         try:
             text = data.decode("utf-8")
             logger.info("HTTP %s: %s", status, text)
             import json
             resp = json.loads(text)
-        except Exception:
+        except Exception as e:
+            print(f"_on_reg_reply: JSON parse failed: {e}")
             code = status if status else "—"
             logger.warning("HTTP %s, parse error", code)
             self._show_status(f"Ошибка сервера (HTTP {code})", error=True)

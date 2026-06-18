@@ -147,16 +147,32 @@ class AnalysisManager(QObject):
         duration = get_analysis_duration()
 
         self._worker = AnalysisWorker(filepaths, duration, self)
-        self._worker.track_analyzed.connect(self._on_track_analyzed)
-        self._worker.analysis_finished.connect(self._on_analysis_finished)
-        self._worker.analysis_error.connect(self._on_analysis_error)
-        self._worker.start()
+        w = self._worker
+        w.track_analyzed.connect(self._on_track_analyzed)
+        w.analysis_finished.connect(lambda sentinel=w: self._on_analysis_finished(sentinel))
+        w.analysis_error.connect(lambda msg, sentinel=w: self._on_analysis_error(msg, sentinel))
+        w.start()
         self.analysis_started.emit()
+
+    def _on_analysis_finished(self, sentinel=None):
+        """Only advance if worker is still the current one (guard against stale signal)."""
+        if sentinel is not None and sentinel is not self._worker:
+            return
+        self._advance_to_library()
+
+    def _on_analysis_error(self, message: str, sentinel=None):
+        if sentinel is not None and sentinel is not self._worker:
+            return
+        print(f"AnalysisManager: {message}", file=sys.stderr)
+        self._advance_to_library()
 
     def _advance_to_library(self):
         """Query next batch of unanalyzed library tracks and start worker."""
         if self._shutting_down:
             return
+        if self._worker:
+            self._worker.deleteLater()
+            self._worker = None
         filepaths = self._get_unanalyzed_filepaths()
         if not filepaths:
             self.analysis_finished.emit()
@@ -168,11 +184,12 @@ class AnalysisManager(QObject):
         from musicplayer.core.settings import get_analysis_duration
         duration = get_analysis_duration()
 
-        self._worker = AnalysisWorker(filepaths, duration, self)
-        self._worker.track_analyzed.connect(self._on_track_analyzed)
-        self._worker.analysis_finished.connect(self._on_analysis_finished)
-        self._worker.analysis_error.connect(self._on_analysis_error)
-        self._worker.start()
+        w = AnalysisWorker(filepaths, duration, self)
+        self._worker = w
+        w.track_analyzed.connect(self._on_track_analyzed)
+        w.analysis_finished.connect(lambda sentinel=w: self._on_analysis_finished(sentinel))
+        w.analysis_error.connect(lambda msg, sentinel=w: self._on_analysis_error(msg, sentinel))
+        w.start()
         self.analysis_started.emit()
 
     def _get_unanalyzed_filepaths(self) -> List[str]:
@@ -220,6 +237,9 @@ class AnalysisManager(QObject):
                     self._worker.wait()
         except RuntimeError:
             pass
+        if self._worker:
+            self._worker.deleteLater()
+            self._worker = None
 
     def cancel_analysis(self):
         """Cancel any ongoing analysis (called on app close)."""

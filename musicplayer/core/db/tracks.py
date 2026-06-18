@@ -430,7 +430,8 @@ def ensure_cover_for_track(filepath: str) -> Optional[bytes]:
             row = cursor.fetchone()
             if row is not None and not row[0]:
                 return None
-    except Exception:
+    except Exception as e:
+        print(f"ensure_cover_for_track: failed to check has_cover in DB — {e}")
         pass
 
     # Step 3: Extract from file
@@ -444,7 +445,8 @@ def ensure_cover_for_track(filepath: str) -> Optional[bytes]:
                     UPDATE library SET has_cover = 1
                     WHERE filepath = ?
                 """, (filepath,))
-        except Exception:
+        except Exception as e:
+            print(f"ensure_cover_for_track: failed to update has_cover flag — {e}")
             pass
         return track_info.cover_data
 
@@ -477,7 +479,8 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
         file_mtime = 0.0
         try:
             file_mtime = os.path.getmtime(filepath)
-        except Exception:
+        except Exception as e:
+            print(f"extract_metadata: failed to get file mtime — {e}")
             pass
 
         # Get duration
@@ -549,7 +552,8 @@ def extract_metadata(filepath: str) -> Optional[TrackInfo]:
             year=year,
         )
 
-    except Exception:
+    except Exception as e:
+        print(f"extract_metadata: failed to parse audio file — {e}")
         return None
 
 
@@ -651,7 +655,8 @@ def _get_language_tag(tags) -> str:
                 pass
 
         # MP4/M4A — no standard language tag for content; fall through
-    except Exception:
+    except Exception as e:
+        print(f"_get_language_tag: failed to extract language tag — {e}")
         pass
     return ''
 
@@ -702,7 +707,8 @@ def _get_tag(tags, key: str, filepath: str) -> str:
             except (KeyError, IndexError):
                 pass
 
-    except Exception:
+    except Exception as e:
+        print(f"_get_tag: failed to extract tag '{key}' — {e}")
         pass
 
     # Return empty string (not filename) for non-title fields
@@ -756,7 +762,8 @@ def _extract_year(tags) -> int:
                     date_str = str(val[0] if isinstance(val, list) else val).strip()
             except (KeyError, IndexError):
                 pass
-    except Exception:
+    except Exception as e:
+        print(f"_extract_year: failed to extract year — {e}")
         pass
     if not date_str:
         return 0
@@ -790,7 +797,8 @@ def _extract_cover(audio, tags) -> Optional[bytes]:
             if cover_list:
                 return bytes(cover_list[0])
 
-    except Exception:
+    except Exception as e:
+        print(f"_extract_cover: failed to extract cover art — {e}")
         pass
 
     return None
@@ -877,7 +885,8 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
             try:
                 if Path(track.filepath).parent == folder:
                     results.append(track)
-            except Exception:
+            except Exception as e:
+                print(f"get_tracks_by_folder: failed to check parent directory — {e}")
                 pass
 
         return results
@@ -901,7 +910,8 @@ def get_folder_filepaths(folder_path: str):
             try:
                 if Path(row[0]).parent == folder:
                     results.add(row[0])
-            except Exception:
+            except Exception as e:
+                print(f"get_folder_filepaths: failed to resolve file path — {e}")
                 pass
         return results
 

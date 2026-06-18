@@ -562,6 +562,18 @@ class TagEditorDialog(BaseFramelessDialog):
             if title and title_empty:
                 self.title_edit.setText(title)
 
+    def _replace_thread(self, attr_name, new_thread):
+        old = getattr(self, attr_name, None)
+        if old:
+            try:
+                old.quit()
+                if not old.wait(500):
+                    old.terminate()
+            except RuntimeError:
+                pass
+            old.deleteLater()
+        setattr(self, attr_name, new_thread)
+
     def _search_cover(self):
         self._fill_fields_from_filename()
         artist = self.artist_edit.text().strip()
@@ -570,7 +582,7 @@ class TagEditorDialog(BaseFramelessDialog):
             QMessageBox.information(self, "Информация", "Заполните поля Артист и/или Альбом для поиска!")
             return
         self.loading_bar.start()
-        self._cover_search_thread = _CoverSearchThread(artist, album)
+        self._replace_thread('_cover_search_thread', _CoverSearchThread(artist, album))
         self._cover_search_thread.finished_covers.connect(self._on_cover_search_done)
         self._cover_search_thread.start()
 
@@ -699,7 +711,7 @@ class TagEditorDialog(BaseFramelessDialog):
             QMessageBox.information(self, "Информация", "Заполните хотя бы одно поле: Артист или Название!")
             return
         self.loading_bar.start()
-        self._track_search_thread = _TrackSearchThread(artist, title)
+        self._replace_thread('_track_search_thread', _TrackSearchThread(artist, title))
         self._track_search_thread.finished_tracks.connect(self._on_track_search_done)
         self._track_search_thread.start()
 
@@ -755,7 +767,7 @@ class TagEditorDialog(BaseFramelessDialog):
         art_url = track.get("artworkUrl100", "")
         if art_url:
             art_url = art_url.replace("100x100", "600x600")
-            self._cover_dl_thread = _CoverDownloadThread(art_url)
+            self._replace_thread('_cover_dl_thread', _CoverDownloadThread(art_url))
             self._cover_dl_thread.finished_cover.connect(
                 lambda data: self._apply_cover_data(data, is_generated=False))
             self._cover_dl_thread.start()
@@ -770,7 +782,7 @@ class TagEditorDialog(BaseFramelessDialog):
         self.delete_btn.setEnabled(False)
         self.loading_bar.start()
 
-        self._save_thread = _SaveTagsThread(
+        self._replace_thread('_save_thread', _SaveTagsThread(
             file_path=self.file_path,
             new_filename_stem=self.filename_edit.text().strip(),
             title=self.title_edit.text(),
@@ -780,7 +792,7 @@ class TagEditorDialog(BaseFramelessDialog):
             track=self.track_edit.text(),
             genres=self.genre_tags,
             cover_data=self.cover_data
-        )
+        ))
         self._save_thread.save_finished.connect(self._on_save_finished)
         self._save_thread.error.connect(self._on_save_error)
         self._save_thread.start()
@@ -835,9 +847,19 @@ class TagEditorDialog(BaseFramelessDialog):
         self._refresh_genre_tags()
 
     def _cleanup_threads(self):
-        """Remove references to threads so they aren't kept alive by the dialog."""
+        """Cancel and delete old worker threads."""
         for attr in ('_save_thread', '_cover_search_thread', '_cover_dl_thread', '_track_search_thread'):
-            setattr(self, attr, None)
+            old = getattr(self, attr, None)
+            if old:
+                try:
+                    if old.isRunning():
+                        old.quit()
+                        if not old.wait(1000):
+                            old.terminate()
+                except RuntimeError:
+                    pass
+                old.deleteLater()
+                setattr(self, attr, None)
 
     def done(self, r):
         self._cleanup_threads()

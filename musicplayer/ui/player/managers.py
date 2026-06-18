@@ -36,8 +36,8 @@ class PlayerManagerBase:
                     user32.BringWindowToTop(hwnd)
                     user32.AttachThreadInput(our_tid, fg_tid, False)
                     user32.SetForegroundWindow(hwnd)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"managers._bring_to_front: failed to bring window to front: {e}")
 
         QTimer.singleShot(100, do_bring)
         QTimer.singleShot(300, do_bring)

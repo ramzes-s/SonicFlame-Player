@@ -127,8 +127,8 @@ class SMTCManager(QObject):
         if self._smtc and self._token is not None:
             try:
                 self._smtc.remove_button_pressed(self._token)
-            except Exception:
-                pass
+            except Exception as e:
+                print("smtc_manager.close: remove button pressed failed")
         self.clear_playback()
         self._smtc = None
         self._updater = None
@@ -140,14 +140,14 @@ class SMTCManager(QObject):
         if self._prev_thumb_path and os.path.exists(self._prev_thumb_path):
             try:
                 os.unlink(self._prev_thumb_path)
-            except Exception:
-                pass
+            except Exception as e:
+                print("smtc_manager.close: unlink thumb failed")
         self._prev_thumb_path = None
         if self._temp_thumb_dir and os.path.isdir(self._temp_thumb_dir):
             try:
                 os.rmdir(self._temp_thumb_dir)
-            except Exception:
-                pass
+            except Exception as e:
+                print("smtc_manager.close: rmdir temp thumb dir failed")
         logger.info("[SMTC] Closed")
 
     def _set_thumbnail(self, track) -> None:
@@ -186,8 +186,8 @@ class SMTCManager(QObject):
             if self._prev_thumb_path and os.path.exists(self._prev_thumb_path):
                 try:
                     os.unlink(self._prev_thumb_path)
-                except Exception:
-                    pass
+                except Exception as e:
+                    print("smtc_manager._set_thumbnail: remove previous thumb failed")
             self._prev_thumb_path = tmp_path
 
             logger.debug("[SMTC] Thumbnail: set via MTA StorageFile")

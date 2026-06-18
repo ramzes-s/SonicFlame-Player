@@ -42,8 +42,8 @@ class _CoverDownloadThread(QThread):
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
             self.finished_cover.emit(data)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"_CoverDownloadThread.run: failed to download cover: {e}")
 
 
 class _SaveTagsThread(QThread):

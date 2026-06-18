@@ -52,7 +52,8 @@ def get_music_folder() -> Optional[str]:
         from musicplayer.core.settings import AppSettings
         settings = AppSettings()
         return settings.music_folder
-    except Exception:
+    except Exception as e:
+        print(f"get_music_folder: failed to read music folder setting — {e}")
         return None
 
 
@@ -68,6 +69,7 @@ def get_connection(db_path: Path = DB_PATH):
     DB_DIR.mkdir(parents=True, exist_ok=True)
     COVERS_DIR.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db_path))
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     try:
@@ -201,7 +203,8 @@ def check_db_version() -> Optional[str]:
     try:
         from musicplayer.core.db.system import get_system_value
         db_version_str = get_system_value('db_version_compare')
-    except Exception:
+    except Exception as e:
+        print(f"check_db_version: failed to get db_version_compare — {e}")
         pass
     try:
         db_version = int(db_version_str) if db_version_str is not None else 0

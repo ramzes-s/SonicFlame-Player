@@ -45,7 +45,8 @@ def _save_cover(filepath: str, cover_data: bytes):
 
         # Use quality=85 (visually lossless but much smaller) instead of lossless
         img.save(cover_path, "WEBP", quality=85)
-    except Exception:
+    except Exception as e:
+        print(f"_save_cover: failed to convert cover to WebP — {e}")
         # Fallback: save raw data if conversion fails
         try:
             with open(cover_path, "wb") as f:

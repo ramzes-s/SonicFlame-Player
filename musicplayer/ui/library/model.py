@@ -83,10 +83,10 @@ class LibraryModel(QAbstractTableModel):
         super().__init__(parent)
         self._cache: Dict[int, Track] = {}
         self._total_rows = 0
+        self._gen = 0
 
         self._search_term = ""
         self._genre_filter = ""
-        self._folder_filter = ""
         self._fav_only = False
         self._sort_col = "Название"
         self._sort_ord = "ASC"
@@ -99,10 +99,6 @@ class LibraryModel(QAbstractTableModel):
 
     def set_genre_filter(self, genre: str):
         self._genre_filter = genre
-        self.reset()
-
-    def set_folder_filter(self, folder: str):
-        self._folder_filter = folder
         self.reset()
 
     def set_fav_only_filter(self, state: bool):
@@ -208,12 +204,16 @@ class LibraryModel(QAbstractTableModel):
         if self.worker and self.worker.isRunning():
             return
 
-        self.worker = DataWorker(self._get_tracks_page_from_db, offset, limit)
-        self.worker.results_ready.connect(self._on_page_fetched)
-        self.parent().register_worker(self.worker)
-        self.worker.start()
+        gen = self._gen
+        worker = DataWorker(self._get_tracks_page_from_db, offset, limit)
+        worker.results_ready.connect(lambda result, g=gen: self._on_page_fetched(result, g))
+        self.parent().register_worker(worker)
+        worker.start()
+        self.worker = worker
 
-    def _on_page_fetched(self, result: Tuple[int, List[Track]]):
+    def _on_page_fetched(self, result: Tuple[int, List[Track]], gen: int):
+        if gen != self._gen:
+            return
         offset, tracks = result
         if not tracks:
             return
@@ -229,13 +229,14 @@ class LibraryModel(QAbstractTableModel):
         tracks_info = get_library_tracks_page(
             offset, limit, sort_col=self._sort_col, sort_ord=self._sort_ord,
             search_term=self._search_term, genre_filter=self._genre_filter,
-            folder_filter=self._folder_filter, fav_only=self._fav_only
+            fav_only=self._fav_only
         )
         tracks = []
         for ti in tracks_info:
             try:
                 folder = str(Path(ti.filepath).parent.name)
-            except Exception:
+            except Exception as e:
+                print(f"model._get_tracks_page_from_db: failed to extract folder: {e}")
                 folder = ""
             tracks.append(Track(
                 filepath=ti.filepath, title=ti.title or "", artist=ti.artist or "Unknown Artist",
@@ -250,7 +251,14 @@ class LibraryModel(QAbstractTableModel):
         return offset, tracks
 
     def reset(self):
-        if self.worker and self.worker.isRunning():
+        self._gen += 1
+        gen = self._gen
+
+        if self.worker:
+            try:
+                self.worker.results_ready.disconnect()
+            except (RuntimeError, TypeError):
+                pass
             self.worker.requestInterruption()
 
         self.beginResetModel()
@@ -258,16 +266,19 @@ class LibraryModel(QAbstractTableModel):
         self._total_rows = 0
         self.endResetModel()
 
-        self.worker = DataWorker(
+        worker = DataWorker(
             get_filtered_library_track_count,
             search_term=self._search_term, genre_filter=self._genre_filter,
-            folder_filter=self._folder_filter, fav_only=self._fav_only
+            fav_only=self._fav_only
         )
-        self.worker.results_ready.connect(self._on_total_count_ready)
-        self.parent().register_worker(self.worker)
-        self.worker.start()
+        worker.results_ready.connect(lambda count, g=gen: self._on_total_count_ready(count, g))
+        self.parent().register_worker(worker)
+        worker.start()
+        self.worker = worker
 
-    def _on_total_count_ready(self, count):
+    def _on_total_count_ready(self, count, gen: int):
+        if gen != self._gen:
+            return
         self.beginResetModel()
         self._total_rows = count
         self.endResetModel()

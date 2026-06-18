@@ -42,7 +42,12 @@ class PlaybackManager(PlayerManagerBase):
         if not os.path.exists(track.filepath):
             result = show_missing_track_dialog(track.title, track.artist, track.filepath, self._mw)
             if result == 1:
-                QTimer.singleShot(0, lambda fp=track.filepath: self._handle_missing_track(fp))
+                def _delayed_missing(fp=track.filepath):
+                    try:
+                        self._handle_missing_track(fp)
+                    except RuntimeError:
+                        pass
+                QTimer.singleShot(0, _delayed_missing)
             return
 
         if self._mw._current_playing_filepath == track.filepath and self._mw.player.get_state() == QMediaPlayer.PlayingState:
@@ -78,7 +83,12 @@ class PlaybackManager(PlayerManagerBase):
         self._mw.controls_widget.set_play_state(True)
         self._mw.settings.batch_save()
 
-        QTimer.singleShot(100, self._mw._web_integration.update_state)
+        def _delayed_sync():
+            try:
+                self._mw._web_integration.update_state()
+            except RuntimeError:
+                pass
+        QTimer.singleShot(100, _delayed_sync)
 
     def _update_mini_track(self, track):
         if self._mw._mini_widget and self._mw._mini_widget.isVisible():
@@ -102,7 +112,12 @@ class PlaybackManager(PlayerManagerBase):
         if not os.path.exists(track.filepath):
             result = show_missing_track_dialog(track.title, track.artist, track.filepath, self._mw)
             if result == 1:
-                QTimer.singleShot(0, lambda fp=track.filepath: self._handle_missing_track(fp))
+                def _delayed_missing(fp=track.filepath):
+                    try:
+                        self._handle_missing_track(fp)
+                    except RuntimeError:
+                        pass
+                QTimer.singleShot(0, _delayed_missing)
             return
 
         self._mw._current_playing_filepath = track.filepath
@@ -187,9 +202,12 @@ class PlaybackManager(PlayerManagerBase):
         if removed > 0:
             status += f". Не найдено: {removed}"
         self._mw.title_bar.set_scanning_status(status)
-        QTimer.singleShot(3000, lambda: (
-            self._mw.title_bar.set_scanning_status(f"{len(tracks)}", True)
-        ))
+        def _delayed_show_count(tc=len(tracks)):
+            try:
+                self._mw.title_bar.set_scanning_status(f"{tc}", True)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(3000, _delayed_show_count)
         self._mw.sidebar.set_all_buttons_enabled(True)
         self._mw.controls_widget.set_action_buttons_enabled(True)
         self._mw.title_bar.set_sort_enabled(True)
@@ -371,15 +389,23 @@ class PlaybackManager(PlayerManagerBase):
                     logger.error("GET_TRACK CRASHED: %s", e, exc_info=True)
                     full_track = updated_track
                 # Defer UI updates to next event loop cycle to let Qt settle after dialog close
-                QTimer.singleShot(0, lambda fp=old_filepath, nfp=new_filepath, ft=full_track, wp=was_playing, pos=position:
-                                  self._finish_tag_edit(fp, nfp, ft, wp, pos))
+                def _delayed_tag_edit(fp=old_filepath, nfp=new_filepath, ft=full_track, wp=was_playing, pos=position):
+                    try:
+                        self._finish_tag_edit(fp, nfp, ft, wp, pos)
+                    except RuntimeError:
+                        pass
+                QTimer.singleShot(0, _delayed_tag_edit)
             else:
                 logger.error("extract_metadata returned None for: %s", new_filepath)
         else:
             logger.info("Save cancelled — resuming playback")
             if was_playing:
-                QTimer.singleShot(100, lambda fp=old_filepath, pos=position:
-                                  self._resume_after_cancel(fp, pos))
+                def _delayed_resume(fp=old_filepath, pos=position):
+                    try:
+                        self._resume_after_cancel(fp, pos)
+                    except RuntimeError:
+                        pass
+                QTimer.singleShot(100, _delayed_resume)
 
     def _finish_tag_edit(self, old_filepath, new_filepath, full_track, was_playing, position):
         """Post-save UI updates (deferred to avoid Qt re-entrancy crash)."""
@@ -403,7 +429,12 @@ class PlaybackManager(PlayerManagerBase):
                 self._mw.player.load_source(full_track)
             except Exception as e:
                 logger.error("Failed to load source after tag edit: %s", e, exc_info=True)
-            QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+            def _delayed_resume(pos=position):
+                try:
+                    self._resume_after_tag_edit(pos)
+                except RuntimeError:
+                    pass
+            QTimer.singleShot(100, _delayed_resume)
 
     def _resume_after_cancel(self, old_filepath, position):
         """Resume playback after cancel (deferred)."""
@@ -411,7 +442,12 @@ class PlaybackManager(PlayerManagerBase):
         old_track = next((t for t in view_tracks if t.filepath == old_filepath), None)
         if old_track:
             self._mw.player.load_source(old_track)
-        QTimer.singleShot(100, lambda pos=position: self._resume_after_tag_edit(pos))
+        def _delayed_resume(pos=position):
+            try:
+                self._resume_after_tag_edit(pos)
+            except RuntimeError:
+                pass
+        QTimer.singleShot(100, _delayed_resume)
 
     def _resume_after_tag_edit(self, position: int):
         if self._mw.player.player.source().isEmpty():

@@ -31,8 +31,8 @@ def load_col_widths() -> dict:
             with open(COL_WIDTHS_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 return {int(k): v for k, v in data.items()}
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"settings.load_col_widths: failed to load column widths: {e}")
     return dict(DEFAULT_COL_WIDTHS)
 
 
@@ -41,5 +41,5 @@ def save_col_widths(widths: dict):
     try:
         with open(COL_WIDTHS_FILE, "w", encoding="utf-8") as f:
             json.dump(widths, f, indent=2)
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"settings.save_col_widths: failed to save column widths: {e}")

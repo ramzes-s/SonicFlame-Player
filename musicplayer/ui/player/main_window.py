@@ -63,7 +63,7 @@ class MainWindow(QMainWindow):
         shadow.setColor(QColor(200, 200, 200, 100))
         self.setGraphicsEffect(shadow)
 
-        self.player = AudioPlayer()
+        self.player = AudioPlayer(self)
         self.playlist = Playlist()
         self.settings = AppSettings()
         self._idle_timer = QTimer(self)

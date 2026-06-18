@@ -34,5 +34,6 @@ def format_size(size_bytes: int) -> str:
 def get_library_track_count() -> int:
     try:
         return get_filtered_library_track_count()
-    except Exception:
+    except Exception as e:
+        print(f"get_library_track_count: failed to get track count: {e}")
         return 0

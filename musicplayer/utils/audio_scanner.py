@@ -92,8 +92,8 @@ class AudioScanner(QThread):
                     upsert_track(track_info, current_mtime)
             
             return track_info
-        except Exception:
-            # Errors in a single file should not stop the whole scan
+        except Exception as e:
+            print(f"_process_file: failed to process {filepath}: {e}")
             return None
 
     def run(self):
