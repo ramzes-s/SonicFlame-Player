@@ -38,7 +38,7 @@ MusicPlayer2\
 │   │   ├── ipc.py                      # IPC сервер и клиент для связи плеер ↔ библиотека
 │   │   ├── media_keys.py               # Глобальные медиа-клавиши (RegisterHotKey)
 │   │   ├── normalize.py                # Нормализация метаданных (mutagen)
-│   │   ├── player.py                   # Обёртка над QMediaPlayer
+│   │   ├── player.py                   # Обёртка над QMediaPlayer + fade in/out через QPropertyAnimation
 │   │   ├── playlist.py                 # Управление плейлистом
 │   │   ├── plugin_manager/             # Пакет менеджера плагинов (discovery, lifecycle, PluginHub)
 │   │   │   ├── __init__.py             # Re-export: PluginInfo, PluginHub, PluginManager, LockedSettings
@@ -88,7 +88,7 @@ MusicPlayer2\
 │   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar)
 │   │   │   ├── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
-│   │   │   ├── page_main.py            # MainPage (папка, точность подбора, глубина анализа)
+│   │   │   ├── page_main.py            # MainPage (папка, затухание, точность подбора, глубина анализа, макс. похожих, фильтр языка)
 │   │   │   ├── page_plugins.py         # PluginsPage (список плагинов, вкл/выкл)
 │   │   │   ├── page_system.py          # SystemPage + CleanupWorker (сон, очистка БД)
 │   │   │   ├── page_webserver.py       # WebServerPage + PortValidator (сервер, порт, QR, удалённое закрытие)
