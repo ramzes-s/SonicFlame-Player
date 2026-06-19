@@ -162,7 +162,8 @@ class PlaylistManager(PlayerManagerBase):
             self._mw.controls_widget.set_action_buttons_enabled(True)
             return
 
-        similar_tracks = find_similar_tracks(current_track, search_pool, limit=100)
+        limit = self._mw.settings.max_similar_tracks
+        similar_tracks = find_similar_tracks(current_track, search_pool, limit=limit)
 
         if not similar_tracks:
             StyledMessageBox.info(self._mw, "Поиск похожих треков",

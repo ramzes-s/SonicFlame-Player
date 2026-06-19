@@ -1,6 +1,6 @@
 import os
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox, QComboBox, QStyledItemDelegate
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, QStyledItemDelegate, QFrame
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 
@@ -20,6 +20,7 @@ class MainPage(QWidget):
     similarity_precision_changed = Signal(int)
     analysis_duration_changed = Signal(int)
     language_filter_changed = Signal(str)
+    max_similar_tracks_changed = Signal(int)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -37,6 +38,32 @@ class MainPage(QWidget):
         self.folder_btn.clicked.connect(self.folder_browse_requested.emit)
         self._update_folder_button_text()
         lo.addWidget(self.folder_btn)
+
+        # Fade on play/pause (0 = off)
+        fade_row = QHBoxLayout()
+        fade_row.setSpacing(10)
+        fade_label = QLabel("Затухание при паузе/воспроизведении")
+        fade_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
+        fade_row.addWidget(fade_label)
+        fade_row.addStretch()
+        self._fade_slider = ClickableSlider(Qt.Horizontal)
+        self._fade_slider.setRange(0, 5)
+        self._fade_slider.setValue(self._settings.fade_duration)
+        self._fade_slider.setFixedWidth(280)
+        self._fade_slider.setCursor(Qt.PointingHandCursor)
+        self._fade_slider.valueChanged.connect(self._on_fade_duration_changed)
+        self._apply_slider_style(self._fade_slider)
+        self._fade_value = QLabel(f"{self._settings.fade_duration}с")
+        self._fade_value.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px;")
+        fade_row.addWidget(self._fade_value)
+        fade_row.addWidget(self._fade_slider)
+        lo.addLayout(fade_row)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet(f"QFrame {{ color: {cfg.DIVIDER_COLOR}; max-height: 1px; }}")
+        lo.addWidget(sep)
 
         lo.addSpacing(8)
 
@@ -79,6 +106,28 @@ class MainPage(QWidget):
         self._dur_value_label = dur_value
         dur_row.addWidget(self._dur_slider)
         lo.addLayout(dur_row)
+
+        # Max similar tracks
+        max_sim_row = QHBoxLayout()
+        max_sim_row.setSpacing(10)
+        max_sim_label = QLabel("Максимум похожих треков")
+        max_sim_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
+        max_sim_row.addWidget(max_sim_label)
+        max_sim_row.addStretch()
+        self._max_sim_slider = ClickableSlider(Qt.Horizontal)
+        self._max_sim_slider.setRange(50, 200)
+        self._max_sim_slider.setPageStep(10)
+        self._max_sim_slider.setSingleStep(10)
+        self._max_sim_slider.setValue(self._settings.max_similar_tracks)
+        self._max_sim_slider.setFixedWidth(280)
+        self._max_sim_slider.setCursor(Qt.PointingHandCursor)
+        self._max_sim_slider.valueChanged.connect(self._on_max_sim_changed)
+        self._apply_slider_style(self._max_sim_slider)
+        self._max_sim_value = QLabel(f"{self._settings.max_similar_tracks}")
+        self._max_sim_value.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px;")
+        max_sim_row.addWidget(self._max_sim_value)
+        max_sim_row.addWidget(self._max_sim_slider)
+        lo.addLayout(max_sim_row)
 
         # Language filter mode
         lang_row = QHBoxLayout()
@@ -160,6 +209,20 @@ class MainPage(QWidget):
         self._settings.language_filter_mode = mode
         self.language_filter_changed.emit(mode)
 
+    def _on_max_sim_changed(self, value: int):
+        snapped = round(value / 10) * 10
+        if snapped != value:
+            self._max_sim_slider.blockSignals(True)
+            self._max_sim_slider.setValue(snapped)
+            self._max_sim_slider.blockSignals(False)
+        self._settings.max_similar_tracks = snapped
+        self._max_sim_value.setText(f"{snapped}")
+        self.max_similar_tracks_changed.emit(snapped)
+
+    def _on_fade_duration_changed(self, value: int):
+        self._settings.fade_duration = value
+        self._fade_value.setText(f"{value}с")
+
     def set_folder_path(self, folder: str):
         if folder and os.path.isdir(folder):
             self.folder_btn.setText(folder)
@@ -216,6 +279,10 @@ class MainPage(QWidget):
             self._apply_slider_style(self._sim_slider)
         if hasattr(self, '_dur_slider'):
             self._apply_slider_style(self._dur_slider)
+        if hasattr(self, '_max_sim_slider'):
+            self._apply_slider_style(self._max_sim_slider)
+        if hasattr(self, '_fade_slider'):
+            self._apply_slider_style(self._fade_slider)
 
     def apply_accent_color(self, color: str):
         self._update_slider_style()

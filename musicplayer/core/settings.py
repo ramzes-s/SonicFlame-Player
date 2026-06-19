@@ -161,6 +161,8 @@ class AppSettings:
             "use_language_filter": False,
             "language_filter_mode": "off",
             "idle_shutdown_minutes": 60,
+            "max_similar_tracks": 100,
+            "fade_duration": 0,
         "player_id": None,
         }
         self._load()
@@ -366,6 +368,24 @@ class AppSettings:
     @idle_shutdown_minutes.setter
     def idle_shutdown_minutes(self, value: int):
         self._data["idle_shutdown_minutes"] = max(0, int(value))
+        self._save()
+
+    @property
+    def max_similar_tracks(self) -> int:
+        return self._data.get("max_similar_tracks", 100)
+
+    @max_similar_tracks.setter
+    def max_similar_tracks(self, value: int):
+        self._data["max_similar_tracks"] = max(50, min(200, int(value) // 10 * 10))
+        self._save()
+
+    @property
+    def fade_duration(self) -> int:
+        return self._data.get("fade_duration", 0)
+
+    @fade_duration.setter
+    def fade_duration(self, value: int):
+        self._data["fade_duration"] = max(0, min(5, int(value)))
         self._save()
 
     @property

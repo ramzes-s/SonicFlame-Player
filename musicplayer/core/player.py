@@ -8,10 +8,11 @@ with signals for UI updates.
 import json
 import time
 
-from PySide6.QtCore import QObject, Signal, QUrl
+from PySide6.QtCore import QObject, Signal, QUrl, QPropertyAnimation
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from musicplayer import config as cfg
 from musicplayer.core.db import TrackInfo
+from musicplayer.core.settings import AppSettings
 from musicplayer.core import settings
 from musicplayer.core.smtc_manager import SMTCManager
 from musicplayer.core.audio_device_manager import AudioDeviceManager
@@ -66,6 +67,10 @@ class AudioPlayer(QObject):
         self._player.durationChanged.connect(self._on_duration_changed)
         self._player.mediaStatusChanged.connect(self._on_media_status_changed)
         self._player.errorOccurred.connect(self._on_error)
+
+        # Fade on play/pause
+        self._fade_anim: QPropertyAnimation | None = None
+        self._fade_target_volume: float = self._audio_output.volume()
 
         # SMTC integration
         self._smtc = SMTCManager(self)
@@ -169,21 +174,61 @@ class AudioPlayer(QObject):
         self._player.setSource(url)
         self._smtc.update_track_info(track)
 
+    def _stop_fade(self):
+        if self._fade_anim:
+            self._fade_anim.stop()
+            self._fade_anim.deleteLater()
+            self._fade_anim = None
+
+    def _fade_animate(self, from_vol: float, to_vol: float,
+                      duration_ms: int, on_finished=None):
+        self._stop_fade()
+        self._audio_output.setVolume(from_vol)
+        self._fade_anim = QPropertyAnimation(self._audio_output, b"volume")
+        self._fade_anim.setStartValue(from_vol)
+        self._fade_anim.setEndValue(to_vol)
+        self._fade_anim.setDuration(duration_ms)
+        if on_finished:
+            def _on_done():
+                try:
+                    on_finished()
+                except RuntimeError:
+                    pass
+            self._fade_anim.finished.connect(_on_done)
+        self._fade_anim.start()
+
     def play(self):
         """Start or resume playback."""
         if self._player.source().isEmpty():
             self.empty_play_requested.emit()
             return
-        self._player.play()
-        self._smtc.set_playback_status("playing")
+        dur = AppSettings().fade_duration
+        if dur > 0:
+            self._audio_output.setVolume(0.0)
+            self._player.play()
+            self._smtc.set_playback_status("playing")
+            self._fade_animate(0.0, self._fade_target_volume, dur * 1000)
+        else:
+            self._stop_fade()
+            self._player.play()
+            self._smtc.set_playback_status("playing")
 
     def pause(self):
         """Pause playback."""
-        self._player.pause()
-        self._smtc.set_playback_status("paused")
+        dur = AppSettings().fade_duration
+        if dur > 0 and self._player.playbackState() == QMediaPlayer.PlayingState:
+            self._fade_target_volume = self._audio_output.volume()
+            self._smtc.set_playback_status("paused")
+            self._fade_animate(self._fade_target_volume, 0.0, dur * 1000,
+                               on_finished=self._player.pause)
+        else:
+            self._stop_fade()
+            self._player.pause()
+            self._smtc.set_playback_status("paused")
 
     def stop(self):
         """Stop playback."""
+        self._stop_fade()
         self._player.stop()
         self._smtc.set_playback_status("stopped")
 
@@ -202,8 +247,10 @@ class AudioPlayer(QObject):
 
     def set_volume(self, volume: float):
         """Set volume (0.0 to 1.0)."""
+        self._stop_fade()
         volume = max(0.0, min(1.0, volume))
         self._audio_output.setVolume(volume)
+        self._fade_target_volume = volume
         self.volume_changed.emit(volume)
 
     def get_position(self) -> int:
