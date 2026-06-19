@@ -364,6 +364,8 @@ MusicPlayer2\
 | audio_output_device  | str    | ID выбранного устройства вывода (None = по умолчанию) |
 | use_language_filter | bool   | Включён ли фильтр языка (устаревшее, дублирует language_filter_mode) |
 | language_filter_mode | str    | Режим фильтра языка: "off" / "penalty" / "exclude" (по умолч. "off") |
+| max_similar_tracks | int | Максимум похожих треков в результате подбора: 50–200, шаг 10 (по умолч. 100) |
+| fade_duration | int | Длительность затухания при паузе/воспроизведении: 0 = выкл, 1–5 секунд (по умолч. 0) |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
 | plugin_enabled_*  | bool   | Состояние каждого плагина (true/false), ключи удаляются при отсутствии плагина |
 
