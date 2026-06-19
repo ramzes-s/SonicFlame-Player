@@ -16,7 +16,7 @@
 
 ## Features
 
-[Technical documentation](TECHNICAL.md)
+[Technical documentation](docs/TECHNICAL.md)
 
 ### Playback
 - Supports MP3, FLAC, M4A/MP4 formats
@@ -145,7 +145,7 @@ python main.py --library
 
 ## Requirements
 
-In [TECHNICAL.md](TECHNICAL.md#requirements)
+In [TECHNICAL.md](docs/TECHNICAL.md#requirements)
 
 ## Color Scheme
 
@@ -172,7 +172,7 @@ GNU General Public License v3.0 (GPL v3)
 
 ## Возможности
 
-[Техническая документация](TECHNICAL.md)
+[Техническая документация](docs/TECHNICAL.md)
 
 ### Воспроизведение
 - Поддержка форматов MP3, FLAC, M4A/MP4
@@ -297,7 +297,7 @@ python main.py --library
 
 ## Требования
 
-В [TECHNICAL.md](TECHNICAL.md#requirements)
+В [TECHNICAL.md](docs/TECHNICAL.md#requirements)
 
 ## Цветовая схема
 
