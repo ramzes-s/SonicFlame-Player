@@ -1,6 +1,6 @@
 # SonicFlame Player — Техническое описание проекта
 
-![SonicFlame Player](SonicFlame.png)
+![SonicFlame Player](../SonicFlame.png)
 
 ## Краткое описание
 
