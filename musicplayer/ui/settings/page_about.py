@@ -1,6 +1,8 @@
 import hashlib
+import json
 import logging
 import subprocess
+import time
 from datetime import datetime
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton
@@ -11,6 +13,8 @@ from PySide6.QtSvgWidgets import QSvgWidget
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkRequest
 
 logger = logging.getLogger("register")
+
+CHECK_CACHE_TTL = 86400  # 24 hours
 
 
 class _HwIdWorker(QThread):
@@ -59,6 +63,34 @@ from musicplayer.core.db.system import get_system_value
 from musicplayer.ui.svg_icons import get_music_note_svg
 
 
+def _version_cache_path():
+    return cfg.CACHE_DIR / "version_check_cache.json"
+
+
+def _read_version_cache():
+    try:
+        p = _version_cache_path()
+        if p.exists():
+            with open(p, encoding="utf-8") as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"_read_version_cache: {e}")
+    return {}
+
+
+def _write_version_cache(data: dict):
+    try:
+        p = _version_cache_path()
+        with open(p, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+    except Exception as e:
+        print(f"_write_version_cache: {e}")
+
+
+def _strip_v(tag: str) -> str:
+    return tag.lstrip("vV")
+
+
 class AboutPage(QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -99,7 +131,17 @@ class AboutPage(QWidget):
         note.setAlignment(Qt.AlignCenter)
         note.setWordWrap(True)
         lo.addWidget(note)
-        lo.addSpacing(30)
+        lo.addSpacing(6)
+
+        # Version check label
+        self._version_label = QLabel()
+        self._version_label.setAlignment(Qt.AlignCenter)
+        self._version_label.setWordWrap(True)
+        self._version_label.setOpenExternalLinks(True)
+        self._version_label.setStyleSheet("font-size: 13px;")
+        self._version_label.setVisible(False)
+        lo.addWidget(self._version_label)
+        lo.addSpacing(24)
 
         # Icon (transparent, 128x128)
         self._icon_label = QLabel()
@@ -182,6 +224,67 @@ class AboutPage(QWidget):
 
         self._update_reg_btn_style(accent)
         self._update_reg_ui()
+        self._check_for_updates()
+
+    def _check_for_updates(self):
+        cache = _read_version_cache()
+        now = time.time()
+        cached_ver = cache.get("latest_version")
+        cached_time = cache.get("last_check", 0)
+
+        if cached_ver and now - cached_time < CHECK_CACHE_TTL:
+            self._show_version_result(cached_ver)
+            return
+
+        url = QUrl("https://api.github.com/repos/ramzes-s/SonicFlame-Player/releases/latest")
+        req = QNetworkRequest(url)
+        req.setRawHeader(b"User-Agent", b"SonicFlame Player")
+        req.setRawHeader(b"Accept", b"application/vnd.github+json")
+        reply = self._net.get(req)
+        reply.finished.connect(self._on_version_reply)
+
+    def _on_version_reply(self):
+        reply = self.sender()
+        if not reply:
+            return
+        reply.finished.disconnect(self._on_version_reply)
+        reply.deleteLater()
+
+        if reply.error() != QNetworkReply.NetworkError.NoError:
+            return
+
+        data = reply.readAll().data()
+        try:
+            resp = json.loads(data)
+            tag = resp.get("tag_name", "")
+            if tag:
+                latest = _strip_v(tag)
+                _write_version_cache({"last_check": time.time(), "latest_version": latest})
+                self._show_version_result(latest)
+        except Exception as e:
+            print(f"_on_version_reply: {e}")
+
+    def _show_version_result(self, latest: str):
+        current = _strip_v(cfg.APP_VERSION)
+        accent = cfg.get_accent_color()
+        if self._compare_versions(latest) <= self._compare_versions(current):
+            self._version_label.setText(f"✓ У вас самая последняя версия программы")
+            self._version_label.setStyleSheet(f"color: {accent}; font-size: 13px;")
+        else:
+            url = "https://github.com/ramzes-s/SonicFlame-Player/releases/latest"
+            self._version_label.setText(
+                f'Доступна новая версия: <a href="{url}" '
+                f'style="color: {accent}; text-decoration: none; font-weight: bold;">{latest}</a>'
+            )
+            self._version_label.setStyleSheet("font-size: 13px;")
+        self._version_label.setVisible(True)
+
+    @staticmethod
+    def _compare_versions(v: str) -> tuple:
+        try:
+            return tuple(int(x) for x in v.split("."))
+        except Exception:
+            return (0,)
 
     def _update_reg_ui(self):
         accent = cfg.get_accent_color()
