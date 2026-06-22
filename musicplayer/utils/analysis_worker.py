@@ -220,14 +220,6 @@ class AnalysisManager(QObject):
         self._analyzed_count += 1
         self.analysis_progress.emit(filepath, self._analyzed_count, self._total_to_analyze)
 
-    def _on_analysis_finished(self):
-        """Playlist or library batch finished — continue with library if any left."""
-        self._advance_to_library()
-
-    def _on_analysis_error(self, message: str):
-        print(f"AnalysisManager: Analysis worker error: {message}", file=sys.stderr)
-        self._advance_to_library()
-
     def _cancel_worker(self, timeout_ms: int = 15000):
         try:
             if self._worker and self._worker.isRunning():
