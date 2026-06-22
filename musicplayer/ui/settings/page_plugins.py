@@ -119,7 +119,7 @@ class PluginsPage(QWidget):
         row = QWidget()
         row.setFixedHeight(60)
         row_layout = QHBoxLayout(row)
-        row_layout.setContentsMargins(12, 0, 12, 0)
+        row_layout.setContentsMargins(12, 0, 18, 0)
         row_layout.setSpacing(12)
 
         toggle = QCheckBox()

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -61,15 +62,23 @@ class PluginManager:
             try:
                 with open(plugin_json, encoding='utf-8') as f:
                     meta = json.load(f)
+
+                # Validate and sanitize fields
+                display_name = meta.get("display_name", meta["name"])[:50]
+                desc = meta.get("description", "")[:90]
+                version = meta.get("version", "0.0.0")
+                version = re.sub(r"[^0-9.a-zA-Z]", "", version) or "0.0.0"
+                author = meta.get("author", "")[:50]
+
                 info = PluginInfo(
                     name=meta["name"],
-                    display_name=meta.get("display_name", meta["name"]),
-                    version=meta.get("version", "0.0.0"),
+                    display_name=display_name,
+                    version=version,
                     entry=meta.get("entry", meta["name"]),
-                    description=meta.get("description", ""),
+                    description=desc,
                     settings_page=meta.get("settings_page", False),
                     requires=meta.get("requires", []),
-                    author=meta.get("author", ""),
+                    author=author,
                 )
                 self._plugins.append(info)
                 logger.info(
