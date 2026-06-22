@@ -144,10 +144,8 @@ class SMTCManager(QObject):
                 print("smtc_manager.close: unlink thumb failed")
         self._prev_thumb_path = None
         if self._temp_thumb_dir and os.path.isdir(self._temp_thumb_dir):
-            try:
-                os.rmdir(self._temp_thumb_dir)
-            except Exception as e:
-                print("smtc_manager.close: rmdir temp thumb dir failed")
+            import shutil
+            shutil.rmtree(self._temp_thumb_dir, ignore_errors=True)
         logger.info("[SMTC] Closed")
 
     def _set_thumbnail(self, track) -> None:
