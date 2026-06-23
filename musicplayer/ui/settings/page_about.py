@@ -227,6 +227,8 @@ class AboutPage(QWidget):
         self._check_for_updates()
 
     def _check_for_updates(self):
+        if not self._settings.player_id:
+            return
         cache = _read_version_cache()
         now = time.time()
         cached_ver = cache.get("latest_version")
