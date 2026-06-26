@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QFormLayout,
                               QLabel, QLineEdit, QPushButton, QFileDialog,
                               QMessageBox, QWidget, QScrollArea, QFrame, QComboBox)
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QTimer, QEventLoop
 from PySide6.QtGui import QPixmap, QDesktopServices
 
 logger = logging.getLogger(__name__)
@@ -310,15 +310,24 @@ class TagEditorDialog(BaseFramelessDialog):
     def _prompt_delete_track(self):
         artist = self.artist_edit.text()
         title = self.title_edit.text()
-        result = StyledMessageBox(
+
+        dlg = StyledMessageBox(
             self, "Подтверждение удаления",
             text="Вы уверены, что хотите удалить этот трек?\nЭто действие безвозвратно удалит файл с диска.",
             key=f"{artist} - {title}\n{self.file_path}",
             icon="warning",
             buttons=["Нет", "Удалить"],
             default_button=0
-        ).exec()
-        if result == 1:
+        )
+        loop = QEventLoop()
+        dlg.finished.connect(loop.quit)
+        QTimer.singleShot(0, lambda: (
+            dlg.center_on_parent(50) if dlg.parent() else dlg.center_on_screen(),
+            dlg.setModal(True),
+            dlg.show()
+        ))
+        loop.exec()
+        if dlg.result() == 1:
             self._delete_and_close()
 
     def _delete_and_close(self):

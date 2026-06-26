@@ -69,6 +69,8 @@ def remove_track_from_library(filepath: str, playlist_widget=None, playlist=None
     if main_window:
         if main_window._current_playing_filepath == filepath:
             main_window._current_playing_filepath = None
+            if playlist_widget:
+                playlist_widget.delegate.set_playing_track(None)
             main_window.controls_widget.set_current_track_favorite("", False)
             main_window.player.stop()
 

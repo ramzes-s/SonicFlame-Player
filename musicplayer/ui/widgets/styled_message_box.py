@@ -1,6 +1,7 @@
+import html
+
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, QTimer, QByteArray
-from PySide6.QtGui import QColor
 from PySide6.QtSvgWidgets import QSvgWidget
 
 from musicplayer import config as cfg
@@ -43,7 +44,11 @@ class StyledMessageBox(FramelessDialog):
         inner.addWidget(title_bar)
 
         content = QWidget()
-        content.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
+        content.setStyleSheet(f"""
+            QWidget#msg_body {{ background-color: {cfg.BG_COLOR}; }}
+            QLabel#msg_text {{ color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 14px; }}
+        """)
+        content.setObjectName("msg_body")
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(24, 24, 24, 20)
         content_layout.setSpacing(16)
@@ -61,16 +66,14 @@ class StyledMessageBox(FramelessDialog):
         text_col = QVBoxLayout()
         text_col.setSpacing(8)
 
-        self._text_label = QLabel(self._text)
+        full_text = html.escape(self._text).replace("\n", "<br>")
+        if self._key:
+            full_text += "<br><br><b>" + html.escape(self._key).replace("\n", "<br>") + "</b>"
+        self._text_label = QLabel(full_text)
+        self._text_label.setTextFormat(Qt.RichText)
+        self._text_label.setObjectName("msg_text")
         self._text_label.setWordWrap(True)
-        self._text_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
         text_col.addWidget(self._text_label)
-
-        self._key_label = QLabel(self._key)
-        self._key_label.setWordWrap(True)
-        self._key_label.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px; font-weight: bold;")
-        self._key_label.setVisible(bool(self._key))
-        text_col.addWidget(self._key_label)
 
         self._auto_close_label = QLabel()
         self._auto_close_label.setStyleSheet(f"color: {cfg.SECONDARY_TEXT_COLOR}; font-size: 11px;")
