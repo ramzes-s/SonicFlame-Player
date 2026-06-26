@@ -601,12 +601,11 @@ class PlaylistWidget(QWidget):
         self._current_index = saved_current_index
 
         # Restore playing highlight
-        play_fp = new_track.filepath if new_track.filepath != old_filepath else playing_filepath
         if playing_filepath in (old_filepath, new_track.filepath):
             target_fp = new_track.filepath
             for i, t in enumerate(self._view_tracks):
                 if t.filepath == target_fp:
-                    self.set_current_track(i)
+                    self._current_index = i
                     self.delegate.set_playing_track(target_fp)
                     self.list_widget.viewport().update()
                     break

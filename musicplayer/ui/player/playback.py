@@ -7,7 +7,7 @@ import os
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtMultimedia import QMediaPlayer
-from PySide6.QtWidgets import QDialog
+from PySide6.QtWidgets import QDialog, QApplication
 from musicplayer.ui.widgets.styled_message_box import StyledMessageBox
 from musicplayer import config as cfg
 
@@ -350,6 +350,7 @@ class PlaybackManager(PlayerManagerBase):
             except OSError as e:
                 logger.error("Failed to delete file from disk: %s", e, exc_info=True)
                 StyledMessageBox.critical(self._mw, "Ошибка удаления файла", key=f"Не удалось удалить файл: {e}")
+            QTimer.singleShot(0, self._mw.playlist_widget.scroll_to_current_track)
             return
 
         if save_confirmed:
@@ -414,6 +415,11 @@ class PlaybackManager(PlayerManagerBase):
             logger.info("update_track_data OK")
         except Exception as e:
             logger.error("UPDATE_TRACK_DATA CRASHED: %s", e, exc_info=True)
+        def _deferred_scroll():
+            pw = self._mw.playlist_widget
+            QApplication.processEvents()
+            pw.scroll_to_current_track()
+        QTimer.singleShot(0, _deferred_scroll)
         if self._mw._current_playing_filepath == old_filepath:
             self._mw._current_playing_filepath = new_filepath
             logger.info("Updated _current_playing_filepath to: %s", new_filepath)
