@@ -373,13 +373,18 @@ def delete_track(filepath: str):
     from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
     music_folder = get_music_folder()
     if not is_safe_filepath(filepath, music_folder):
+        print(f"[delete_track] ОТМЕНЕНО: filepath небезопасен — {filepath}")
         return
 
     from musicplayer.core.db.cache import delete_cover
     delete_cover(filepath)
 
     with get_connection() as conn:
-        conn.execute("DELETE FROM library WHERE filepath = ?", (filepath,))
+        cursor = conn.execute("DELETE FROM library WHERE filepath = ?", (filepath,))
+        if cursor.rowcount > 0:
+            print(f"[delete_track] Удалён из БД: {filepath}")
+        else:
+            print(f"[delete_track] Не найден в БД: {filepath}")
 
 
 def get_all_library_tracks_light() -> List[TrackInfo]:
@@ -895,23 +900,21 @@ def get_tracks_by_folder(folder_path: str) -> List[TrackInfo]:
 def get_folder_filepaths(folder_path: str):
     """Get all filepaths in the library for a specific folder."""
     import os as os_module
-    from typing import Set
-    from musicplayer.core.db.queries import _escape_like_pattern
 
     folder = Path(folder_path)
-    folder_str = str(folder)
-    # Escape LIKE wildcards in folder path
-    escaped_folder = _escape_like_pattern(folder_str)
+    like_pattern = str(folder) + os_module.sep + "%"
 
     with get_connection() as conn:
-        cursor = conn.execute("SELECT filepath FROM library WHERE filepath LIKE ?", (escaped_folder + os_module.sep + "%",))
-        results: Set[str] = set()
+        cursor = conn.execute(
+            "SELECT filepath FROM library WHERE filepath LIKE ?",
+            (like_pattern,)
+        )
+        results: set = set()
         for row in cursor.fetchall():
             try:
                 if Path(row[0]).parent == folder:
                     results.add(row[0])
-            except Exception as e:
-                print(f"get_folder_filepaths: failed to resolve file path — {e}")
+            except Exception:
                 pass
         return results
 

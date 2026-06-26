@@ -121,6 +121,14 @@ class AudioScanner(QThread):
 
             # Files to remove: in DB but not on disk
             to_remove = db_filepaths - current_filepaths
+            print(f"AudioScanner: DB={len(db_filepaths)} Disk={len(current_filepaths)} ToRemove={len(to_remove)}")
+            removed_count = len(to_remove)
+
+            # Files to remove: in DB but not on disk
+            to_remove = db_filepaths - current_filepaths
+            print(f"To remove ({len(to_remove)}):")
+            for fp in sorted(to_remove):
+                print(f"  RM:  {fp}")
             removed_count = len(to_remove)
             if removed_count > 0:
                 for fp in to_remove:

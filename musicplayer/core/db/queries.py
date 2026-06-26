@@ -36,7 +36,7 @@ def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: st
         where_clauses.append("is_favorite = 1")
 
     if genre_filter:
-        where_clauses.append("genre LIKE ?")
+        where_clauses.append("genre LIKE ? ESCAPE '\\'")
         escaped_genre = _escape_like_pattern(genre_filter)
         params.append(f"%{escaped_genre}%")
 
@@ -44,14 +44,14 @@ def _build_filter_clauses(search_term: str, genre_filter: str, folder_filter: st
         normalized_folder = normalize_path(folder_filter)
         # Escape LIKE wildcards in folder path
         escaped_folder = _escape_like_pattern(normalized_folder)
-        where_clauses.append("filepath LIKE ?")
+        where_clauses.append("filepath LIKE ? ESCAPE '\\'")
         params.append(escaped_folder + os.sep + '%')
 
     if search_term:
         # Escape special LIKE characters so user can search for literal % or _
         escaped_search = _escape_like_pattern(search_term)
         search_like = f"%{escaped_search}%"
-        where_clauses.append("(title LIKE ? COLLATE NOCASE OR artist LIKE ? COLLATE NOCASE OR album LIKE ? COLLATE NOCASE)")
+        where_clauses.append("(title LIKE ? COLLATE NOCASE ESCAPE '\\' OR artist LIKE ? COLLATE NOCASE ESCAPE '\\' OR album LIKE ? COLLATE NOCASE ESCAPE '\\')")
         params.extend([search_like, search_like, search_like])
 
     if not where_clauses:
