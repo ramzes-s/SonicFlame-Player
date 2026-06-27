@@ -76,6 +76,18 @@ from musicplayer.core.db.folders import (
     delete_folder,
 )
 
+from musicplayer.core.db.broken_tracks import (
+    create_broken_tracks_table,
+    add_broken_track,
+    clear_broken_tracks_for_folder,
+    delete_broken_tracks_in_subtree,
+    clear_broken_track,
+    get_broken_count_for_folder,
+    get_broken_counts_for_all_folders,
+    get_all_broken_tracks,
+    get_broken_track_count,
+)
+
 from musicplayer.core.db.system import (
     set_system_value,
     get_system_value,
@@ -132,6 +144,16 @@ __all__ = [
     "upsert_folder",
     "get_folder_track_count",
     "delete_folder",
+    # Broken Tracks
+    "create_broken_tracks_table",
+    "add_broken_track",
+    "clear_broken_tracks_for_folder",
+    "delete_broken_tracks_in_subtree",
+    "clear_broken_track",
+    "get_broken_count_for_folder",
+    "get_broken_counts_for_all_folders",
+    "get_all_broken_tracks",
+    "get_broken_track_count",
     # System
     "set_system_value",
     "get_system_value",

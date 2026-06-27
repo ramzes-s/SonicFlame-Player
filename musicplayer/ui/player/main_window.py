@@ -34,6 +34,7 @@ from musicplayer.ui.player.tray import TrayManager
 from musicplayer.ui.player.scanning import ScanningManager
 from musicplayer.ui.player.playback import PlaybackManager
 from musicplayer.ui.player.playlist_ops import PlaylistManager
+from musicplayer.ui.player.folder_sync import sync_folders_async
 
 
 def _get_icon_path() -> Path:
@@ -128,6 +129,16 @@ class MainWindow(QMainWindow):
 
         if self.settings.web_server_enabled:
             self._web_integration.start(self.settings.web_server_port)
+
+        QTimer.singleShot(0, lambda: sync_folders_async(self, self._on_dirty_folders))
+
+    def _on_dirty_folders(self, folders: list):
+        if not folders:
+            return
+        from musicplayer.ui.player.folder_rescanner import FolderRescanner
+        self._rescanner = FolderRescanner(self)
+        self._rescanner.finished.connect(lambda: print(f"[folder_sync] Рескан завершён ({len(folders)} папок)"))
+        self._rescanner.scan(folders)
 
     @property
     def _playback(self) -> PlaybackManager:
@@ -265,6 +276,8 @@ class MainWindow(QMainWindow):
         self.__scanning.cancel()
         if self.analysis_manager:
             self.analysis_manager.cancel_analysis()
+        if hasattr(self, '_rescanner') and self._rescanner:
+            self._rescanner.cancel()
         self.player.stop()
         self.player.close_smtc()
         self.ipc_server.stop()

@@ -58,6 +58,7 @@ class AudioScanner(QThread):
         self.folder_path = folder_path
         self.use_cache = use_cache
         self._is_cancelled = False
+        self.broken_files: list[tuple[str, str]] = []
 
         # Ensure DB is initialized
         init_db()
@@ -90,10 +91,14 @@ class AudioScanner(QThread):
                 track_info = extract_metadata(fp_str)
                 if track_info:
                     upsert_track(track_info, current_mtime)
-            
+                else:
+                    # File is broken — remove from DB if previously added
+                    delete_track(fp_str)
+                    self.broken_files.append((fp_str, "Failed to parse audio file"))
             return track_info
         except Exception as e:
             print(f"_process_file: failed to process {filepath}: {e}")
+            self.broken_files.append((fp_str, str(e)))
             return None
 
     def run(self):

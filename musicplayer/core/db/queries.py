@@ -187,16 +187,27 @@ def get_all_genres() -> List[str]:
 
 
 def get_all_folders() -> List[Tuple[str, int]]:
-    """Get all folders with their track counts, sorted by path."""
+    """Get all folders with their track counts, sorted by path.
+    Count is recursive — each folder counts all tracks in its subtree.
+    Ascends up to and including music_folder, stops there."""
+    from musicplayer.core.db.connection import get_music_folder
+    music_folder = get_music_folder()
+    if not music_folder:
+        return []
+
+    music_root = Path(music_folder)
     folder_map = {}
     with get_connection() as conn:
         cursor = conn.execute("SELECT filepath FROM library")
         for row in cursor.fetchall():
             try:
-                parent_folder = str(Path(row[0]).parent)
-                folder_map[parent_folder] = folder_map.get(parent_folder, 0) + 1
+                path = Path(row[0])
+                for parent in path.parents:
+                    folder_map[str(parent)] = folder_map.get(str(parent), 0) + 1
+                    if parent == music_root:
+                        break
             except Exception as e:
-                print(f"get_all_genres: failed to extract parent folder — {e}")
+                print(f"get_all_folders: failed to extract parent folder — {e}")
                 pass
     return sorted(folder_map.items())
 

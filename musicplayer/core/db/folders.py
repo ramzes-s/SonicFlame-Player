@@ -8,8 +8,8 @@ from typing import Optional
 from musicplayer.core.db.connection import get_connection, normalize_path
 
 
-def upsert_folder(folder_path: str, track_count: int):
-    """Insert or update a folder with track count."""
+def upsert_folder(folder_path: str, track_count: int, last_scanned: Optional[float] = None):
+    """Insert or update a folder with track count and optional last scan time."""
     # Validate folder_path for path traversal
     from musicplayer.core.db.connection import is_safe_filepath, get_music_folder
     music_folder = get_music_folder()
@@ -18,10 +18,21 @@ def upsert_folder(folder_path: str, track_count: int):
 
     folder_path = normalize_path(folder_path)
     with get_connection() as conn:
-        conn.execute("""
-            INSERT OR REPLACE INTO folders (folder_path, track_count)
-            VALUES (?, ?)
-        """, (folder_path, track_count))
+        if last_scanned is not None:
+            conn.execute("""
+                INSERT INTO folders (folder_path, track_count, last_scanned)
+                VALUES (?, ?, ?)
+                ON CONFLICT(folder_path) DO UPDATE SET
+                    track_count = excluded.track_count,
+                    last_scanned = excluded.last_scanned
+            """, (folder_path, track_count, last_scanned))
+        else:
+            conn.execute("""
+                INSERT INTO folders (folder_path, track_count)
+                VALUES (?, ?)
+                ON CONFLICT(folder_path) DO UPDATE SET
+                    track_count = excluded.track_count
+            """, (folder_path, track_count))
 
 
 def get_folder_track_count(folder_path: str) -> Optional[int]:

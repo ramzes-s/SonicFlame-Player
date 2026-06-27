@@ -2,6 +2,7 @@
 Scanning logic: folder scanning, progress, callbacks.
 """
 
+import time
 from musicplayer import config as cfg
 from musicplayer.core.db import upsert_folder
 from musicplayer.core.settings import get_playlist_sort_mode
@@ -83,7 +84,7 @@ class ScanningManager(PlayerManagerBase):
         self._mw.title_bar.set_scanning_status(status)
 
         if self._mw._current_folder_path:
-            upsert_folder(self._mw._current_folder_path, track_count)
+            upsert_folder(self._mw._current_folder_path, track_count, last_scanned=time.time())
 
         def _delayed_show_count():
             try:

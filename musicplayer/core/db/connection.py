@@ -117,7 +117,8 @@ def init_db():
             conn.execute("""
                 CREATE TABLE folders (
                     folder_path TEXT PRIMARY KEY NOT NULL,
-                    track_count INTEGER DEFAULT 0
+                    track_count INTEGER DEFAULT 0,
+                    last_scanned REAL DEFAULT NULL
                 )
             """)
             conn.execute("""
@@ -142,6 +143,18 @@ def init_db():
                 INSERT OR IGNORE INTO system_data (key, value)
                 VALUES ('db_version_compare', ?)
             """, (str(config.DB_VERSION),))
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS broken_tracks (
+                    filepath TEXT PRIMARY KEY NOT NULL,
+                    folder_path TEXT NOT NULL,
+                    error TEXT DEFAULT '',
+                    detected_at REAL NOT NULL DEFAULT (julianday('now'))
+                )
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_broken_tracks_folder
+                ON broken_tracks(folder_path)
+            """)
             return
 
         # Table exists — migrate missing columns
@@ -165,9 +178,16 @@ def init_db():
             conn.execute("""
                 CREATE TABLE folders (
                     folder_path TEXT PRIMARY KEY NOT NULL,
-                    track_count INTEGER DEFAULT 0
+                    track_count INTEGER DEFAULT 0,
+                    last_scanned REAL DEFAULT NULL
                 )
             """)
+
+        # Migrate folders table columns
+        cursor = conn.execute("PRAGMA table_info(folders)")
+        folder_columns = {row[1] for row in cursor.fetchall()}
+        if 'last_scanned' not in folder_columns:
+            conn.execute("ALTER TABLE folders ADD COLUMN last_scanned REAL DEFAULT NULL")
 
         conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_library_mtime ON library(mtime)
@@ -193,6 +213,26 @@ def init_db():
                 value TEXT NOT NULL
             )
         """)
+
+        # ---- Broken Tracks ----
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS broken_tracks (
+                filepath TEXT PRIMARY KEY NOT NULL,
+                folder_path TEXT NOT NULL,
+                error TEXT DEFAULT '',
+                detected_at REAL NOT NULL DEFAULT (julianday('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_broken_tracks_folder
+            ON broken_tracks(folder_path)
+        """)
+
+        # Update DB version for existing databases
+        conn.execute("""
+            INSERT OR REPLACE INTO system_data (key, value)
+            VALUES ('db_version_compare', ?)
+        """, (str(config.DB_VERSION),))
 
 
 
