@@ -1,10 +1,13 @@
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QComboBox, QLabel, QStyledItemDelegate, QFrame
+import os
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QCheckBox, QPushButton, QComboBox, QLabel, QStyledItemDelegate, QFrame, QScrollArea
 from PySide6.QtCore import Qt, Signal, QThread, QTimer, QSize
 from PySide6.QtGui import QFont
 
 from musicplayer import config as cfg
 from musicplayer.core.db_cleaner import cleanup_missing_tracks
 from musicplayer.core.audio_device_manager import AudioDeviceManager
+from musicplayer.core.db.broken_tracks import get_broken_track_count, get_all_broken_tracks
+from musicplayer.ui.tag_editor.base_dialog import BaseFramelessDialog
 from .constants import format_size
 from .widgets import SpinnerWidget
 
@@ -241,6 +244,138 @@ class SystemPage(QWidget):
             QTimer.singleShot(3000, lambda: self._cleanup_btn.setText("Чистка мусора в БД"))
             self.cleanup_finished.emit(removed)
 
+    def _show_broken_files_dialog(self):
+        rows = get_all_broken_tracks()
+        if not rows:
+            return
+
+        dlg = BaseFramelessDialog(self.window() if self.window() else self)
+        dlg.setMinimumSize(880, 420)
+
+        inner = dlg._setup_ui()
+        inner.setContentsMargins(16, 0, 16, 12)
+        inner.setSpacing(6)
+
+        # Title bar
+        title_label = QLabel(f"Битые файлы  ({len(rows)})")
+        title_bar = dlg._build_title_bar("")
+        title_bar.layout().insertWidget(1, title_label)
+        inner.addWidget(title_bar)
+        inner.addSpacing(8)
+
+        # Scrollable list of custom items
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setStyleSheet(f"""
+            QScrollArea {{
+                background-color: {cfg.BG_COLOR};
+                border: 1px solid {cfg.BUTTON_BORDER_COLOR};
+            }}
+            QScrollBar:vertical {{
+                background: {cfg.BG_COLOR};
+                width: 6px;
+            }}
+            QScrollBar::handle:vertical {{
+                background: {cfg.DIVIDER_COLOR};
+                min-height: 30px;
+            }}
+        """)
+
+        scroll_content = QWidget()
+        scroll_content.setStyleSheet(f"background-color: {cfg.BG_COLOR};")
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.setSpacing(0)
+
+        for filepath, _folder, error, _detected_at in rows:
+            item_widget = self._build_broken_item(filepath, error, scroll_layout, title_label)
+            scroll_layout.addWidget(item_widget)
+
+        scroll_layout.addStretch()
+        scroll.setWidget(scroll_content)
+        inner.addWidget(scroll, stretch=1)
+        dlg.center_on_parent()
+        dlg.exec()
+
+    def _build_broken_item(self, filepath: str, error: str, parent_layout: QVBoxLayout, title_label: QLabel) -> QWidget:
+        try:
+            size = os.path.getsize(filepath)
+            size_str = format_size(size)
+        except Exception:
+            size_str = "—"
+
+        item = QWidget()
+        item.setStyleSheet(f"""
+            QWidget {{
+                background-color: {cfg.BG_COLOR};
+                border-bottom: 1px solid {cfg.DIVIDER_COLOR};
+            }}
+        """)
+        item.setMinimumHeight(48)
+
+        row = QHBoxLayout(item)
+        row.setContentsMargins(10, 6, 10, 6)
+        row.setSpacing(12)
+
+        # Left side — two lines
+        left = QVBoxLayout()
+        left.setSpacing(2)
+
+        path_lbl = QLabel(filepath)
+        path_lbl.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 12px; background: transparent; border: none;")
+        path_lbl.setWordWrap(True)
+        left.addWidget(path_lbl)
+
+        info_lbl = QLabel(f"Вес: {size_str}    Проблема: {error}")
+        info_lbl.setStyleSheet(f"color: {cfg.DISABLED_TEXT_COLOR}; font-size: 11px; background: transparent; border: none;")
+        left.addWidget(info_lbl)
+
+        row.addLayout(left, stretch=1)
+
+        # Delete button
+        del_btn = QPushButton("Удалить файл")
+        del_btn.setFixedHeight(26)
+        del_btn.setCursor(Qt.PointingHandCursor)
+        del_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: transparent;
+                border: 1px solid #ff4444;
+                color: #ff4444;
+                font-size: 11px;
+                font-weight: bold;
+                padding: 0 12px;
+            }}
+            QPushButton:hover {{
+                background-color: #ff4444;
+                color: #FFFFFF;
+            }}
+        """)
+        del_btn.clicked.connect(lambda checked, fp=filepath: self._delete_broken_file(fp, item, parent_layout, title_label))
+        row.addWidget(del_btn, 0, Qt.AlignVCenter)
+
+        return item
+
+    def _delete_broken_file(self, filepath: str, item_widget: QWidget, parent_layout: QVBoxLayout, title_label: QLabel):
+        # Remove from broken_tracks table
+        from musicplayer.core.db.broken_tracks import clear_broken_track
+        clear_broken_track(filepath)
+
+        # Delete file from disk
+        try:
+            os.remove(filepath)
+            print(f"[broken_dialog] Удалён: {filepath}")
+        except Exception as e:
+            print(f"[broken_dialog] Ошибка удаления {filepath}: {e}")
+
+        # Remove widget from layout
+        parent_layout.removeWidget(item_widget)
+        item_widget.deleteLater()
+
+        # Update dialog title count
+        remaining = parent_layout.count() - 1  # subtract stretch
+        title_label.setText(f"Битые файлы  ({remaining})")
+
     def _build_db_reset(self, lo: QVBoxLayout):
         self._reset_db_btn = QPushButton("Удалить базу данных (Необратимо!)")
         self._reset_db_btn.setFixedHeight(36)
@@ -325,6 +460,30 @@ class SystemPage(QWidget):
                                            f"background: transparent; border: none;")
         inner.addWidget(self._stats_collages)
 
+        # Broken files button — bottom-right
+        self._broken_btn = QPushButton("Битых файлов")
+        self._broken_btn.setFixedHeight(28)
+        self._broken_btn.setCursor(Qt.PointingHandCursor)
+        self._broken_btn.setVisible(False)
+        self._broken_btn.clicked.connect(self._show_broken_files_dialog)
+        self._broken_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: #000000;
+                border: 1px solid {cfg.BUTTON_BORDER_COLOR};
+                color: #FFFFFF;
+                font-size: 12px;
+                font-weight: bold;
+                padding: 4px 14px;
+            }}
+            QPushButton:hover {{
+                background-color: {cfg.SECONDARY_BG_COLOR};
+            }}
+        """)
+        btn_row = QHBoxLayout()
+        btn_row.addStretch()
+        btn_row.addWidget(self._broken_btn)
+        inner.addLayout(btn_row)
+
         lo.addWidget(self._stats_card)
 
     def update_stats(self, track_count: int, analyzed_count: int,
@@ -349,6 +508,13 @@ class SystemPage(QWidget):
     def showEvent(self, event):
         super().showEvent(event)
         self._auto_refresh_stats()
+        # Lazy-load broken file count without blocking
+        QTimer.singleShot(0, self._update_broken_count)
+
+    def _update_broken_count(self):
+        count = get_broken_track_count()
+        self._broken_btn.setText(f"Битых файлов: {count}" if count > 0 else "Битых файлов")
+        self._broken_btn.setVisible(count > 0)
 
     def _update_cleanup_btn_style(self):
         accent = cfg.get_accent_color()
