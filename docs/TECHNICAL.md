@@ -26,6 +26,7 @@ MusicPlayer2\
 │   │   ├── __init__.py
 │   │   ├── db/                         # SQLite библиотека
 │   │   │   ├── __init__.py             # Обратная совместимость — экспорт всех функций
+│   │   │   ├── broken_tracks.py         # Отслеживание битых файлов (не поддающихся извлечению метаданных)
 │   │   │   ├── cache.py                # Кэширование обложек
 │   │   │   ├── connection.py           # Подключение к БД (пути из config), миграция, добавление language
 │   │   │   ├── favorites.py            # Операции с избранным (column-based, is_favorite)
@@ -76,6 +77,8 @@ MusicPlayer2\
 │   │   ├── player/                     # Рефакторинг main_window.py — координатор и менеджеры
 │   │   │   ├── __init__.py             # Реэкспорт MainWindow
 │   │   │   ├── animation.py            # BlinkAnimation — мигание статуса при сканировании
+│   │   │   ├── folder_rescanner.py     # FolderRescanner — пересканирование «грязных» папок (QObject)
+│   │   │   ├── folder_sync.py          # FolderSyncWorker — фоновая сверка БД-папок при старте (QThread)
 │   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
 │   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
 │   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов, сканирование при переключении папок
@@ -274,6 +277,16 @@ MusicPlayer2\
 |---------|-----|----------|
 | folder_path | TEXT PK | Нормализованный путь к папке (os.sep) |
 | track_count | INTEGER | Количество треков в папке |
+| last_scanned | REAL | Время последнего сканирования (time.time, DEFAULT NULL) |
+
+**Таблица `broken_tracks`**:
+
+| Колонка | Тип | Описание |
+|---------|-----|----------|
+| filepath | TEXT PK | Полный путь к файлу |
+| folder_path | TEXT | Реальный родительский каталог (не корень сканирования) |
+| error | TEXT | Текст ошибки извлечения метаданных |
+| detected_at | REAL | Время обнаружения (time.time) |
 
 **Таблица `artists_cache`**:
 
@@ -323,8 +336,17 @@ MusicPlayer2\
 4. **Изменённые файлы** (mtime > db_mtime) — переизвлекает метаданные
 5. **Неизменённые** — использует кеш из БД
 6. **Новые файлы** — извлекает метаданные, добавляет в БД
-7. После сканирования вызывается `upsert_folder()` — путь нормализуется, количество треков сохраняется в таблицу `folders`
-8. Каждый трек эмитится через `track_scanned` для динамического добавления в UI
+7. Файлы, не поддающиеся извлечению метаданных, записываются в `broken_tracks` (поля: `filepath`, `folder_path`, `error`, `detected_at`)
+8. После сканирования вызывается `upsert_folder()` — путь нормализуется, количество треков сохраняется в таблицу `folders`
+9. Каждый трек эмитится через `track_scanned` для динамического добавления в UI
+
+**Фоновая сверка папок при старте** (`ui/player/folder_sync.py`):
+1. После загрузки главного окна `QTimer.singleShot(0)` запускает `FolderSyncWorker(QThread)`
+2. `FolderSyncWorker` запрашивает все родительские каталоги (рекурсивный подъём до корня music_folder) и обновляет `folders.track_count` + `last_scanned`
+3. Сравнивает количество `.mp3`/`.flac`/`.m4a`/`.mp4` на диске (glob) с `db_count + broken_count` в `folders`
+4. Расхождения эмитятся через сигнал `dirty_folders`
+5. Если есть грязные папки — `FolderRescanner(QObject)` запускает `AudioScanner` для каждой по очереди
+6. `closeEvent` вызывает `self._rescanner.cancel()` для безопасного завершения потока
 
 #### `core/settings.py` — AppSettings
 Хранение настроек в `settings.json` (путь из `config.SETTINGS_FILE`).
@@ -1159,7 +1181,7 @@ QThread для анализа одного аудиофайла через libro
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
 | APP_VERSION         | `1.3.2.0`                        | `musicplayer/config.py`|
-| DB_VERSION          | `2`                              | `musicplayer/config.py`|
+| DB_VERSION          | `3`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | BG_COLOR            | `#000000`                        | `musicplayer/config.py`|
 | TEXT_COLOR          | `#FFFFFF`                        | `musicplayer/config.py`|

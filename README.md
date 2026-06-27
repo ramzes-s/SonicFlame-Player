@@ -58,6 +58,8 @@
 - SQLite database (WAL mode) for track storage
 - Folder scanning with metadata extraction
 - Smart sync — detects file changes, auto-updates DB
+- Broken files tracking (files that fail metadata extraction, viewable in settings)
+- Background folder sync at startup — detects out-of-sync folders and rescans them
 - Track mood analysis (tempo, energy, mood) via librosa (async)
 - Artists view with cover collages (2x2 grid)
 - Artist card with hover animation
@@ -86,7 +88,7 @@
 - **Main page**: root music folder, similarity precision slider, language filter mode (the larger the library, the higher you can set precision for better results; matching only works for scanned tracks, marked with ★ on the cover or in the library, also shown in settings in brackets next to total track count: 7500 (7500))
 - **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity
 - **Web Server page**: enable toggle, port with validator (1024-65535), QR code, remote shutdown toggle
-- **System page**: sleep blocker, audio output device selection, idle shutdown timer, DB cleanup
+- **System page**: sleep blocker, audio output device selection, idle shutdown timer, DB cleanup, broken files viewer with per-file deletion
 - **About page**: app name & version, author info, GitHub & website links
 
 ### Tag Editor
@@ -212,6 +214,8 @@ GNU General Public License v3.0 (GPL v3)
 - SQLite база данных (WAL mode)
 - Сканирование папок с извлечением метаданных
 - Умный sync — отслеживание изменений, автообновление БД
+- Отслеживание битых файлов (не поддающихся извлечению метаданных, просмотр в настройках)
+- Фоновая сверка папок при старте — обнаружение рассинхронизированных папок и их пересканирование
 - Анализ настроения трека (tempo, energy, mood) через librosa (асинхронно)
 - Представление "Исполнители" с коллажами обложек (2x2)
 - Карточка исполнителя с подсветкой  при наведении
@@ -240,7 +244,7 @@ GNU General Public License v3.0 (GPL v3)
 - **Главная**: корневая папка, точность похожих треков, фильтр языка (чем обьемнее библиотека, тем выше можно задирать точность, тем лучше результат, подбор происходит только по отсканированным трекам (обозначаются ★ звездой на обложке или в библиотеке и в окне настроек в скобках рядом с общим числом треков: 7500 (7500)))
 - **Внешний вид**: 15 пресетов акцента, динамический цвет, мини-плеер и прозрачность
 - **Веб-сервер**: вкл/выкл, порт с валидатором (1024-65535), QR-код, удалённое закрытие
-- **Система**: блокировка сна, устройство вывода, таймер автовыключения, очистка БД
+- **Система**: блокировка сна, устройство вывода, таймер автовыключения, очистка БД, просмотрщик битых файлов с удалением
 - **О программе**: название, версия, автор, ссылки GitHub и сайт
 
 ### Редактор тегов
