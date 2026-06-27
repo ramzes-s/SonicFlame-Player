@@ -8,9 +8,9 @@ import sys
 from pathlib import Path
 
 # Application version
-APP_VERSION = "1.3.2.2"
+APP_VERSION = "1.4.0.0"
 # Database version for schema compatibility checking
-DB_VERSION = 2
+DB_VERSION = 3
 
 # Debug logging toggle — set False to disable file logging
 LOG_DEBUG = True
