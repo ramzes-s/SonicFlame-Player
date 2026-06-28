@@ -30,6 +30,31 @@ HEART_SIZE = 16
 HEART_SPACING = 6  # px between heart and adjacent badges/icons
 
 
+def _parse_paren_segments(text: str) -> list[tuple[str, bool]]:
+    """Split text into segments: (text, is_parenthesized)."""
+    segments: list[tuple[str, bool]] = []
+    buf: list[str] = []
+    in_paren = False
+    for ch in text:
+        if ch == '(':
+            if buf:
+                segments.append((''.join(buf), in_paren))
+                buf = []
+            in_paren = True
+            buf.append(ch)
+        elif ch == ')':
+            buf.append(ch)
+            if buf:
+                segments.append((''.join(buf), in_paren))
+                buf = []
+            in_paren = False
+        else:
+            buf.append(ch)
+    if buf:
+        segments.append((''.join(buf), in_paren))
+    return segments
+
+
 class PlaylistItem(QListWidgetItem):
     """Custom list item for track display."""
 
@@ -147,6 +172,32 @@ class PlaylistDelegate(QStyledItemDelegate):
         text_rect = option.rect.adjusted(left_margin, 0, -right_margin, 0)
 
         if track:
+            # Title — parenthesized parts in secondary/non-bold
+            normal_font = QFont("Segoe UI", 11)
+            normal_font.setBold(True)
+            paren_font = QFont("Segoe UI", 11)
+            paren_font.setBold(False)
+
+            normal_color = QColor(cfg.get_accent_color()) if is_playing else QColor(200, 200, 200)
+            paren_color = QColor(cfg.get_accent_color()) if is_playing else QColor(cfg.SECONDARY_TEXT_COLOR)
+
+            tx = text_rect.left()
+            ty = text_rect.top() + 18
+            for seg_text, is_paren in _parse_paren_segments(track.title):
+                font = paren_font if is_paren else normal_font
+                painter.setFont(font)
+                painter.setPen(paren_color if is_paren else normal_color)
+                fm = QFontMetrics(font)
+                seg_w = fm.horizontalAdvance(seg_text)
+                if tx + seg_w <= text_rect.right():
+                    painter.drawText(tx, ty, seg_text)
+                    tx += seg_w + 4
+                else:
+                    available = text_rect.right() - tx - fm.horizontalAdvance('…')
+                    if available > 0:
+                        painter.drawText(tx, ty, fm.elidedText(seg_text, Qt.ElideRight, available))
+                    break
+
             # Artist (normal, white with ~70% opacity for non-playing)
             artist_font = QFont("Segoe UI", 10)
             painter.setFont(artist_font)
@@ -157,18 +208,7 @@ class PlaylistDelegate(QStyledItemDelegate):
 
             fm_artist = QFontMetrics(artist_font)
             artist_text = fm_artist.elidedText(track.artist, Qt.ElideRight, text_rect.width())
-            painter.drawText(text_rect.left(), text_rect.top() + 18, artist_text)
-
-            # Title (bold, accent if playing, white otherwise)
-            title_font = QFont("Segoe UI", 11)
-            title_font.setBold(True)
-            painter.setFont(title_font)
-            painter.setPen(QColor(cfg.get_accent_color()) if is_playing else QColor(200, 200, 200))
-
-            fm_title = QFontMetrics(title_font)
-            title_text = fm_title.elidedText(track.title, Qt.ElideRight, text_rect.width())
-
-            painter.drawText(text_rect.left(), text_rect.top() + 36, title_text)
+            painter.drawText(text_rect.left(), text_rect.top() + 36, artist_text)
 
             # --- BADGES (right side) ---
             # Order from RIGHT to LEFT:
