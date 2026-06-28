@@ -49,6 +49,13 @@ def get_folder_track_count(folder_path: str) -> Optional[int]:
         return row[0] if row else None
 
 
+def get_all_folder_paths() -> list[str]:
+    """Get all folder paths from the folders table."""
+    with get_connection() as conn:
+        rows = conn.execute("SELECT folder_path FROM folders").fetchall()
+        return [row[0] for row in rows]
+
+
 def delete_folder(folder_path: str):
     """Delete a folder from the folders table."""
     # Validate folder_path for path traversal
