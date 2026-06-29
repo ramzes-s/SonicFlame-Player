@@ -26,6 +26,7 @@ class SettingsDialog(QDialog):
 
     accent_color_changed = Signal(str)
     dynamic_color_toggled = Signal(bool)
+    playlist_display_changed = Signal(str)
     web_server_toggled = Signal(bool)
     web_server_port_changed = Signal(int)
     music_folder_changed = Signal(bool)
@@ -198,6 +199,7 @@ class SettingsDialog(QDialog):
         appearance_page.accent_color_selected.connect(self._set_accent_color)
         appearance_page.dynamic_color_toggled.connect(self.dynamic_color_toggled.emit)
         appearance_page.mini_widget_toggled.connect(self._on_mini_widget_toggled)
+        appearance_page.playlist_display_changed.connect(self.playlist_display_changed.emit)
         appearance_page.opacity_changed.connect(self._on_opacity_changed)
 
         webserver_page.web_server_toggled.connect(self._on_web_server_toggled)

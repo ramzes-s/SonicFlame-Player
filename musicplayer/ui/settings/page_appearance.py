@@ -14,11 +14,19 @@ from .constants import ACCENT_PRESETS
 from .widgets import ColorCircleButton
 
 
+def _sep() -> QFrame:
+    s = QFrame()
+    s.setFrameShape(QFrame.HLine)
+    s.setStyleSheet(f"QFrame {{ color: {cfg.DIVIDER_COLOR}; max-height: 1px; }}")
+    return s
+
+
 class AppearancePage(QWidget):
     accent_color_selected = Signal(str)
     dynamic_color_toggled = Signal(bool)
     mini_widget_toggled = Signal(bool)
     opacity_changed = Signal(int)
+    playlist_display_changed = Signal(str)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -52,6 +60,9 @@ class AppearancePage(QWidget):
         self.dynamic_color_cb.toggled.connect(self._on_dynamic_toggled)
         lo.addWidget(self.dynamic_color_cb)
 
+        lo.addWidget(_sep())
+        lo.addSpacing(8)
+
         # Mini widget
         self.mini_widget_cb = QCheckBox("Включать виджет при сворачивании")
         self.mini_widget_cb.setChecked(self._settings.mini_widget_on_minimize)
@@ -61,20 +72,43 @@ class AppearancePage(QWidget):
         # Opacity
         opacity_row = QHBoxLayout()
         opacity_row.setSpacing(10)
-        self._opacity_combo = QComboBox()
-        self._opacity_combo.setItemDelegate(TallItemDelegate(self._opacity_combo))
         opacity_label = QLabel("Прозрачность мини-виджета")
         opacity_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
+        opacity_row.addWidget(opacity_label)
+        opacity_row.addStretch()
+        self._opacity_combo = QComboBox()
+        self._opacity_combo.setItemDelegate(TallItemDelegate(self._opacity_combo))
+        self._opacity_combo.setFixedWidth(200)
         for val in range(0, 81, 10):
             self._opacity_combo.addItem(str(val), None)
         self._opacity_combo.setCurrentText(str(self._settings.mini_widget_opacity))
         self._opacity_combo.currentTextChanged.connect(self._on_opacity_combo_changed)
         self._opacity_combo.setEnabled(self._settings.mini_widget_on_minimize)
-        self._opacity_combo.setFixedWidth(70)
         opacity_row.addWidget(self._opacity_combo)
-        opacity_row.addWidget(opacity_label)
-        opacity_row.addStretch()
         lo.addLayout(opacity_row)
+
+        lo.addWidget(_sep())
+        lo.addSpacing(8)
+
+        # Playlist display mode
+        display_row = QHBoxLayout()
+        display_row.setSpacing(10)
+        display_label = QLabel("Отображение плейлиста")
+        display_label.setStyleSheet(f"color: {cfg.TERTIARY_TEXT_COLOR}; font-size: 13px;")
+        display_row.addWidget(display_label)
+        display_row.addStretch()
+        self._display_combo = QComboBox()
+        self._display_combo.setItemDelegate(TallItemDelegate(self._display_combo))
+        self._display_combo.setFixedWidth(200)
+        self._display_combo.addItem("Исполнитель сверху", "artist_top")
+        self._display_combo.addItem("Название трека сверху", "title_top")
+        current_mode = self._settings.playlist_display_mode
+        idx = self._display_combo.findData(current_mode)
+        if idx >= 0:
+            self._display_combo.setCurrentIndex(idx)
+        self._display_combo.currentIndexChanged.connect(self._on_display_changed)
+        display_row.addWidget(self._display_combo)
+        lo.addLayout(display_row)
 
         lo.addStretch()
 
@@ -99,6 +133,12 @@ class AppearancePage(QWidget):
             self.opacity_changed.emit(int(text))
         except ValueError:
             pass
+
+    def _on_display_changed(self, idx: int):
+        mode = self._display_combo.itemData(idx)
+        if mode:
+            self._settings.playlist_display_mode = mode
+            self.playlist_display_changed.emit(mode)
 
     def highlight_color(self, color_hex: str):
         for hex_key, btn in self._color_buttons.items():
@@ -175,7 +215,9 @@ class AppearancePage(QWidget):
 
     def _update_combo_style(self):
         self._style_combo(self._opacity_combo)
+        self._style_combo(self._display_combo)
 
     def apply_accent_color(self, color: str):
         self._apply_checkbox_style()
         self._style_combo(self._opacity_combo)
+        self._style_combo(self._display_combo)

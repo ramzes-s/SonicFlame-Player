@@ -329,6 +329,7 @@ class MainWindow(QMainWindow):
         middle_layout.addWidget(self.track_info_widget, stretch=0)
 
         self.playlist_widget = PlaylistWidget()
+        self.playlist_widget.delegate.set_display_mode(self.settings.playlist_display_mode)
         middle_layout.addWidget(self.playlist_widget, stretch=1)
         self.playlist_widget.playlist_loaded.connect(self._web_integration.update_playlist)
 
@@ -493,6 +494,7 @@ class MainWindow(QMainWindow):
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))
         dialog.dynamic_color_toggled.connect(self._playback.on_dynamic_color_toggled)
+        dialog.playlist_display_changed.connect(self.playlist_widget.delegate.set_display_mode)
         dialog.web_server_toggled.connect(self._web_integration.set_enabled)
         dialog.web_server_port_changed.connect(self._web_integration.set_port)
         dialog.music_folder_changed.connect(self.sidebar.set_music_folder_configured)

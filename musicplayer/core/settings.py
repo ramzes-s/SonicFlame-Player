@@ -163,6 +163,7 @@ class AppSettings:
             "idle_shutdown_minutes": 60,
             "max_similar_tracks": 100,
             "fade_duration": 0,
+            "playlist_display_mode": "artist_top",
         "player_id": None,
         }
         self._load()
@@ -296,6 +297,16 @@ class AppSettings:
     def playlist_type(self, value: str):
         if value in ("Folder", "Favorites", "Top", "Playlist"):
             self._data["playlist_type"] = value
+            self._save()
+
+    @property
+    def playlist_display_mode(self) -> str:
+        return self._data.get("playlist_display_mode", "artist_top")
+
+    @playlist_display_mode.setter
+    def playlist_display_mode(self, value: str):
+        if value in ("artist_top", "title_top"):
+            self._data["playlist_display_mode"] = value
             self._save()
 
     @property

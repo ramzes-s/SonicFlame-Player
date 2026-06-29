@@ -74,6 +74,11 @@ class PlaylistDelegate(QStyledItemDelegate):
         self.tracks_ref = tracks_ref  # Currently displayed tracks list
         self._favorites = favorites  # FavoritesManager instance
         self._playing_filepath = None  # Currently playing track filepath
+        self._title_top = False  # False: artist above, True: title above
+
+    def set_display_mode(self, mode: str):
+        """Set whether title is on top. 'artist_top' or 'title_top'."""
+        self._title_top = (mode == "title_top")
 
     def set_favorites(self, favorites):
         """Set favorites manager reference."""
@@ -172,43 +177,80 @@ class PlaylistDelegate(QStyledItemDelegate):
         text_rect = option.rect.adjusted(left_margin, 0, -right_margin, 0)
 
         if track:
-            # Title — parenthesized parts in secondary/non-bold
-            normal_font = QFont("Segoe UI", 11)
-            normal_font.setBold(True)
-            paren_font = QFont("Segoe UI", 11)
-            paren_font.setBold(False)
-
-            normal_color = QColor(cfg.get_accent_color()) if is_playing else QColor(200, 200, 200)
-            paren_color = QColor(cfg.get_accent_color()) if is_playing else QColor(cfg.SECONDARY_TEXT_COLOR)
-
-            tx = text_rect.left()
-            ty = text_rect.top() + 18
-            for seg_text, is_paren in _parse_paren_segments(track.title):
-                font = paren_font if is_paren else normal_font
-                painter.setFont(font)
-                painter.setPen(paren_color if is_paren else normal_color)
-                fm = QFontMetrics(font)
-                seg_w = fm.horizontalAdvance(seg_text)
-                if tx + seg_w <= text_rect.right():
-                    painter.drawText(tx, ty, seg_text)
-                    tx += seg_w + 4
-                else:
-                    available = text_rect.right() - tx - fm.horizontalAdvance('…')
-                    if available > 0:
-                        painter.drawText(tx, ty, fm.elidedText(seg_text, Qt.ElideRight, available))
-                    break
-
-            # Artist (normal, white with ~70% opacity for non-playing)
-            artist_font = QFont("Segoe UI", 10)
-            painter.setFont(artist_font)
-            if is_playing:
-                painter.setPen(Qt.white)
+            if self._title_top:
+                top_text = track.title
+                top_is_title = True
+                bottom_text = track.artist
+                bottom_is_title = False
             else:
-                painter.setPen(QColor(255, 255, 255, 180))  # ~70% opacity
+                top_text = track.artist
+                top_is_title = False
+                bottom_text = track.title
+                bottom_is_title = True
 
-            fm_artist = QFontMetrics(artist_font)
-            artist_text = fm_artist.elidedText(track.artist, Qt.ElideRight, text_rect.width())
-            painter.drawText(text_rect.left(), text_rect.top() + 36, artist_text)
+            # Top row — title (bold, accent or gray) or artist (normal, white ~70%)
+            if top_is_title:
+                normal_font = QFont("Segoe UI", 11)
+                normal_font.setBold(True)
+                paren_font = QFont("Segoe UI", 11)
+                paren_font.setBold(False)
+                normal_color = QColor(cfg.get_accent_color()) if is_playing else QColor(200, 200, 200)
+                paren_color = QColor(cfg.get_accent_color()) if is_playing else QColor(cfg.SECONDARY_TEXT_COLOR)
+                tx = text_rect.left()
+                ty = text_rect.top() + 18
+                for seg_text, is_paren in _parse_paren_segments(top_text):
+                    font = paren_font if is_paren else normal_font
+                    painter.setFont(font)
+                    painter.setPen(paren_color if is_paren else normal_color)
+                    fm = QFontMetrics(font)
+                    seg_w = fm.horizontalAdvance(seg_text)
+                    if tx + seg_w <= text_rect.right():
+                        painter.drawText(tx, ty, seg_text)
+                        tx += seg_w + 4
+                    else:
+                        available = text_rect.right() - tx - fm.horizontalAdvance('…')
+                        if available > 0:
+                            painter.drawText(tx, ty, fm.elidedText(seg_text, Qt.ElideRight, available))
+                        break
+            else:
+                artist_font = QFont("Segoe UI", 10)
+                painter.setFont(artist_font)
+                painter.setPen(Qt.white if is_playing else QColor(255, 255, 255, 180))
+                fm_artist = QFontMetrics(artist_font)
+                painter.drawText(text_rect.left(), text_rect.top() + 18,
+                                 fm_artist.elidedText(top_text, Qt.ElideRight, text_rect.width()))
+
+            # Bottom row
+            if bottom_is_title:
+                normal_font = QFont("Segoe UI", 11)
+                normal_font.setBold(True)
+                paren_font = QFont("Segoe UI", 11)
+                paren_font.setBold(False)
+                normal_color = QColor(cfg.get_accent_color()) if is_playing else QColor(200, 200, 200)
+                paren_color = QColor(cfg.get_accent_color()) if is_playing else QColor(cfg.SECONDARY_TEXT_COLOR)
+                tx = text_rect.left()
+                ty = text_rect.top() + 36
+                for seg_text, is_paren in _parse_paren_segments(bottom_text):
+                    font = paren_font if is_paren else normal_font
+                    painter.setFont(font)
+                    painter.setPen(paren_color if is_paren else normal_color)
+                    fm = QFontMetrics(font)
+                    seg_w = fm.horizontalAdvance(seg_text)
+                    if tx + seg_w <= text_rect.right():
+                        painter.drawText(tx, ty, seg_text)
+                        tx += seg_w + 4
+                    else:
+                        available = text_rect.right() - tx - fm.horizontalAdvance('…')
+                        if available > 0:
+                            painter.drawText(tx, ty, fm.elidedText(seg_text, Qt.ElideRight, available))
+                        break
+            else:
+                artist_font = QFont("Segoe UI", 10)
+                painter.setFont(artist_font)
+                painter.setPen(Qt.white if is_playing else QColor(255, 255, 255, 180))
+                fm_artist = QFontMetrics(artist_font)
+                painter.drawText(text_rect.left(), text_rect.top() + 36,
+                                 fm_artist.elidedText(bottom_text, Qt.ElideRight, text_rect.width()))
 
             # --- BADGES (right side) ---
             # Order from RIGHT to LEFT:
