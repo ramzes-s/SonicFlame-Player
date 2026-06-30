@@ -39,7 +39,11 @@ class SystemPage(QWidget):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self._settings = settings
+        self._analysis_manager = None
         self._build_ui()
+
+    def set_analysis_manager(self, mgr):
+        self._analysis_manager = mgr
 
     def _build_ui(self):
         lo = QVBoxLayout(self)
@@ -82,6 +86,12 @@ class SystemPage(QWidget):
         self.prevent_sleep_cb.setChecked(self._settings.prevent_sleep)
         self.prevent_sleep_cb.toggled.connect(self._on_prevent_sleep_toggled)
         lo.addWidget(self.prevent_sleep_cb)
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setFrameShadow(QFrame.Sunken)
+        sep.setStyleSheet(f"background-color: {cfg.DIVIDER_COLOR}; max-height: 1px; border: none;")
+        lo.addWidget(sep)
 
         # Audio output device
         device_row = QHBoxLayout()
@@ -493,7 +503,12 @@ class SystemPage(QWidget):
         self._stats_covers.setText(f"Кеш обложек ({covers_count} шт):  {format_size(covers_size)}")
         self._stats_collages.setText(f"Кеш коллажей ({collages_count} шт):  {format_size(collages_size)}")
 
-        if analyzed_count < track_count:
+        analysis_active = (
+            self._analysis_manager is not None
+            and self._analysis_manager.is_analysis_running()
+        )
+
+        if analysis_active:
             if not self._stats_timer.isActive() and self.isVisible():
                 self._stats_spinner.start()
                 self._stats_timer.start()

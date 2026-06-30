@@ -35,7 +35,7 @@ class SettingsDialog(QDialog):
     audio_device_changed = Signal(object)
 
     def __init__(self, settings, parent=None, plugin_pages=None, plugin_infos=None,
-                 plugin_manager=None):
+                 plugin_manager=None, analysis_manager=None):
         super().__init__(parent)
 
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
@@ -49,6 +49,7 @@ class SettingsDialog(QDialog):
         self._plugin_pages = plugin_pages or []
         self._plugin_infos = plugin_infos or []
         self._plugin_manager = plugin_manager
+        self._analysis_manager = analysis_manager
 
         self._build_ui()
         self._update_stats()
@@ -158,7 +159,10 @@ class SettingsDialog(QDialog):
             self._pages.append(page_widget)
 
         for name, page_cls in zip(tab_names, page_classes):
-            _add_tab(name, page_cls(self.settings))
+            page = page_cls(self.settings)
+            if name == "Системные" and self._analysis_manager is not None:
+                page.set_analysis_manager(self._analysis_manager)
+            _add_tab(name, page)
 
         for widget_factory, name in self._plugin_pages:
             _add_tab(name, widget_factory())
