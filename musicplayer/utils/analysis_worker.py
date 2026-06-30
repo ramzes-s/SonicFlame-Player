@@ -233,6 +233,13 @@ class AnalysisManager(QObject):
             self._worker.deleteLater()
             self._worker = None
 
+    def is_analysis_running(self) -> bool:
+        """Return True if the analysis worker thread is currently alive."""
+        try:
+            return bool(self._worker and self._worker.isRunning())
+        except RuntimeError:
+            return False
+
     def cancel_analysis(self):
         """Cancel any ongoing analysis (called on app close)."""
         self._shutting_down = True

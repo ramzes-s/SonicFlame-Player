@@ -137,8 +137,15 @@ class MainWindow(QMainWindow):
             return
         from musicplayer.ui.player.folder_rescanner import FolderRescanner
         self._rescanner = FolderRescanner(self)
-        self._rescanner.finished.connect(lambda: print(f"[folder_sync] Рескан завершён ({len(folders)} папок)"))
+        self._rescanner.finished.connect(self._on_rescan_finished)
         self._rescanner.scan(folders)
+
+    def _on_rescan_finished(self):
+        from musicplayer.core.db.queries import get_filtered_library_track_count, get_analyzed_track_count
+        total = get_filtered_library_track_count()
+        analyzed = get_analyzed_track_count()
+        if analyzed < total and not self.analysis_manager.is_analysis_running():
+            self.analysis_manager.start_analysis(self.playlist.get_tracks())
 
     @property
     def _playback(self) -> PlaybackManager:
@@ -489,7 +496,8 @@ class MainWindow(QMainWindow):
         self._settings_dialog = SettingsDialog(
             self.settings, self, plugin_pages=self._plugin_pages,
             plugin_infos=self._plugin_manager.get_discovered_plugins(),
-            plugin_manager=self._plugin_manager)
+            plugin_manager=self._plugin_manager,
+            analysis_manager=self.analysis_manager)
         dialog = self._settings_dialog
         dialog.accent_color_changed.connect(lambda color: apply_accent_to_main_window(self, settings_dialog=dialog))
         dialog.accent_color_changed.connect(lambda color: self.ipc_server.send_accent_color(color))
