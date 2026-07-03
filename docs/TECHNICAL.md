@@ -79,7 +79,7 @@ MusicPlayer2\
 │   │   │   ├── animation.py            # BlinkAnimation — мигание статуса при сканировании
 │   │   │   ├── folder_rescanner.py     # FolderRescanner — пересканирование «грязных» папок (QObject)
 │   │   │   ├── folder_sync.py          # FolderSyncWorker — фоновая сверка БД-папок при старте (QThread)
-│   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация)
+│   │   │   ├── main_window.py          # MainWindow — координатор (сборка UI, сигнальная маршрутизация, авто-запуск анализатора после рескана)
 │   │   │   ├── managers.py             # PlayerManagerBase — базовый класс (shared methods)
 │   │   │   ├── playback.py             # PlaybackManager — воспроизведение, навигация, редактирование тегов, сканирование при переключении папок
 │   │   │   ├── playlist_ops.py         # PlaylistManager — избранное, топ, артист, похожие треки
@@ -89,7 +89,7 @@ MusicPlayer2\
 │   │   ├── settings/                   # Диалог настроек (пакет)
 │   │   │   ├── __init__.py             # Реэкспорт SettingsDialog
 │   │   │   ├── constants.py            # ACCENT_PRESETS, FORBIDDEN_PORTS, format_size
-│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar)
+│   │   │   ├── dialog.py               # SettingsDialog — координатор (title bar, sidebar, analysis_manager, playlist_display_changed)
 │   │   │   ├── page_about.py           # AboutPage (о программе, ссылки на GitHub/сайт)
 │   │   │   ├── page_appearance.py      # AppearancePage (цвета, чекбоксы, opacity)
 │   │   │   ├── page_main.py            # MainPage (папка, затухание, точность подбора, глубина анализа, макс. похожих, фильтр языка)
@@ -150,7 +150,7 @@ MusicPlayer2\
 ├── Sonic-Flame.ico                     # Иконка приложения
 ├── SonicFlame.manifest                 # Манифест Windows (DPI-aware, supportedOS)
 ├── SonicFlame.png                      # Изображение для splash screen
-├── SonicFlame.spec                     # Спецификация PyInstaller
+├── SonicFlame.spec                     # Спецификация PyInstaller (hiddenimports: QtWebEngineCore, QtWebEngineWidgets, QtPrintSupport)
 ├── SonicFlamePlayer_vision.png         # Концепт-арт приложения
 ├── TECHNICAL.md                        # Этот файл
 └── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
@@ -362,6 +362,9 @@ MusicPlayer2\
 - `get_playlist_sort_mode()` — возвращает текущий режим из конфига
 - `set_playlist_sort_mode(mode)` — сохраняет режим в конфиге
 
+**Свойства отображения плейлиста**:
+- `playlist_display_mode` — режим отображения строк в плейлисте: `"artist_top"` (исполнитель сверху, трек снизу) или `"title_top"` (трек сверху, исполнитель снизу)
+
 | Настройка | Тип | Описание |
 |-----------|-----|----------|
 | last_folder | str | Последняя открытая папка |
@@ -390,6 +393,7 @@ MusicPlayer2\
 | max_similar_tracks | int | Максимум похожих треков в результате подбора: 50–200, шаг 10 (по умолч. 100) |
 | fade_duration | int | Длительность затухания при паузе/воспроизведении: 0 = выкл, 1–5 секунд (по умолч. 0) |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
+| playlist_display_mode | str | Режим отображения плейлиста: "artist_top" / "title_top" (по умолч. "artist_top") |
 | plugin_enabled_*  | bool   | Состояние каждого плагина (true/false), ключи удаляются при отсутствии плагина |
 
 #### `core/plugin_manager/` — Пакет менеджера плагинов
@@ -455,6 +459,15 @@ plugins/имя_плагина/
 - Использует `get_all_library_tracks_light()` для получения всех треков без загрузки обложек
 - Удаляет запись из БД через `delete_track()` (включает удаление кеша обложек)
 - Логирует результат в формате `[DB Cleaner] Removed N missing tracks from database`
+
+#### `utils/analysis_worker.py` — AnalysisManager
+
+**Класс `AnalysisManager(QObject)`**:
+- `start_analysis(tracks)` — запускает анализ аудио через librosa в фоновом потоке
+- `cancel_analysis()` — отменяет текущий анализ (вызывается при закрытии приложения)
+- `is_analysis_running() -> bool` — возвращает True если поток анализа активен (используется в `SystemPage` для отображения спиннера)
+
+**Авто-запуск после рескана**: `MainWindow._on_rescan_finished()` проверяет `analyzed_count < total_tracks` и запускает `analysis_manager.start_analysis()` если анализ ещё не выполняется.
 
 #### `core/recommendations.py` — Recommendations
 
@@ -725,6 +738,12 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 +--------------------------------------------------------+
 ```
 
+**SettingsDialog**:
+- Принимает `analysis_manager` через конструктор — передаёт в `SystemPage` для отображения спиннера анализа
+- Сигнал `playlist_display_changed` — подключён к `playlist_widget.delegate.set_display_mode()`
+
+**Авто-запуск анализатора**: `_on_rescan_finished()` после рескана dirty-папок проверяет `analyzed_count < total_count` и запускает `analysis_manager.start_analysis()`, если анализ ещё не выполняется.
+
 **Сворачивание в трей** (если `mini_widget_on_minimize`):
 - `showMinimized()` переопределён — вместо минимизации в панель задач окно скрывается (`hide()`)
 - Появляется иконка в системном трее
@@ -828,8 +847,11 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 
 **`PlaylistDelegate`**:
 - Кастомная отрисовка через `paint()`
-- **Текст**: артист (10px, полупрозрачный белый ~70%, белый при воспроизведении), название (11px, bold, белый, акцентный при воспроизведении)
-- **Бейджи** (справа налево): длительность, жанры (макс. 3, при превышении показывается `+N`), корона (lossless), сердце (избранное)
+- **Две строки**: порядок (сверху/снизу) зависит от `_title_top` (устанавливается через `set_display_mode(mode)`)
+- **Верхняя строка**: название трека (11px bold, акцентный при воспроизведении) или исполнитель (10px, белый ~70% при неактивном)
+- **Нижняя строка**: исполнитель или название трека (логика обратная верхней)
+- **Скобки** `(Cover)` в названии трека — серым цветом, нежирным шрифтом
+- **Бейджи** (справа налево): длительность, жанры (макс. 3, при превышении `+N`), корона (lossless), сердце (избранное)
 - Высота элемента: 52px
 
 **`PlaylistListWidget`**:
@@ -901,10 +923,11 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Фильтр языка** — QComboBox (Не учитывать / Понижать вес / Исключать), значение хранится в `language_filter_mode`
 - **Удалить базу данных** — красная кнопка с подтверждением (сбрасывает БД + кеш обложек)
 
-**`page_appearance.py`** — AppearancePage + `TallItemDelegate`:
+**`page_appearance.py`** — AppearancePage:
 - **Акцентный цвет** — 15 пресетов (кружки), включая Slate (`#607884`)
 - **Динамический цвет из обложки** — QCheckBox
-- **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80, `TallItemDelegate` для высоты + `QAbstractItemView::item:selected/hover` с акцентным цветом)
+- **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80, ширина 200px), разделённые горизонтальной линией
+- **Отображение плейлиста** — QComboBox: "Исполнитель сверху" / "Название трека сверху" (настройка `playlist_display_mode`)
 
 **`page_webserver.py`** — WebServerPage + `PortValidator`:
 - **Веб-сервер** — QCheckBox включения
@@ -915,6 +938,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **`page_system.py`** — SystemPage + `CleanupWorker`:
 - **Блокировать сон** — QCheckBox
 - **Таймер автовыключения** — QComboBox (Никогда / 15 мин / 30 мин / 1 ч / 3 ч / 6 ч / 12 ч), значение хранится в `idle_shutdown_minutes`
+- Принимает `AnalysisManager` через `set_analysis_manager()` — статус-бар БД показывает спиннер, если анализ запущен
 - **Устройство вывода звука** — QComboBox со списком доступных устройств + "По умолчанию". Стилизован через `QAbstractItemView::item:selected/hover` с акцентным цветом. Использует `TallItemDelegate` для высоты элементов.
 - **Статистика БД** — блок-карточка (`#0a0a0a`, `border: 1px solid DIVIDER_COLOR`, без нижней границы), показывает количество треков и размер кеша обложек; обновляется через `update_stats()`
 - **Чистка мусора в БД** — кнопка, расположенная вплотную к карточке статистики (без зазора), запускает `CleanupWorker` в отдельном потоке; результат (количество удалённых треков) выводится на самой кнопке на 3 секунды
@@ -1180,7 +1204,7 @@ QThread для анализа одного аудиофайла через libro
 
 | Константа           | Значение                         | Файл                   |
 |---------------------|----------------------------------|------------------------|
-| APP_VERSION         | `1.3.2.0`                        | `musicplayer/config.py`|
+| APP_VERSION         | `1.4.2.0`                        | `musicplayer/config.py`|
 | DB_VERSION          | `3`                              | `musicplayer/config.py`|
 | ACCENT_COLOR        | `#ed6a02`                        | `musicplayer/config.py`|
 | BG_COLOR            | `#000000`                        | `musicplayer/config.py`|
