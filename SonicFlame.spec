@@ -6,7 +6,11 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[('res', 'res'), ('SonicFlame.manifest', '.'), ('Sonic-Flame.ico', '.')],
-    hiddenimports=[],
+    hiddenimports=[
+        'PySide6.QtWebEngineCore',
+        'PySide6.QtWebEngineWidgets',
+        'PySide6.QtPrintSupport',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
