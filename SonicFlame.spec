@@ -9,7 +9,6 @@ a = Analysis(
     hiddenimports=[
         'PySide6.QtWebEngineCore',
         'PySide6.QtWebEngineWidgets',
-        'PySide6.QtPrintSupport',
     ],
     hookspath=[],
     hooksconfig={},
