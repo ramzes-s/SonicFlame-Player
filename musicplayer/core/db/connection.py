@@ -228,9 +228,9 @@ def init_db():
             ON broken_tracks(folder_path)
         """)
 
-        # Update DB version for existing databases
+        # Set DB version only if not already set (preserves original version)
         conn.execute("""
-            INSERT OR REPLACE INTO system_data (key, value)
+            INSERT OR IGNORE INTO system_data (key, value)
             VALUES ('db_version_compare', ?)
         """, (str(config.DB_VERSION),))
 
