@@ -313,7 +313,7 @@ class TrackInfoWidget(QWidget):
 
         # Fixed row heights to prevent jumping (enough for 2 lines)
         TITLE_HEIGHT = 28
-        ARTIST_HEIGHT = 28
+        ARTIST_HEIGHT = 27
         ALBUM_HEIGHT = 20
 
         self.title_label = QLabel("No Track Selected")

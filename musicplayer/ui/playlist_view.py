@@ -476,7 +476,7 @@ class PlaylistWidget(QWidget):
 
         # Layout
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(0, 2, 0, 0)
         layout.setSpacing(0)
 
         # Track list
