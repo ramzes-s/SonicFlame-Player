@@ -27,6 +27,7 @@ class AppearancePage(QWidget):
     mini_widget_toggled = Signal(bool)
     opacity_changed = Signal(int)
     playlist_display_changed = Signal(str)
+    bitrate_toggled = Signal(bool)
 
     def __init__(self, settings, parent=None):
         super().__init__(parent)
@@ -110,6 +111,14 @@ class AppearancePage(QWidget):
         display_row.addWidget(self._display_combo)
         lo.addLayout(display_row)
 
+        lo.addSpacing(16)
+
+        # Bitrate display
+        self.bitrate_cb = QCheckBox("Показывать битрейт в плейлисте")
+        self.bitrate_cb.setChecked(self._settings.show_bitrate)
+        self.bitrate_cb.toggled.connect(self._on_bitrate_toggled)
+        lo.addWidget(self.bitrate_cb)
+
         lo.addStretch()
 
         self._apply_checkbox_style()
@@ -139,6 +148,10 @@ class AppearancePage(QWidget):
         if mode:
             self._settings.playlist_display_mode = mode
             self.playlist_display_changed.emit(mode)
+
+    def _on_bitrate_toggled(self, checked: bool):
+        self._settings.show_bitrate = checked
+        self.bitrate_toggled.emit(checked)
 
     def highlight_color(self, color_hex: str):
         for hex_key, btn in self._color_buttons.items():
@@ -171,6 +184,8 @@ class AppearancePage(QWidget):
         self.dynamic_color_cb.setCursor(Qt.PointingHandCursor)
         self.mini_widget_cb.setStyleSheet(style)
         self.mini_widget_cb.setCursor(Qt.PointingHandCursor)
+        self.bitrate_cb.setStyleSheet(style)
+        self.bitrate_cb.setCursor(Qt.PointingHandCursor)
 
     def _style_combo(self, combo: QComboBox):
         """Apply full stylesheet to a combo box using descendant selectors."""

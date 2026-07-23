@@ -75,10 +75,15 @@ class PlaylistDelegate(QStyledItemDelegate):
         self._favorites = favorites  # FavoritesManager instance
         self._playing_filepath = None  # Currently playing track filepath
         self._title_top = False  # False: artist above, True: title above
+        self._show_bitrate = True  # Show bitrate badge
 
     def set_display_mode(self, mode: str):
         """Set whether title is on top. 'artist_top' or 'title_top'."""
         self._title_top = (mode == "title_top")
+
+    def set_show_bitrate(self, show: bool):
+        """Show or hide bitrate badge."""
+        self._show_bitrate = show
 
     def set_favorites(self, favorites):
         """Set favorites manager reference."""
@@ -254,7 +259,7 @@ class PlaylistDelegate(QStyledItemDelegate):
 
             # --- BADGES (right side) ---
             # Order from RIGHT to LEFT:
-            # Heart | Duration | Genre1 | Genre2 | ... | Crown
+            # Heart | Duration | Genre1 | Genre2 | ... | Bitrate | Crown
             badge_font = QFont("Segoe UI", 9)
             painter.setFont(badge_font)
             badge_y = option.rect.top() + (option.rect.height() - 18) // 2
@@ -317,7 +322,21 @@ class PlaylistDelegate(QStyledItemDelegate):
                     painter.setFont(badge_font)
                     painter.drawText(rect_g, Qt.AlignCenter, genre_text)
 
-            # 3) Crown icon (if lossless)
+            # 4) Bitrate badge
+            if self._show_bitrate and track.bitrate:
+                bitrate_text = f"{track.bitrate} kb"
+                fm_b = QFontMetrics(badge_font)
+                bitrate_w = fm_b.horizontalAdvance(bitrate_text) + 10
+                x -= bitrate_w + 4
+                rect_b = QRectF(x, badge_y, bitrate_w, 18)
+                painter.setPen(Qt.NoPen)
+                painter.setBrush(QColor(*cfg.BADGE_BG_RGB, cfg.BADGE_BG_ALPHA))
+                painter.drawRoundedRect(rect_b, 4, 4)
+                painter.setPen(QColor(*cfg.BADGE_TEXT_COLOR))
+                painter.setFont(badge_font)
+                painter.drawText(rect_b, Qt.AlignCenter, bitrate_text)
+
+            # 5) Crown icon (if lossless) — left of bitrate
             if track.is_lossless:
                 crown_w = 18
                 x -= crown_w + HEART_SPACING

@@ -164,7 +164,8 @@ class AppSettings:
             "max_similar_tracks": 100,
             "fade_duration": 0,
             "playlist_display_mode": "artist_top",
-        "player_id": None,
+            "show_bitrate": True,
+            "player_id": None,
         }
         self._load()
 
@@ -308,6 +309,15 @@ class AppSettings:
         if value in ("artist_top", "title_top"):
             self._data["playlist_display_mode"] = value
             self._save()
+
+    @property
+    def show_bitrate(self) -> bool:
+        return self._data.get("show_bitrate", True)
+
+    @show_bitrate.setter
+    def show_bitrate(self, value: bool):
+        self._data["show_bitrate"] = value
+        self._save()
 
     @property
     def web_server_enabled(self) -> bool:
