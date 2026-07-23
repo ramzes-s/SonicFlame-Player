@@ -2,17 +2,17 @@
 ID3_GENRES = [
     "Blues", "Classical", "Country", "Club", "Dance", "Disco", "Funk", "Grunge",
     "Hip-Hop", "Jazz", "Metal", "New Age", "Oldies", "Pop", "R&B",
-    "Rap", "Reggae", "Rock", "Techno", "Trance", "Acapella",  "Alternative", "Ambient",
-    "Bluegrass", "Bossa Nova", "Breakbeat", "Chillout", "Chorus",
-    "Contemporary Christian", "Country Rock", "Drum & Bass", "Dubstep", "Death Metal",
+    "Rap", "Reggae", "Rock", "Techno", "Trance", "Acoustic", "Acapella",  "Alternative", "Ambient",
+    "Bluegrass", "Bossa Nova", "Breakbeat", "Chillout", "Chorus", "Christian","Christian Rock",
+    "Contemporary Christian", "Country Rock", "DJ Mix", "Drum & Bass", "Dubstep", "Death Metal",
     "Easy Listening", "Electronic", "Eurodance", "Folk", "Folk-Rock",
     "Gospel", "Gothic Rock", "Hard Rock", "Hardcore", "Heavy Metal",
     "House", "Indie", "Industrial", "Instrumental", "Jungle", "Latina", "Lo-Fi", "Lounge",
     "New Wave", "Opera", "Orchestral", "Party", "Podcast", "Post-Rock", "Post-Hardcore",
-    "Pop Punk", "Pop Rock", "Power Pop", "Progressive Rock", "Psychedelic", "Punk", "Salsa",
+    "Pop Punk", "Pop Rock", "Power Metal", "Progressive Rock", "Psychedelic", "Punk", "Salsa",
     "Samba", "Singer-Songwriter", "Ska", "Ska-Punk", "Slow Rock", "Smooth Jazz",
     "Soundtrack", "Soul", "Synthwave", "Tango", "Thrash Metal",
-    "Trap", "Trip-Hop", "Vocal", "World Music"
+    "Trap", "Trip-Hop", "Unplugged", "Vocal", "World Music"
 ]
 
 # Constants for generated cover
