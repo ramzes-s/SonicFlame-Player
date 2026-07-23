@@ -141,8 +141,6 @@ MusicPlayer2\
 │   ├── plugins.json                     # Key-value хранилище настроек плагинов
 │   └── settings.json                   # Пользовательские настройки
 ├── build.bat                           # Скрипт сборки
-├── docs/
-│   └── plugin_developer_manual.md      # Руководство по разработке плагинов
 ├── LICENSE.txt                         # GPL v3
 ├── main.py                             # Точка входа (плеер + библиотека через --library)
 ├── README.md                           # Документация пользователя
@@ -150,9 +148,8 @@ MusicPlayer2\
 ├── Sonic-Flame.ico                     # Иконка приложения
 ├── SonicFlame.manifest                 # Манифест Windows (DPI-aware, supportedOS)
 ├── SonicFlame.png                      # Изображение для splash screen
-├── SonicFlame.spec                     # Спецификация PyInstaller (hiddenimports: QtWebEngineCore, QtWebEngineWidgets, QtPrintSupport)
+├── SonicFlame.spec                     # Спецификация PyInstaller (hiddenimports пуст — WebEngine вынесен в папку плагина)
 ├── SonicFlamePlayer_vision.png         # Концепт-арт приложения
-├── TECHNICAL.md                        # Этот файл
 └── version_info.txt                    # Версия для PE-ресурсов (PyInstaller)
 ```
 
@@ -394,6 +391,7 @@ MusicPlayer2\
 | fade_duration | int | Длительность затухания при паузе/воспроизведении: 0 = выкл, 1–5 секунд (по умолч. 0) |
 | idle_shutdown_minutes | int   | Таймер автовыключения при простое: 0 = никогда, 15/30/60/180/360/720 минут (по умолч. 60) |
 | playlist_display_mode | str | Режим отображения плейлиста: "artist_top" / "title_top" (по умолч. "artist_top") |
+| show_bitrate | bool | Показывать бейдж битрейта в плейлисте (по умолч. true) |
 | plugin_enabled_*  | bool   | Состояние каждого плагина (true/false), ключи удаляются при отсутствии плагина |
 
 #### `core/plugin_manager/` — Пакет менеджера плагинов
@@ -741,6 +739,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **SettingsDialog**:
 - Принимает `analysis_manager` через конструктор — передаёт в `SystemPage` для отображения спиннера анализа
 - Сигнал `playlist_display_changed` — подключён к `playlist_widget.delegate.set_display_mode()`
+- Сигнал `bitrate_toggled` — подключён к `playlist_widget.delegate.set_show_bitrate()`
 
 **Авто-запуск анализатора**: `_on_rescan_finished()` после рескана dirty-папок проверяет `analyzed_count < total_count` и запускает `analysis_manager.start_analysis()`, если анализ ещё не выполняется.
 
@@ -851,7 +850,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Верхняя строка**: название трека (11px bold, акцентный при воспроизведении) или исполнитель (10px, белый ~70% при неактивном)
 - **Нижняя строка**: исполнитель или название трека (логика обратная верхней)
 - **Скобки** `(Cover)` в названии трека — серым цветом, нежирным шрифтом
-- **Бейджи** (справа налево): длительность, жанры (макс. 3, при превышении `+N`), корона (lossless), сердце (избранное)
+- **Бейджи** (справа налево): длительность, жанры (макс. 3, при превышении `+N`), битрейт (`320 kb`), корона (lossless), сердце (избранное)
+- Показ битрейта управляется через `set_show_bitrate(bool)` (подключается к настройке `show_bitrate` в диалоге настроек)
 - Высота элемента: 52px
 
 **`PlaylistListWidget`**:
@@ -909,6 +909,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - Sidebar с `TabButton` (анимированное переключение: серый → акцентный, ховер → белый)
 - Размер 720×520
 - Создаёт 5 страниц-виджетов и соединяет их сигналы
+- Сигнал `bitrate_toggled` — пробрасывается в main_window → `PlaylistDelegate.set_show_bitrate()`
 
 **`widgets.py`** — переиспользуемые виджеты:
 - `ColorCircleButton` — кружок выбора акцентного цвета
@@ -928,6 +929,7 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 - **Динамический цвет из обложки** — QCheckBox
 - **Мини-виджет при сворачивании** — QCheckBox + QComboBox прозрачности (0–80, ширина 200px), разделённые горизонтальной линией
 - **Отображение плейлиста** — QComboBox: "Исполнитель сверху" / "Название трека сверху" (настройка `playlist_display_mode`)
+- **Показывать битрейт в плейлисте** — стилизованный QCheckBox, сигнал `bitrate_toggled(bool)`, настройка `show_bitrate`
 
 **`page_webserver.py`** — WebServerPage + `PortValidator`:
 - **Веб-сервер** — QCheckBox включения
@@ -946,6 +948,8 @@ tol = TOL_BASELINE × 0.5 × (1 − precision/40 × 0.5)
 **`page_about.py`** — AboutPage:
 - **Заголовок** — название приложения и версия акцентным цветом
 - **Версия БД** — строка с `db_version_compare` из `system_data` и требуемой версией (`cfg.DB_VERSION`)
+- **Версия приложения** — автоматическая проверка через GitHub API (кэш 24ч), отображение «✓ У вас самая последняя версия» или ссылка на новую (акцентный цвет)
+- **Динамическое обновление акцентного цвета**: `apply_accent_color()` обновляет заголовок, иконку, кнопку регистрации, сообщение о версии и статус регистрации
 - **Описание "от автора"**
 - **Иконка** — музыкальная нота (128×128, прозрачный фон, акцентный цвет), расположена под текстом
 - **Ссылки внизу** — GitHub (белая плашка + чёрный текст) и Сайт проекта (оранжевая плашка `#ed6a02` + белый текст), в один ряд с отступом 100px

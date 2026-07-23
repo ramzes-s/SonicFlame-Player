@@ -45,6 +45,7 @@
 - Playlist sort modes: artist, title, newest, shuffle
 - Sort mode persisted in config, applies to all playlists
 - Active track highlight preserved after sort change
+- Bitrate badge in playlist (toggle in settings)
 - Sidebar: open folder, all music, favorites, top, settings, library
 - System tray icon with context menu
 - Minimize to tray with mini-player widget
@@ -86,7 +87,7 @@
 
 ### Settings Dialog (5 pages)
 - **Main page**: root music folder, similarity precision slider, language filter mode (the larger the library, the higher you can set precision for better results; matching only works for scanned tracks, marked with ★ on the cover or in the library, also shown in settings in brackets next to total track count: 7500 (7500))
-- **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity
+- **Appearance page**: 15 accent presets, dynamic color toggle, mini-widget toggle & opacity, playlist display mode, bitrate display toggle
 - **Web Server page**: enable toggle, port with validator (1024-65535), QR code, remote shutdown toggle
 - **System page**: sleep blocker, audio output device selection, idle shutdown timer, DB cleanup, broken files viewer with per-file deletion
 - **About page**: app name & version, author info, GitHub & website links
@@ -202,6 +203,7 @@ GNU General Public License v3.0 (GPL v3)
 - Плейлист с автоскроллом к текущему треку
 - Сортировка плейлиста: исполнитель, название, новизна, перемешать
 - Запоминание режима сортировки для последующих запусков
+- Бейдж битрейта в плейлисте (вкл/выкл в настройках)
 - Боковая панель: открыть папку, избранное, топ, настройки, библиотека
 - Иконка в системном трее с контекстным меню
 - Сворачивание в трей с мини-плеером
@@ -242,7 +244,7 @@ GNU General Public License v3.0 (GPL v3)
 
 ### Диалог настроек (5 страниц)
 - **Главная**: корневая папка, точность похожих треков, фильтр языка (чем обьемнее библиотека, тем выше можно задирать точность, тем лучше результат, подбор происходит только по отсканированным трекам (обозначаются ★ звездой на обложке или в библиотеке и в окне настроек в скобках рядом с общим числом треков: 7500 (7500)))
-- **Внешний вид**: 15 пресетов акцента, динамический цвет, мини-плеер и прозрачность
+- **Внешний вид**: 15 пресетов акцента, динамический цвет, мини-плеер и прозрачность, режим отображения плейлиста, показ битрейта
 - **Веб-сервер**: вкл/выкл, порт с валидатором (1024-65535), QR-код, удалённое закрытие
 - **Система**: блокировка сна, устройство вывода, таймер автовыключения, очистка БД, просмотрщик битых файлов с удалением
 - **О программе**: название, версия, автор, ссылки GitHub и сайт
