@@ -124,8 +124,8 @@ class AudioPlayer(QObject):
         self.duration_changed.emit(duration)
 
     def _check_write_now_playing(self, position: int):
-        """Write now_playing.json after 10s of stable playback (once per track)."""
-        if position < 10000:
+        """Write now_playing.json after 5s of stable playback (once per track)."""
+        if position < 5000:
             return
         track = self._current_track
         if track is None:
