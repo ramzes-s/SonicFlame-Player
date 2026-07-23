@@ -267,6 +267,7 @@ class AboutPage(QWidget):
             print(f"_on_version_reply: {e}")
 
     def _show_version_result(self, latest: str):
+        self._latest_version = latest
         current = _strip_v(cfg.APP_VERSION)
         accent = cfg.get_accent_color()
         if self._compare_versions(latest) <= self._compare_versions(current):
@@ -417,6 +418,7 @@ class AboutPage(QWidget):
             self._show_status(msg, error=True)
 
     def _show_status(self, text: str, error: bool = False):
+        self._reg_error = error
         accent = cfg.get_accent_color()
         self._reg_status.setText(text)
         self._reg_status.setStyleSheet(
@@ -441,3 +443,9 @@ class AboutPage(QWidget):
         self._update_icon(color)
         self._update_reg_btn_style(color)
         self._update_reg_ui()
+        if self._version_label.isVisible() and hasattr(self, '_latest_version'):
+            self._show_version_result(self._latest_version)
+        if self._reg_status.isVisible() and hasattr(self, '_reg_error'):
+            self._reg_status.setStyleSheet(
+                f"color: {'#ff4444' if self._reg_error else color}; font-size: 12px; background: transparent; border: none;"
+            )
