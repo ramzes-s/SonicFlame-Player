@@ -401,12 +401,12 @@ class AppSettings:
         self._save()
 
     @property
-    def fade_duration(self) -> int:
-        return self._data.get("fade_duration", 0)
+    def fade_duration(self) -> float:
+        return self._data.get("fade_duration", 0.0)
 
     @fade_duration.setter
-    def fade_duration(self, value: int):
-        self._data["fade_duration"] = max(0, min(5, int(value)))
+    def fade_duration(self, value: float):
+        self._data["fade_duration"] = max(0.0, min(3.0, float(value)))
         self._save()
 
     @property

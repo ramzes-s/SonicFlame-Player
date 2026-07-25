@@ -47,13 +47,13 @@ class MainPage(QWidget):
         fade_row.addWidget(fade_label)
         fade_row.addStretch()
         self._fade_slider = ClickableSlider(Qt.Horizontal)
-        self._fade_slider.setRange(0, 5)
-        self._fade_slider.setValue(self._settings.fade_duration)
+        self._fade_slider.setRange(0, 6)
+        self._fade_slider.setValue(int(self._settings.fade_duration * 2))
         self._fade_slider.setFixedWidth(280)
         self._fade_slider.setCursor(Qt.PointingHandCursor)
         self._fade_slider.valueChanged.connect(self._on_fade_duration_changed)
         self._apply_slider_style(self._fade_slider)
-        self._fade_value = QLabel(f"{self._settings.fade_duration}с")
+        self._fade_value = QLabel(f"{self._settings.fade_duration:.1f}с")
         self._fade_value.setStyleSheet(f"color: {cfg.TEXT_COLOR}; font-size: 13px;")
         fade_row.addWidget(self._fade_value)
         fade_row.addWidget(self._fade_slider)
@@ -220,8 +220,9 @@ class MainPage(QWidget):
         self.max_similar_tracks_changed.emit(snapped)
 
     def _on_fade_duration_changed(self, value: int):
-        self._settings.fade_duration = value
-        self._fade_value.setText(f"{value}с")
+        val = value * 0.5
+        self._settings.fade_duration = val
+        self._fade_value.setText(f"{val:.1f}с")
 
     def set_folder_path(self, folder: str):
         if folder and os.path.isdir(folder):

@@ -207,7 +207,7 @@ class AudioPlayer(QObject):
             self._audio_output.setVolume(0.0)
             self._player.play()
             self._smtc.set_playback_status("playing")
-            self._fade_animate(0.0, self._fade_target_volume, dur * 1000)
+            self._fade_animate(0.0, self._fade_target_volume, int(dur * 1000))
         else:
             self._stop_fade()
             self._player.play()
@@ -219,7 +219,7 @@ class AudioPlayer(QObject):
         if dur > 0 and self._player.playbackState() == QMediaPlayer.PlayingState:
             self._fade_target_volume = self._audio_output.volume()
             self._smtc.set_playback_status("paused")
-            self._fade_animate(self._fade_target_volume, 0.0, dur * 1000,
+            self._fade_animate(self._fade_target_volume, 0.0, int(dur * 1000),
                                on_finished=self._player.pause)
         else:
             self._stop_fade()
